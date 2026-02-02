@@ -1,52 +1,177 @@
-# Welcome to your Expo app 👋
+# FlavourFlow 🍽️
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+AI-powered cooking app for Pakistani households that suggests recipes from available ingredients, guides step-by-step cooking, supports Urdu and voice input, with a social food community.
 
-## Get started
+## 🚀 Quick Start
 
-1. Install dependencies
-
+1. **Install dependencies**
    ```bash
    npm install
    ```
 
-2. Start the app
+2. **Set up environment variables**
+   - Copy `.env.example` to `.env`
+   - Add your Supabase credentials (already configured)
 
+3. **Start the app**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. **Run on device**
+   - Scan QR code with Expo Go app (iOS/Android)
+   - Press `i` for iOS simulator
+   - Press `a` for Android emulator
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📁 Project Structure
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+flavourflow/
+├── app/                    # Expo Router screens
+│   ├── (auth)/            # Authentication flow
+│   │   ├── welcome.tsx    # Landing page
+│   │   ├── login.tsx      # Sign in
+│   │   ├── signup.tsx     # Create account
+│   │   └── onboarding.tsx # Preferences setup
+│   ├── (tabs)/            # Main app tabs
+│   │   ├── index.tsx      # Home (recommendations)
+│   │   ├── search.tsx     # Recipe search
+│   │   ├── community.tsx  # Social feed
+│   │   └── profile.tsx    # User profile
+│   ├── _layout.tsx        # Root layout
+│   └── index.tsx          # Entry point
+├── components/
+│   └── ui/               # Reusable UI components
+│       ├── button.tsx
+│       ├── input.tsx
+│       └── card.tsx
+├── screens/              # Feature screens (organized by feature)
+│   ├── auth/
+│   ├── home/
+│   ├── recipe/
+│   ├── community/
+│   └── profile/
+├── services/             # API services
+│   ├── auth.service.ts
+│   └── profile.service.ts
+├── store/               # Zustand state management
+│   └── auth.store.ts
+├── hooks/               # Custom React hooks
+│   └── use-auth.ts
+├── lib/                 # Utilities & config
+│   ├── supabase.ts     # Supabase client
+│   └── utils.ts        # Helper functions
+├── types/              # TypeScript definitions
+│   ├── index.ts
+│   └── env.d.ts
+└── constants/          # App constants
+    └── colors.ts
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## ✅ Setup Complete - Foundation Ready
 
-## Learn more
+### What's Implemented:
+- ✅ **Authentication System**: Email/password auth with Supabase
+- ✅ **User Profiles**: Profile creation and management
+- ✅ **Onboarding Flow**: Diet preferences, cuisines, allergies
+- ✅ **Navigation**: File-based routing with protected routes
+- ✅ **State Management**: Zustand for global state
+- ✅ **UI Components**: Button, Input, Card with NativeWind
+- ✅ **Database**: Supabase with full schema
+- ✅ **Type Safety**: Complete TypeScript definitions
 
-To learn more about developing your project with Expo, look at the following resources:
+### Next Steps to Build:
+1. **Recipe Services** - API calls for recipes CRUD
+2. **AI Recommendations** - Meal suggestion algorithm
+3. **Smart Pantry** - Ingredient management + voice input
+4. **Recipe Search** - Filters, sorting, search
+5. **Cooking Mode** - Step-by-step with timers
+6. **Community Feed** - Posts, comments, likes
+7. **Recipe Upload** - User-generated content
+8. **Ratings & Reviews** - 5-star system
+9. **Trending Section** - Popular recipes
+10. **Localization** - Urdu translation system
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🛠 Tech Stack
 
-## Join the community
+- **Frontend**: React Native + Expo SDK 54
+- **Navigation**: Expo Router v6 (file-based)
+- **Styling**: NativeWind v4 (Tailwind for RN)
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **State**: Zustand
+- **Language**: TypeScript
+- **Animations**: React Native Reanimated
 
-Join our community of developers creating universal apps.
+## 📱 Features Roadmap
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### MVP (Current Phase)
+- [x] Authentication & user profiles
+- [x] Onboarding with preferences
+- [ ] AI meal recommendations
+- [ ] Smart pantry management
+- [ ] Recipe search & filters
+- [ ] Interactive cooking mode
+- [ ] Community feed
+- [ ] User recipe uploads
+- [ ] Ratings & reviews
+- [ ] Trending recipes
+
+### V2 (Future)
+- [ ] Voice commands in cooking mode
+- [ ] Video recipe tutorials
+- [ ] Meal planning calendar
+- [ ] Shopping list generation
+- [ ] Advanced AI (ML-based recommendations)
+- [ ] Push notifications
+- [ ] Offline mode
+- [ ] Social features (follow, share)
+
+## 🗄️ Database Schema
+
+All tables created in Supabase:
+- `profiles` - User profile data
+- `user_preferences` - Diet/allergies/cuisines
+- `recipes` - Recipe catalog
+- `pantry_items` - User ingredients
+- `recipe_interactions` - Likes, saves, views
+- `reviews` - Ratings & text reviews
+- `posts` - Community feed posts
+- `comments` - Post comments
+- `post_likes` - Post engagement
+
+## 🔐 Environment Variables
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://gcuunqmbapmoelvczanv.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_key_here
+```
+
+## 📝 Development
+
+Run with cache clearing:
+```bash
+npx expo start -c
+```
+
+Type checking:
+```bash
+npx tsc --noEmit
+```
+
+## 🎨 Design System
+
+- **Primary Color**: #FBA82E (Golden Yellow)
+- **Background**: #FCF0D6 (Cream)
+- **Interactive**: #EDD8A9 (Darker Cream)
+- **Text**: #3B3328 (Dark Brown)
+- **Font**: Poppins (300, 400, 500, 600, 700)
+- **Spacing**: 4px base unit
+- **Border Radius**: 8px standard
+
+**See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for complete design documentation.**
+
+---
+
+**Status**: Foundation complete, ready for feature development! 🚀
 # FlavourFlow
 # FlavourFlow
