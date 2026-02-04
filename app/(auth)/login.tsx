@@ -13,7 +13,7 @@ export default function LoginScreen() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="pt-2">
           {/* Back Button */}
-          <TouchableOpacity onPress={() => router.back()} className="my-2 px-5 flex-wrap">
+          <TouchableOpacity onPress={() => router.back()} className="my-2 px-5">
             <FontAwesome6 name="arrow-left-long" size={24} color="#3B3328" />
           </TouchableOpacity>
 
@@ -36,6 +36,8 @@ export default function LoginScreen() {
               style={{ 
                 fontFamily: 'Poppins_600SemiBold',
                 top:8,
+                
+                textAlign: 'center',
               }}
             >
               FlavourFlow

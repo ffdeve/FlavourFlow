@@ -1,17 +1,15 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useAuth } from '@/hooks/use-auth';
+import BackButton from '@/components/ui/back-button';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginEmailScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -22,8 +20,10 @@ export default function LoginEmailScreen() {
 
     try {
       setIsLoading(true);
-      await signIn(email, password);
-      router.replace('/(tabs)');
+      // TODO: Add Supabase authentication
+      // await signIn(email, password);
+      // router.replace('/(tabs)');
+      Alert.alert('Success', 'Login functionality coming soon');
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Invalid credentials');
     } finally {
@@ -34,67 +34,110 @@ export default function LoginEmailScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-6 pt-2">
-          {/* Back Button */}
-          <TouchableOpacity onPress={() => router.back()} className="my-2 flex-wrap">
-            <FontAwesome6 name="arrow-left-long" size={24} color="#3B3328" />
-          </TouchableOpacity>
+        {/* Back Button - Outside main content padding */}
+          <View className="mt-2 pt-2 px-6">
+          <BackButton />
+        </View>
 
-          {/* Header */}
-          <View className="mb-8 mt-4">
-            <Text 
-              className="text-5xl font-semibold text-primary mb-2"
-              style={{ fontFamily: 'Poppins_600SemiBold' }}
-            >
-              Welcome Back
-            </Text>
-            <Text className="text-text-secondary text-base">
-              Sign in to continue cooking
-            </Text>
+        <View className="px-6 pt-2">
+          {/* Title */}
+          <Text 
+            className="text-5xl text-primary mt-2 mb-1 font-poppins-semibold"
+            style={{ lineHeight: 55 }}
+          >
+            Sign In
+          </Text>
+
+          {/* Subtitle */}
+          <Text 
+            className="text-sm text-text mb-2 font-poppins-light"
+          >
+            Enter Your Email and Password
+          </Text>
+
+          {/* Image */}
+          <View className="items-center justify-center mb-7">
+            <Image
+              source={require('@/FF-ChefBoo/knife_carrot_2x.png')}
+              style={{
+                width: 300,
+                height: 310,
+                paddingTop:8,
+                paddingBottom:8,
+                resizeMode: 'contain',
+                transform: [{ scaleX: -1 }],
+                alignSelf: 'center',
+              }}
+            />
           </View>
 
-          {/* Form */}
-          <View>
-            <Input
-              label="Email"
-              placeholder="your@email.com"
+          {/* Email/Number Input */}
+          <View className="mb-4 mx-2 bg-interactive/80 rounded-xl px-6 py-4 flex-row items-center ">
+            <TextInput
+              placeholder="Email / Number"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              placeholderTextColor="#3B3328"
+              className="flex-1 text-base text-black font-poppins-light opacity-100"
             />
+          </View>
 
-            <Input
-              label="Password"
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password"
-              containerClassName="mt-4"
-            />
+          {/* Password Input with Eye Icon */}
+          <View className='mb-4 mx-2'>
+            <View className="mb-4 bg-interactive/80 rounded-xl px-6 py-4 flex-row items-center ">
+              <TextInput
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                placeholderTextColor="#3B3328"
+                className="flex-1 text-base text-black font-poppins-light opacity-100"
+              />
+              <TouchableOpacity className="" onPress={() => setShowPassword(!showPassword)}>
+                <FontAwesome6
+                  name={showPassword ? 'eye' : 'eye-slash'}
+                  size={18}
+                  color="#3B3328"
+                  style={{ marginLeft: 16 }}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-            <TouchableOpacity className="self-end mt-2">
-              <Text className="text-primary font-medium">
+          {/* Forgot Password Link */}
+          <View className="mb-6 w-full flex-row flex-wrap items-center justify-center">
+            <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} className="px-2">
+              <Text className="text-sm text-text font-poppins-medium text-center">
                 Forgot Password?
               </Text>
             </TouchableOpacity>
-
-            <Button
-              onPress={handleLogin}
-              isLoading={isLoading}
-              className="w-full mt-6"
-            >
-              Sign In
-            </Button>
           </View>
 
-          {/* Footer */}
-          <View className="flex-row items-center justify-center mt-6">
-            <Text className="text-text-secondary">Don't have an account? </Text>
+          {/* Continue Button */}
+            <TouchableOpacity
+              onPress={handleLogin}
+              disabled={isLoading}
+              className="w-full mx-2 bg-primary rounded-xl py-4 items-center justify-center mb-6"
+              style={{ alignSelf: 'center' }}
+            >
+            <Text className="text-white text-base font-poppins-semibold">
+              {isLoading ? 'Signing In...' : 'Continue'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Sign Up Link */}
+          <View className="flex-row items-center justify-center mx-2 mb-6 ">
+            <Text className="text-text text-base font-poppins-regular">
+              Don't have an account?{' '}
+            </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
-              <Text className="text-primary font-semibold">Sign Up</Text>
+              <Text className="text-primary text-base font-poppins-semibold">
+                Sign Up
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

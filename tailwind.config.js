@@ -61,15 +61,16 @@ module.exports = {
       },
       
       fontFamily: {
-        // Poppins font family
-        sans: ['Poppins', 'sans-serif'],
-        poppins: {
-          light: ['Poppins-Light', 'sans-serif'],
-          regular: ['Poppins-Regular', 'sans-serif'],
-          medium: ['Poppins-Medium', 'sans-serif'],
-          semibold: ['Poppins-SemiBold', 'sans-serif'],
-          bold: ['Poppins-Bold', 'sans-serif'],
-        },
+        // Poppins font family - use with font-poppins-light, font-poppins-semibold, etc.
+        'poppins-thin': ['Poppins_100Thin'],
+        'poppins-extralight': ['Poppins_200ExtraLight'],
+        'poppins-light': ['Poppins_300Light'],
+        'poppins-regular': ['Poppins_400Regular'],
+        'poppins-medium': ['Poppins_500Medium'],
+        'poppins-semibold': ['Poppins_600SemiBold'],
+        'poppins-bold': ['Poppins_700Bold'],
+        'poppins-extrabold': ['Poppins_800ExtraBold'],
+        'poppins-black': ['Poppins_900Black'],
       },
       
       fontSize: {
