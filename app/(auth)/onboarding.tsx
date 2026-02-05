@@ -71,7 +71,7 @@ export default function OnboardingScreen() {
         allergies: selectedAllergies,
       });
       router.replace('/(tabs)');
-    } catch (error: any) {
+    } catch {
       Alert.alert('Error', 'Could not save preferences');
     } finally {
       setIsLoading(false);

@@ -10,7 +10,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View className="bg-white px-6 pt-16 pb-6 border-b border-gray-200">
         <Text className="text-2xl font-bold text-text">
-          Welcome back{profile?.full_name ? `, ${profile.full_name}` : ''}!
+          Welcome back{profile?.full_name ? `, ${profile.full_name}` : ""}!
         </Text>
         <Text className="text-text-secondary mt-1">
           What would you like to cook today?
@@ -20,7 +20,7 @@ export default function HomeScreen() {
       {/* Meal Recommendations Placeholder */}
       <View className="px-6 py-8">
         <Text className="text-xl font-semibold text-text mb-4">
-          Today's Recommendations
+          Today&apos;s Recommendations
         </Text>
 
         <View className="bg-white rounded-lg p-6 items-center justify-center border border-gray-200" style={{ height: 200 }}>
@@ -33,10 +33,10 @@ export default function HomeScreen() {
         {/* Smart Pantry CTA */}
         <View className="mt-6 bg-primary rounded-lg p-6">
           <Text className="text-xl font-semibold text-white mb-2">
-            What's in Your Fridge?
+            What&apos;s in Your Fridge?
           </Text>
           <Text className="text-white opacity-90">
-            Tell us what ingredients you have and we'll suggest recipes
+            Tell us what ingredients you have and we&apos;ll suggest recipes
           </Text>
         </View>
       </View>

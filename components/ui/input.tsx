@@ -1,10 +1,11 @@
 import { cn } from '@/lib/utils';
 import React from 'react';
 import {
-    Text,
-    TextInput,
-    View,
-    type TextInputProps,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  type TextInputProps,
 } from 'react-native';
 
 interface InputProps extends TextInputProps {
@@ -13,6 +14,8 @@ interface InputProps extends TextInputProps {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   containerClassName?: string;
+  inputClassName?: string;
+  onRightIconPress?: () => void;
 }
 
 export function Input({
@@ -21,7 +24,9 @@ export function Input({
   leftIcon,
   rightIcon,
   containerClassName,
+  inputClassName,
   className,
+  onRightIconPress,
   ...props
 }: InputProps) {
   return (
@@ -43,13 +48,22 @@ export function Input({
         <TextInput
           className={cn(
             'flex-1 py-3 text-base text-text',
+            inputClassName,
             className
           )}
           placeholderTextColor="#8B7D6F"
           {...props}
         />
         
-        {rightIcon && <View className="ml-2">{rightIcon}</View>}
+        {rightIcon && (
+          <TouchableOpacity
+            onPress={onRightIconPress}
+            className="ml-2"
+            disabled={!onRightIconPress}
+          >
+            <View>{rightIcon}</View>
+          </TouchableOpacity>
+        )}
       </View>
       
       {error && (

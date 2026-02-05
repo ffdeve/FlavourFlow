@@ -32,7 +32,7 @@ export default function WelcomeScreen() {
 
         {/* Button */}
         <TouchableOpacity
-          onPress={() => router.push('/(auth)/login')}
+          onPress={() => router.push('/(auth)/LogInHomeScreen')}
           className="w-auto bg-background mt-3 rounded-lg py-4 pl-8 pr-6 items-center justify-center flex-row"
         >
           <Text className="text-text font-semibold text-xl mr-6">
