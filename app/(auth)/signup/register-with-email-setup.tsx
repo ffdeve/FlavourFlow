@@ -1,16 +1,20 @@
 import BackButton from '@/components/ui/back-button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import PhoneEntry from 'react-native-phone-entry';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignupDetailsScreen() {
   const router = useRouter();
-  const phoneInput = useRef<PhoneEntry>(null);
+  const phoneInput = useRef<{
+    getPhoneNumber: () => string;
+    getCountryCode: () => string;
+  }>(null);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   const handleNext = () => {
     if (!fullName || !email) {
@@ -85,24 +89,12 @@ export default function SignupDetailsScreen() {
             {/* Phone Number Input */}
             <View className="mt-4">
               <Text className="text-text font-poppins-medium mb-2">Phone Number</Text>
-              <PhoneEntry
+              <PhoneInput
                 ref={phoneInput}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                placeholder="Enter phone number"
                 defaultCountry="PK"
-                style={{
-                  borderRadius: 24,
-                  backgroundColor: '#EDD8A9',
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                }}
-                textProps={{
-                  placeholderTextColor: '#3B3328',
-                  className: 'font-poppins-regular text-base text-text',
-                }}
-                flagStyle={{
-                  height: 24,
-                  width: 32,
-                  resizeMode: 'contain',
-                }}
               />
             </View>
 
