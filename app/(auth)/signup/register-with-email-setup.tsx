@@ -3,9 +3,9 @@ import { Input } from '@/components/ui/input';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import type { Country } from 'react-native-country-picker-modal';
 import { PhoneInput, isValidNumber } from 'react-native-phone-entry';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Country } from 'react-native-country-picker-modal';
 
 export default function SignupDetailsScreen() {
   const router = useRouter();
@@ -14,6 +14,20 @@ export default function SignupDetailsScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [countryCode, setCountryCode] = useState('PK');
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
+
+  const handlePhoneChange = (text: string) => {
+    let formattedText = text;
+
+    // If user enters 0 at the start (Pakistani format), convert to 92
+    if (countryCode === 'PK') {
+      if (text.startsWith('0') && !text.startsWith('92')) {
+        // Remove leading 0 and add 92
+        formattedText = '92' + text.slice(1);
+      }
+    }
+
+    setPhoneNumber(formattedText);
+  };
 
   const handleNext = () => {
     if (!fullName || !email || !phoneNumber) {
@@ -91,10 +105,12 @@ export default function SignupDetailsScreen() {
                   phoneNumber: '',
                 }}
                 value={phoneNumber}
-                onChangeText={(text) => setPhoneNumber(text)}
+                onChangeText={handlePhoneChange}
                 onChangeCountry={(country) => {
                   setCountryCode(country.cca2 as string);
                   setSelectedCountry(country);
+                  // Reset phone number when country changes
+                  setPhoneNumber('');
                 }}
                 autoFocus={false}
                 disabled={false}
@@ -102,6 +118,9 @@ export default function SignupDetailsScreen() {
                   withFilter: true,
                   withFlag: true,
                   withCountryNameButton: true,
+                }}
+                maskInputProps={{
+                  mask: countryCode === 'PK' ? '(999) 999-9999' : undefined,
                 }}
                 theme={{
                   containerStyle: {
@@ -123,6 +142,7 @@ export default function SignupDetailsScreen() {
                     fontSize: 16,
                     color: '#3B3328',
                     fontFamily: 'Poppins_600SemiBold',
+                    marginRight: 4,
                   },
                 }}
                 hideDropdownIcon={false}
