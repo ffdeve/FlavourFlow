@@ -5,7 +5,7 @@ import React from 'react';
 import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function LogInHomeScreen() {
+export default function SignupHomeScreen() {
   const router = useRouter();
 
   return (
@@ -17,40 +17,41 @@ export default function LogInHomeScreen() {
             <FontAwesome6 name="arrow-left-long" size={24} color="#3B3328" />
           </TouchableOpacity>
 
-          {/* Image Container with Title Overlay */}
-          <View className="mb-5 items-center justify-center w-full h-full relative">
+          <View className="mb-4 items-center justify-center w-full h-full relative">
             <Image
-              source={require('@/figma-desgin/LogIn_front_photo.png')}
+              source={require('@/FF-ChefBoo/SignUpHome_2x.png')}
               style={{
-                resizeMode: 'cover',
-                width: '100%',
-                height: '100%',
+                width: "80%",
+                height: "70%",
+                resizeMode: 'contain',
                 alignSelf: 'center',
+                marginTop: 32,
               }}
             />
-            {/* Title Overlay */}
-            <Text
-              className="absolute text-6xl font-poppins-semibold pt-2 text-primary top-2 text-center "
-            >
-              FlavourFlow
+                <Text
+                className="absolute text-6xl font-poppins-semibold pt-2 text-primary top-2 text-center ">
+                FlavourFlow
+                </Text>
+                <Text className="text-2xl text-primary font-poppins-semibold mt-6 mb-2">
+              Create You Account
             </Text>
           </View>
 
-          <View className="pt-8">
-            {/* Email Button */}
-            <TouchableOpacity
-              className="w-auto bg-primary rounded-lg py-3 px-6 mx-8 items-center justify-center mb-3"
-              onPress={() => router.push('/(auth)/login-email')}
-            >
-              <View className="flex-row items-center">
-                <MaterialIcons name="mail-outline" size={32} color="white" />
-                <Text className="text-white font-poppins-semibold text-xl ml-4">
-                  Continue with Email
-                </Text>
-              </View>
-            </TouchableOpacity>
+          {/* Register Button */}
+          <TouchableOpacity
+            className="w-auto bg-primary rounded-lg py-3 px-6 mx-8 items-center justify-center mb-3"
+            onPress={() => router.push('/(auth)/signup-email')}
+          >
+            <View className="flex-row items-center">
+              <MaterialIcons name="mail-outline" size={32} color="white" />
+              <Text className="text-white font-poppins-semibold text-lg ml-4">
+                Register with Email
+              </Text>
+            </View>
+          </TouchableOpacity>
 
-            <View className="flex-wrap mx-8">
+          {/* Social Buttons Row */}
+          <View className="flex-wrap mx-8">
               {/* Social Buttons Row */}
               <View className="flex-row items-center justify-center gap-4 mb-6">
                 <TouchableOpacity className="flex-1 bg-primary rounded-lg py-4 items-center justify-center">
@@ -61,16 +62,15 @@ export default function LogInHomeScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
 
-          {/* Sign Up Link */}
+          {/* Sign In Link */}
           <View className="flex-row items-center justify-center">
             <Text className="text-text text-base">
-              {"Don't have an account?"}{' '}
+              Already have an account?{' '}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/SignupHomeScreen')}>
+            <TouchableOpacity onPress={() => router.push('/(auth)/LogInHomeScreen')}>
               <Text className="text-primary font-poppins-semibold text-base">
-                Sign Up
+                Sign In
               </Text>
             </TouchableOpacity>
           </View>

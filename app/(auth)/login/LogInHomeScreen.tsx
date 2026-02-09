@@ -30,8 +30,7 @@ export default function LogInHomeScreen() {
             />
             {/* Title Overlay */}
             <Text
-              className="absolute text-6xl font-poppins-semibold pt-2 text-primary top-2 text-center "
-            >
+              className="absolute text-6xl font-poppins-semibold pt-2 text-primary top-2 text-center ">
               FlavourFlow
             </Text>
           </View>
