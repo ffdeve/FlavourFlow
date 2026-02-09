@@ -1,23 +1,22 @@
 import BackButton from '@/components/ui/back-button';
 import { Input } from '@/components/ui/input';
-import { PhoneInput } from '@/components/ui/phone-input';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { PhoneInput, isValidNumber } from 'react-native-phone-entry';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Country } from 'react-native-country-picker-modal';
 
 export default function SignupDetailsScreen() {
   const router = useRouter();
-  const phoneInput = useRef<{
-    getPhoneNumber: () => string;
-    getCountryCode: () => string;
-  }>(null);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryCode, setCountryCode] = useState('PK');
+  const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
 
   const handleNext = () => {
-    if (!fullName || !email) {
+    if (!fullName || !email || !phoneNumber) {
       alert('Please fill in all fields');
       return;
     }
@@ -27,11 +26,8 @@ export default function SignupDetailsScreen() {
       return;
     }
 
-    // Get formatted phone number from PhoneEntry component
-    const phoneNumber = phoneInput.current?.getPhoneNumber();
-    const countryCode = phoneInput.current?.getCountryCode();
-
-    if (!phoneNumber) {
+    // Validate phone number
+    if (!isValidNumber(phoneNumber, countryCode)) {
       alert('Please enter a valid phone number');
       return;
     }
@@ -42,7 +38,7 @@ export default function SignupDetailsScreen() {
       params: {
         fullName,
         email,
-        country: countryCode,
+        country: selectedCountry?.name || countryCode,
         phoneNumber,
       },
     });
@@ -88,13 +84,49 @@ export default function SignupDetailsScreen() {
 
             {/* Phone Number Input */}
             <View className="mt-4">
-              <Text className="text-text font-poppins-medium mb-2">Phone Number</Text>
               <PhoneInput
-                ref={phoneInput}
+                defaultValues={{
+                  countryCode: 'PK',
+                  callingCode: '+92',
+                  phoneNumber: '',
+                }}
                 value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                placeholder="Enter phone number"
-                defaultCountry="PK"
+                onChangeText={(text) => setPhoneNumber(text)}
+                onChangeCountry={(country) => {
+                  setCountryCode(country.cca2 as string);
+                  setSelectedCountry(country);
+                }}
+                autoFocus={false}
+                disabled={false}
+                countryPickerProps={{
+                  withFilter: true,
+                  withFlag: true,
+                  withCountryNameButton: true,
+                }}
+                theme={{
+                  containerStyle: {
+                    borderRadius: 24,
+                    backgroundColor: '#EDD8A9',
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    marginTop: 0,
+                  },
+                  textInputStyle: {
+                    fontSize: 16,
+                    color: '#3B3328',
+                    fontFamily: 'Poppins_400Regular',
+                  },
+                  flagButtonStyle: {
+                    paddingHorizontal: 8,
+                  },
+                  codeTextStyle: {
+                    fontSize: 16,
+                    color: '#3B3328',
+                    fontFamily: 'Poppins_600SemiBold',
+                  },
+                }}
+                hideDropdownIcon={false}
+                isCallingCodeEditable={false}
               />
             </View>
 
