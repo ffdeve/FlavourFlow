@@ -1,28 +1,19 @@
 import BackButton from '@/components/ui/back-button';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import PhoneEntry from 'react-native-phone-entry';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const COUNTRIES = [
-  { code: 'PK', name: 'Pakistan', dial_code: '+92' },
-  { code: 'US', name: 'United States', dial_code: '+1' },
-  { code: 'UK', name: 'United Kingdom', dial_code: '+44' },
-  { code: 'IN', name: 'India', dial_code: '+91' },
-  { code: 'CA', name: 'Canada', dial_code: '+1' },
-];
 
 export default function SignupDetailsScreen() {
   const router = useRouter();
+  const phoneInput = useRef<PhoneEntry>(null);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   const handleNext = () => {
-    if (!fullName || !email || !phoneNumber) {
+    if (!fullName || !email) {
       alert('Please fill in all fields');
       return;
     }
@@ -32,14 +23,23 @@ export default function SignupDetailsScreen() {
       return;
     }
 
+    // Get formatted phone number from PhoneEntry component
+    const phoneNumber = phoneInput.current?.getPhoneNumber();
+    const countryCode = phoneInput.current?.getCountryCode();
+
+    if (!phoneNumber) {
+      alert('Please enter a valid phone number');
+      return;
+    }
+
     // Pass data to password screen via navigation params
     router.push({
       pathname: '/(auth)/signup/regitser-with-email-password-setup',
       params: {
         fullName,
         email,
-        country: selectedCountry.name,
-        phoneNumber: `${selectedCountry.dial_code}${phoneNumber}`,
+        country: countryCode,
+        phoneNumber,
       },
     });
   };
@@ -82,56 +82,28 @@ export default function SignupDetailsScreen() {
               containerClassName="mt-4"
             />
 
-            {/* Country Picker */}
+            {/* Phone Number Input */}
             <View className="mt-4">
-              <Text className="text-text font-poppins-medium mb-2">Country</Text>
-              <TouchableOpacity
-                onPress={() => setShowCountryPicker(!showCountryPicker)}
-                className="bg-interactive rounded-full py-4 px-4 border border-gray-200"
-              >
-                <Text className="text-text font-poppins-regular">
-                  {selectedCountry.name}
-                </Text>
-              </TouchableOpacity>
-
-              {showCountryPicker && (
-                <View className="bg-white rounded-lg mt-2 border border-gray-200">
-                  {COUNTRIES.map((country) => (
-                    <TouchableOpacity
-                      key={country.code}
-                      onPress={() => {
-                        setSelectedCountry(country);
-                        setShowCountryPicker(false);
-                      }}
-                      className="py-3 px-4 border-b border-gray-100"
-                    >
-                      <Text className="text-text font-poppins-regular">
-                        {country.name} ({country.dial_code})
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Phone Number with Country Code */}
-            <View className="mt-4">
-              <Text className="text-text font-poppins-medium mb-2">
-                Phone Number
-              </Text>
-              <View className="flex-row items-center bg-interactive rounded-full px-4">
-                <Text className="text-text font-poppins-regular mr-2">
-                  {selectedCountry.dial_code}
-                </Text>
-                <Input
-                  placeholder="Phone Number"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                  containerClassName="flex-1 mt-0"
-                  inputClassName="pl-0"
-                />
-              </View>
+              <Text className="text-text font-poppins-medium mb-2">Phone Number</Text>
+              <PhoneEntry
+                ref={phoneInput}
+                defaultCountry="PK"
+                style={{
+                  borderRadius: 24,
+                  backgroundColor: '#EDD8A9',
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                }}
+                textProps={{
+                  placeholderTextColor: '#3B3328',
+                  className: 'font-poppins-regular text-base text-text',
+                }}
+                flagStyle={{
+                  height: 24,
+                  width: 32,
+                  resizeMode: 'contain',
+                }}
+              />
             </View>
 
             {/* Next Button */}
