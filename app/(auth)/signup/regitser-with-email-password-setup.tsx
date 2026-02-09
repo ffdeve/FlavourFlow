@@ -142,7 +142,7 @@ export default function SignupPasswordScreen() {
             <Text className="text-text text-base">
               Already have an account?{' '}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/LogInHomeScreen')}>
+            <TouchableOpacity onPress={() => router.push('/(auth)/login/LogInHomeScreen')}>
               <Text className="text-primary font-poppins-semibold text-base">
                 Sign In
               </Text>

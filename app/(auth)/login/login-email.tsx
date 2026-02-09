@@ -134,7 +134,7 @@ export default function LoginEmailScreen() {
             <Text className="text-text text-base font-poppins-regular">
               {"Don't have an account?"}{' '}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/SignupHomeScreen')}>
+            <TouchableOpacity onPress={() => router.push('/(auth)/signup/SignupHomeScreen')}>
               <Text className="text-primary text-base font-poppins-semibold">
                 Sign Up
               </Text>

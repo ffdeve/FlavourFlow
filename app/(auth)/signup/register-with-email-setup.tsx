@@ -34,7 +34,7 @@ export default function SignupDetailsScreen() {
 
     // Pass data to password screen via navigation params
     router.push({
-      pathname: '/(auth)/signup-password',
+      pathname: '/(auth)/signup/regitser-with-email-password-setup',
       params: {
         fullName,
         email,
@@ -150,7 +150,7 @@ export default function SignupDetailsScreen() {
             <Text className="text-text text-base">
               Already have an account?{' '}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/LogInHomeScreen')}>
+            <TouchableOpacity onPress={() => router.push('/(auth)/login/LogInHomeScreen')}>
               <Text className="text-primary font-poppins-semibold text-base">
                 Sign In
               </Text>

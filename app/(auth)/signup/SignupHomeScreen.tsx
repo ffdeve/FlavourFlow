@@ -40,7 +40,7 @@ export default function SignupHomeScreen() {
           {/* Register Button */}
           <TouchableOpacity
             className="w-auto bg-primary rounded-lg py-3 px-6 mx-8 items-center justify-center mb-3"
-            onPress={() => router.push('/(auth)/signup-email')}
+            onPress={() => router.push('/(auth)/signup/register-with-email-setup')}
           >
             <View className="flex-row items-center">
               <MaterialIcons name="mail-outline" size={32} color="white" />
@@ -68,7 +68,7 @@ export default function SignupHomeScreen() {
             <Text className="text-text text-base">
               Already have an account?{' '}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/LogInHomeScreen')}>
+            <TouchableOpacity onPress={() => router.push('/(auth)/login/LogInHomeScreen')}>
               <Text className="text-primary font-poppins-semibold text-base">
                 Sign In
               </Text>

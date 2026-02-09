@@ -4,11 +4,11 @@ export default function AuthLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="welcome" />
-      <Stack.Screen name="LogInHomeScreen" />
-      <Stack.Screen name="login-email" />
-      <Stack.Screen name="SignupHomeScreen" />
-      <Stack.Screen name="signup-email" />
-      <Stack.Screen name="signup-password" />
+      <Stack.Screen name="login/LogInHomeScreen" />
+      <Stack.Screen name="login/login-email" />
+      <Stack.Screen name="signup/SignupHomeScreen" />
+      <Stack.Screen name="signup/register-with-email-setup" />
+      <Stack.Screen name="signup/regitser-with-email-password-setup" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="forgot-password" />
     </Stack>
