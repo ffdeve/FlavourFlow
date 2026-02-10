@@ -1,9 +1,10 @@
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import BackButton from "@/components/ui/back-button";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
+import React from "react";
+import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LogInHomeScreen() {
   const router = useRouter();
@@ -11,35 +12,32 @@ export default function LogInHomeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="pt-2">
+        <View className="py-2">
           {/* Back Button */}
-          <TouchableOpacity onPress={() => router.back()} className="my-2 px-5">
-            <FontAwesome6 name="arrow-left-long" size={24} color="#3B3328" />
-          </TouchableOpacity>
+          <BackButton className=" pl-6 pt-4" />
 
           {/* Image Container with Title Overlay */}
           <View className="mb-5 items-center justify-center w-full h-full relative">
             <Image
-              source={require('@/figma-desgin/LogIn_front_photo.png')}
+              source={require("@/figma-desgin/LogIn_front_photo.png")}
               style={{
-                resizeMode: 'cover',
-                width: '100%',
-                height: '100%',
-                alignSelf: 'center',
+                resizeMode: "cover",
+                width: "100%",
+                height: "100%",
+                alignSelf: "center",
               }}
             />
             {/* Title Overlay */}
-            <Text
-              className="absolute text-6xl font-poppins-semibold pt-2 text-primary top-2 text-center ">
+            <Text className="absolute text-6xl font-poppins-semibold pt-2 text-primary top-2 text-center ">
               FlavourFlow
             </Text>
           </View>
 
-          <View className="pt-8">
+          <View className="pt-8 mx-10">
             {/* Email Button */}
             <TouchableOpacity
-              className="w-auto bg-primary rounded-lg py-3 px-6 mx-8 items-center justify-center mb-3"
-              onPress={() => router.push('/(auth)/login/login-email')}
+              className="w-auto bg-primary rounded-lg py-3 px-6  items-center justify-center mb-3"
+              onPress={() => router.push("/(auth)/login/login-email")}
             >
               <View className="flex-row items-center">
                 <MaterialIcons name="mail-outline" size={32} color="white" />
@@ -49,7 +47,7 @@ export default function LogInHomeScreen() {
               </View>
             </TouchableOpacity>
 
-            <View className="flex-wrap mx-8">
+            <View className="flex-wrap">
               {/* Social Buttons Row */}
               <View className="flex-row items-center justify-center gap-4 mb-6">
                 <TouchableOpacity className="flex-1 bg-primary rounded-lg py-4 items-center justify-center">
@@ -65,9 +63,11 @@ export default function LogInHomeScreen() {
           {/* Sign Up Link */}
           <View className="flex-row items-center justify-center">
             <Text className="text-text text-base">
-              {"Don't have an account?"}{' '}
+              {"Don't have an account?"}{" "}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/signup/SignupHomeScreen')}>
+            <TouchableOpacity
+              onPress={() => router.push("/(auth)/signup/SignupHomeScreen")}
+            >
               <Text className="text-primary font-poppins-semibold text-base">
                 Sign Up
               </Text>

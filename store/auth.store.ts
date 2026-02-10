@@ -1,8 +1,8 @@
-import { create } from 'zustand';
-import type { Session, User } from '@supabase/supabase-js';
-import type { Profile, UserPreferences } from '@/types';
-import { authService } from '@/services/auth.service';
-import { profileService } from '@/services/profile.service';
+import { create } from "zustand";
+import type { Session, User } from "@supabase/supabase-js";
+import type { Profile, UserPreferences } from "@/types";
+import { authService } from "@/services/auth.service";
+import { profileService } from "@/services/profile.service";
 
 interface AuthState {
   // State
@@ -12,7 +12,7 @@ interface AuthState {
   preferences: UserPreferences | null;
   isLoading: boolean;
   isInitialized: boolean;
-  
+
   // Actions
   initialize: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -34,10 +34,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     try {
       set({ isLoading: true });
-      
+
       // Get current session
       const session = await authService.getSession();
-      
+
       if (session?.user) {
         // Load profile and preferences
         const [profile, preferences] = await Promise.all([
@@ -88,7 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       });
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      console.error("Auth initialization error:", error);
       set({ isLoading: false, isInitialized: true });
     }
   },
@@ -97,7 +97,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true });
       const { session, user } = await authService.signIn(email, password);
-      
+
       const [profile, preferences] = await Promise.all([
         profileService.getProfile(user.id),
         profileService.getPreferences(user.id),
@@ -119,14 +119,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signUp: async (email: string, password: string, fullName: string) => {
     try {
       set({ isLoading: true });
-      const { session, user } = await authService.signUp(email, password, fullName);
-      
+      const { session, user } = await authService.signUp(
+        email,
+        password,
+        fullName,
+      );
+
       if (user) {
         // Create profile
         const profile = await profileService.upsertProfile({
           id: user.id,
           full_name: fullName,
-          language: 'en',
+          language: "en",
         });
 
         set({
@@ -161,7 +165,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   updateProfile: async (updates: Partial<Profile>) => {
     const { user, profile } = get();
-    if (!user || !profile) throw new Error('Not authenticated');
+    if (!user || !profile) throw new Error("Not authenticated");
 
     const updatedProfile = await profileService.upsertProfile({
       ...profile,
@@ -174,7 +178,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   updatePreferences: async (updates: Partial<UserPreferences>) => {
     const { user, preferences } = get();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) throw new Error("Not authenticated");
 
     const updatedPreferences = await profileService.upsertPreferences({
       ...(preferences || {}),

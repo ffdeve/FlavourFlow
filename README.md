@@ -5,6 +5,7 @@ AI-powered cooking app for Pakistani households that suggests recipes from avail
 ## 🚀 Quick Start
 
 1. **Install dependencies**
+
    ```bash
    npm install
    ```
@@ -14,6 +15,7 @@ AI-powered cooking app for Pakistani households that suggests recipes from avail
    - Add your Supabase credentials (already configured)
 
 3. **Start the app**
+
    ```bash
    npx expo start
    ```
@@ -71,6 +73,7 @@ flavourflow/
 ## ✅ Setup Complete - Foundation Ready
 
 ### What's Implemented:
+
 - ✅ **Authentication System**: Email/password auth with Supabase
 - ✅ **User Profiles**: Profile creation and management
 - ✅ **Onboarding Flow**: Diet preferences, cuisines, allergies
@@ -81,6 +84,7 @@ flavourflow/
 - ✅ **Type Safety**: Complete TypeScript definitions
 
 ### Next Steps to Build:
+
 1. **Recipe Services** - API calls for recipes CRUD
 2. **AI Recommendations** - Meal suggestion algorithm
 3. **Smart Pantry** - Ingredient management + voice input
@@ -105,6 +109,7 @@ flavourflow/
 ## 📱 Features Roadmap
 
 ### MVP (Current Phase)
+
 - [x] Authentication & user profiles
 - [x] Onboarding with preferences
 - [ ] AI meal recommendations
@@ -117,6 +122,7 @@ flavourflow/
 - [ ] Trending recipes
 
 ### V2 (Future)
+
 - [ ] Voice commands in cooking mode
 - [ ] Video recipe tutorials
 - [ ] Meal planning calendar
@@ -129,6 +135,7 @@ flavourflow/
 ## 🗄️ Database Schema
 
 All tables created in Supabase:
+
 - `profiles` - User profile data
 - `user_preferences` - Diet/allergies/cuisines
 - `recipes` - Recipe catalog
@@ -149,11 +156,13 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your_key_here
 ## 📝 Development
 
 Run with cache clearing:
+
 ```bash
 npx expo start -c
 ```
 
 Type checking:
+
 ```bash
 npx tsc --noEmit
 ```
@@ -173,5 +182,7 @@ npx tsc --noEmit
 ---
 
 **Status**: Foundation complete, ready for feature development! 🚀
+
 # FlavourFlow
+
 # FlavourFlow

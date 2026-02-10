@@ -48,7 +48,7 @@ export default function SignupPasswordScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-6 pt-4">
+        <View className=" py-2">
           {/* Back Button */}
           <BackButton />
 

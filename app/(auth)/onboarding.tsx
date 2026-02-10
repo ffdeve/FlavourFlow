@@ -1,32 +1,39 @@
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/use-auth';
-import type { CuisineType, DietType } from '@/types';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import type { CuisineType, DietType } from "@/types";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 const DIET_OPTIONS: { value: DietType; label: string }[] = [
-  { value: 'halal', label: 'Halal' },
-  { value: 'vegetarian', label: 'Vegetarian' },
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'diabetic', label: 'Diabetic' },
-  { value: 'low-carb', label: 'Low Carb' },
-  { value: 'keto', label: 'Keto' },
-  { value: 'gluten-free', label: 'Gluten Free' },
+  { value: "halal", label: "Halal" },
+  { value: "vegetarian", label: "Vegetarian" },
+  { value: "vegan", label: "Vegan" },
+  { value: "diabetic", label: "Diabetic" },
+  { value: "low-carb", label: "Low Carb" },
+  { value: "keto", label: "Keto" },
+  { value: "gluten-free", label: "Gluten Free" },
 ];
 
 const CUISINE_OPTIONS: { value: CuisineType; label: string }[] = [
-  { value: 'pakistani', label: 'Pakistani' },
-  { value: 'mughlai', label: 'Mughlai' },
-  { value: 'punjabi', label: 'Punjabi' },
-  { value: 'sindhi', label: 'Sindhi' },
-  { value: 'balochi', label: 'Balochi' },
-  { value: 'pashtun', label: 'Pashtun' },
-  { value: 'kashmiri', label: 'Kashmiri' },
+  { value: "pakistani", label: "Pakistani" },
+  { value: "mughlai", label: "Mughlai" },
+  { value: "punjabi", label: "Punjabi" },
+  { value: "sindhi", label: "Sindhi" },
+  { value: "balochi", label: "Balochi" },
+  { value: "pashtun", label: "Pashtun" },
+  { value: "kashmiri", label: "Kashmiri" },
 ];
 
 const COMMON_ALLERGIES = [
-  'Peanuts', 'Tree Nuts', 'Milk', 'Eggs', 'Wheat', 'Soy', 'Fish', 'Shellfish'
+  "Peanuts",
+  "Tree Nuts",
+  "Milk",
+  "Eggs",
+  "Wheat",
+  "Soy",
+  "Fish",
+  "Shellfish",
 ];
 
 export default function OnboardingScreen() {
@@ -39,18 +46,18 @@ export default function OnboardingScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const toggleCuisine = (cuisine: CuisineType) => {
-    setSelectedCuisines(prev =>
+    setSelectedCuisines((prev) =>
       prev.includes(cuisine)
-        ? prev.filter(c => c !== cuisine)
-        : [...prev, cuisine]
+        ? prev.filter((c) => c !== cuisine)
+        : [...prev, cuisine],
     );
   };
 
   const toggleAllergy = (allergy: string) => {
-    setSelectedAllergies(prev =>
+    setSelectedAllergies((prev) =>
       prev.includes(allergy)
-        ? prev.filter(a => a !== allergy)
-        : [...prev, allergy]
+        ? prev.filter((a) => a !== allergy)
+        : [...prev, allergy],
     );
   };
 
@@ -70,9 +77,9 @@ export default function OnboardingScreen() {
         preferred_cuisines: selectedCuisines,
         allergies: selectedAllergies,
       });
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     } catch {
-      Alert.alert('Error', 'Could not save preferences');
+      Alert.alert("Error", "Could not save preferences");
     } finally {
       setIsLoading(false);
     }
@@ -83,11 +90,11 @@ export default function OnboardingScreen() {
       <View className="flex-1 px-6 pt-16 pb-8">
         {/* Progress */}
         <View className="flex-row mb-8">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <View
               key={i}
               className={`flex-1 h-2 rounded mr-2 ${
-                i <= step ? 'bg-primary' : 'bg-gray-200'
+                i <= step ? "bg-primary" : "bg-gray-200"
               }`}
             />
           ))}
@@ -104,21 +111,19 @@ export default function OnboardingScreen() {
             </Text>
 
             <View className="flex-row flex-wrap">
-              {DIET_OPTIONS.map(option => (
+              {DIET_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option.value}
                   onPress={() => setSelectedDiet(option.value)}
                   className={`px-4 py-3 rounded-lg border-2 mb-3 mr-2 ${
                     selectedDiet === option.value
-                      ? 'bg-primary border-primary'
-                      : 'bg-white border-gray-300'
+                      ? "bg-primary border-primary"
+                      : "bg-white border-gray-300"
                   }`}
                 >
                   <Text
                     className={`font-medium ${
-                      selectedDiet === option.value
-                        ? 'text-white'
-                        : 'text-text'
+                      selectedDiet === option.value ? "text-white" : "text-text"
                     }`}
                   >
                     {option.label}
@@ -140,21 +145,21 @@ export default function OnboardingScreen() {
             </Text>
 
             <View className="flex-row flex-wrap">
-              {CUISINE_OPTIONS.map(option => (
+              {CUISINE_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option.value}
                   onPress={() => toggleCuisine(option.value)}
                   className={`px-4 py-3 rounded-lg border-2 mb-3 mr-2 ${
                     selectedCuisines.includes(option.value)
-                      ? 'bg-primary border-primary'
-                      : 'bg-white border-gray-300'
+                      ? "bg-primary border-primary"
+                      : "bg-white border-gray-300"
                   }`}
                 >
                   <Text
                     className={`font-medium ${
                       selectedCuisines.includes(option.value)
-                        ? 'text-white'
-                        : 'text-text'
+                        ? "text-white"
+                        : "text-text"
                     }`}
                   >
                     {option.label}
@@ -176,21 +181,21 @@ export default function OnboardingScreen() {
             </Text>
 
             <View className="flex-row flex-wrap">
-              {COMMON_ALLERGIES.map(allergy => (
+              {COMMON_ALLERGIES.map((allergy) => (
                 <TouchableOpacity
                   key={allergy}
                   onPress={() => toggleAllergy(allergy)}
                   className={`px-4 py-3 rounded-lg border-2 mb-3 mr-2 ${
                     selectedAllergies.includes(allergy)
-                      ? 'bg-primary border-primary'
-                      : 'bg-white border-gray-300'
+                      ? "bg-primary border-primary"
+                      : "bg-white border-gray-300"
                   }`}
                 >
                   <Text
                     className={`font-medium ${
                       selectedAllergies.includes(allergy)
-                        ? 'text-white'
-                        : 'text-text'
+                        ? "text-white"
+                        : "text-text"
                     }`}
                   >
                     {allergy}
@@ -204,7 +209,7 @@ export default function OnboardingScreen() {
         {/* Navigation Buttons */}
         <View className="mt-auto pt-8">
           <Button onPress={handleNext} isLoading={isLoading} className="w-full">
-            {step === 3 ? 'Finish' : 'Continue'}
+            {step === 3 ? "Finish" : "Continue"}
           </Button>
 
           {step > 1 && (
@@ -218,8 +223,13 @@ export default function OnboardingScreen() {
           )}
 
           {step < 3 && (
-            <TouchableOpacity onPress={() => router.replace('/(tabs)')} className="mt-4">
-              <Text className="text-center text-text-secondary">Skip for now</Text>
+            <TouchableOpacity
+              onPress={() => router.replace("/(tabs)")}
+              className="mt-4"
+            >
+              <Text className="text-center text-text-secondary">
+                Skip for now
+              </Text>
             </TouchableOpacity>
           )}
         </View>

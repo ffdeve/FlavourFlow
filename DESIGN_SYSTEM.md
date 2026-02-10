@@ -3,6 +3,7 @@
 ## Color Palette
 
 ### Primary - Golden Yellow
+
 Main brand color used for CTAs, active states, and key UI elements.
 
 - **Primary**: `#FBA82E`
@@ -10,6 +11,7 @@ Main brand color used for CTAs, active states, and key UI elements.
 - **Primary Dark**: `#E39620`
 
 **Usage:**
+
 - Primary buttons
 - Active tab indicators
 - Key action buttons
@@ -17,18 +19,19 @@ Main brand color used for CTAs, active states, and key UI elements.
 
 ```tsx
 // Tailwind classes
-className="bg-primary text-white"
-className="text-primary"
-className="border-primary"
+className = "bg-primary text-white";
+className = "text-primary";
+className = "border-primary";
 
 // Direct usage
-import { Colors } from '@/constants/colors';
-backgroundColor: Colors.primary.DEFAULT
+import { Colors } from "@/constants/colors";
+backgroundColor: Colors.primary.DEFAULT;
 ```
 
 ---
 
 ### Background - Cream
+
 App background and surface colors.
 
 - **Background**: `#FCF0D6`
@@ -37,18 +40,20 @@ App background and surface colors.
 - **Paper (Cards)**: `#FFFFFF`
 
 **Usage:**
+
 - Main app background
 - Screen backgrounds
 - Light surfaces
 
 ```tsx
-className="bg-background"
-className="bg-white" // for elevated cards
+className = "bg-background";
+className = "bg-white"; // for elevated cards
 ```
 
 ---
 
 ### Interactive - Darker Cream
+
 Used for input fields, interactive surfaces, and hover states.
 
 - **Interactive**: `#EDD8A9`
@@ -56,19 +61,21 @@ Used for input fields, interactive surfaces, and hover states.
 - **Interactive Dark**: `#E3CC92`
 
 **Usage:**
+
 - Input field backgrounds
 - Dropdown backgrounds
 - Hover states
 - Secondary surfaces
 
 ```tsx
-className="bg-interactive"
-className="bg-interactive-dark" // hover/pressed
+className = "bg-interactive";
+className = "bg-interactive-dark"; // hover/pressed
 ```
 
 ---
 
 ### Text - Dark Brown
+
 All text colors from primary to disabled states.
 
 - **Text Primary**: `#3B3328`
@@ -77,15 +84,16 @@ All text colors from primary to disabled states.
 - **Text Disabled**: `#B5A99A`
 
 **Usage:**
+
 - Primary text: Headings, body text
 - Secondary: Subtitles, descriptions
 - Tertiary: Captions, hints
 - Disabled: Inactive elements
 
 ```tsx
-className="text-text" // primary
-className="text-text-secondary"
-className="text-text-tertiary"
+className = "text-text"; // primary
+className = "text-text-secondary";
+className = "text-text-tertiary";
 ```
 
 ---
@@ -98,9 +106,9 @@ className="text-text-tertiary"
 **Info**: `#3B82F6` - Informational messages
 
 ```tsx
-className="text-success"
-className="bg-error"
-className="border-warning"
+className = "text-success";
+className = "bg-error";
+className = "border-warning";
 ```
 
 ---
@@ -119,17 +127,17 @@ All text uses the **Poppins** font family with various weights:
 
 ### Font Sizes
 
-| Size | Value | Line Height | Usage |
-|------|-------|-------------|-------|
-| xs | 12px | 16px | Small labels, captions |
-| sm | 14px | 20px | Secondary text, labels |
-| base | 16px | 24px | Body text (default) |
-| lg | 18px | 28px | Large body, small headings |
-| xl | 20px | 28px | Section titles |
-| 2xl | 24px | 32px | Page headings |
-| 3xl | 30px | 36px | Large headings |
-| 4xl | 36px | 40px | Hero text |
-| 5xl | 48px | 48px | Display text |
+| Size | Value | Line Height | Usage                      |
+| ---- | ----- | ----------- | -------------------------- |
+| xs   | 12px  | 16px        | Small labels, captions     |
+| sm   | 14px  | 20px        | Secondary text, labels     |
+| base | 16px  | 24px        | Body text (default)        |
+| lg   | 18px  | 28px        | Large body, small headings |
+| xl   | 20px  | 28px        | Section titles             |
+| 2xl  | 24px  | 32px        | Page headings              |
+| 3xl  | 30px  | 36px        | Large headings             |
+| 4xl  | 36px  | 40px        | Hero text                  |
+| 5xl  | 48px  | 48px        | Display text               |
 
 ### Usage Example
 
@@ -151,41 +159,41 @@ import { typography } from '@/constants/typography';
 
 Consistent spacing throughout the app:
 
-| Name | Value | Usage |
-|------|-------|-------|
-| xs | 4px | Tight spacing, icon gaps |
-| sm | 8px | Small gaps, button padding |
-| md | 16px | Standard spacing, margins |
-| lg | 24px | Section spacing |
-| xl | 32px | Large section gaps |
-| 2xl | 48px | Page padding |
-| 3xl | 64px | Major sections |
-| 4xl | 96px | Extra large spacing |
+| Name | Value | Usage                      |
+| ---- | ----- | -------------------------- |
+| xs   | 4px   | Tight spacing, icon gaps   |
+| sm   | 8px   | Small gaps, button padding |
+| md   | 16px  | Standard spacing, margins  |
+| lg   | 24px  | Section spacing            |
+| xl   | 32px  | Large section gaps         |
+| 2xl  | 48px  | Page padding               |
+| 3xl  | 64px  | Major sections             |
+| 4xl  | 96px  | Extra large spacing        |
 
 ```tsx
-className="p-4" // 16px padding
-className="mb-6" // 24px margin bottom
-className="gap-2" // 8px gap
+className = "p-4"; // 16px padding
+className = "mb-6"; // 24px margin bottom
+className = "gap-2"; // 8px gap
 ```
 
 ---
 
 ## Border Radius
 
-| Name | Value | Usage |
-|------|-------|-------|
-| sm | 4px | Small elements, badges |
-| DEFAULT | 8px | Standard buttons, inputs |
-| md | 12px | Cards, containers |
-| lg | 16px | Large cards |
-| xl | 20px | Prominent elements |
-| 2xl | 24px | Hero sections |
-| 3xl | 32px | Large containers |
-| full | 9999px | Circular elements |
+| Name    | Value  | Usage                    |
+| ------- | ------ | ------------------------ |
+| sm      | 4px    | Small elements, badges   |
+| DEFAULT | 8px    | Standard buttons, inputs |
+| md      | 12px   | Cards, containers        |
+| lg      | 16px   | Large cards              |
+| xl      | 20px   | Prominent elements       |
+| 2xl     | 24px   | Hero sections            |
+| 3xl     | 32px   | Large containers         |
+| full    | 9999px | Circular elements        |
 
 ```tsx
-className="rounded-lg" // 16px
-className="rounded-full" // circular
+className = "rounded-lg"; // 16px
+className = "rounded-full"; // circular
 ```
 
 ---
@@ -195,18 +203,18 @@ className="rounded-full" // circular
 Native React Native shadow styles:
 
 ```tsx
-import { Shadows } from '@/constants/colors';
+import { Shadows } from "@/constants/colors";
 
 // Usage
-<View style={Shadows.md}>...</View>
+<View style={Shadows.md}>...</View>;
 ```
 
-| Name | Elevation | Usage |
-|------|-----------|-------|
-| sm | 1 | Subtle elevation |
-| md | 3 | Cards, buttons |
-| lg | 5 | Modals, dropdowns |
-| xl | 8 | Floating elements |
+| Name | Elevation | Usage             |
+| ---- | --------- | ----------------- |
+| sm   | 1         | Subtle elevation  |
+| md   | 3         | Cards, buttons    |
+| lg   | 5         | Modals, dropdowns |
+| xl   | 8         | Floating elements |
 
 ---
 

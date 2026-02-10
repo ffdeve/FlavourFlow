@@ -1,21 +1,19 @@
 // Example: How to use the FlavourFlow Design System
 
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Colors, Spacing } from '@/constants/colors';
-import { typography } from '@/constants/typography';
-import React from 'react';
-import { Text, View } from 'react-native';
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Colors, Spacing } from "@/constants/colors";
+import { typography } from "@/constants/typography";
+import React from "react";
+import { Text, View } from "react-native";
 
 export function DesignSystemExample() {
   return (
     <View className="flex-1 bg-background p-6">
       {/* Using Tailwind Classes (Recommended) */}
-      <Text className="text-3xl font-bold text-text mb-4">
-        FlavourFlow
-      </Text>
-      
+      <Text className="text-3xl font-bold text-text mb-4">FlavourFlow</Text>
+
       <Text className="text-base text-text-secondary mb-6">
         Pakistani recipes at your fingertips
       </Text>
@@ -24,7 +22,7 @@ export function DesignSystemExample() {
       <Button variant="primary" className="mb-3">
         Primary Button
       </Button>
-      
+
       <Button variant="outline" className="mb-3">
         Outline Button
       </Button>
@@ -54,9 +52,7 @@ export function DesignSystemExample() {
           borderRadius: 12,
         }}
       >
-        <Text style={typography.h2}>
-          Styled with Design Tokens
-        </Text>
+        <Text style={typography.h2}>Styled with Design Tokens</Text>
       </View>
 
       {/* Semantic Colors */}
@@ -64,11 +60,11 @@ export function DesignSystemExample() {
         <View className="bg-success p-3 rounded">
           <Text className="text-white">Success Message</Text>
         </View>
-        
+
         <View className="bg-error p-3 rounded">
           <Text className="text-white">Error Message</Text>
         </View>
-        
+
         <View className="bg-warning p-3 rounded">
           <Text className="text-white">Warning Message</Text>
         </View>

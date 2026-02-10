@@ -1,7 +1,7 @@
-import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
+import { ActivityIndicator, View } from "react-native";
 
 export default function Index() {
   const router = useRouter();
@@ -12,13 +12,13 @@ export default function Index() {
     if (!isInitialized || navigationAttempted.current) return;
 
     navigationAttempted.current = true;
-    
+
     // Delay navigation to ensure layout is mounted
     const timer = setTimeout(() => {
       if (isAuthenticated) {
-        router.replace('/(tabs)');
+        router.replace("/(tabs)");
       } else {
-        router.replace('/(auth)/welcome');
+        router.replace("/(auth)/welcome");
       }
     }, 100);
 

@@ -1,12 +1,12 @@
-import { cn } from '@/lib/utils';
-import React from 'react';
+import { cn } from "@/lib/utils";
+import React from "react";
 import {
   Text,
   TextInput,
   TouchableOpacity,
   View,
   type TextInputProps,
-} from 'react-native';
+} from "react-native";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -30,31 +30,29 @@ export function Input({
   ...props
 }: InputProps) {
   return (
-    <View className={cn('w-full', containerClassName)}>
+    <View className={cn("w-full", containerClassName)}>
       {label && (
-        <Text className="text-sm font-medium text-text mb-2">
-          {label}
-        </Text>
+        <Text className="text-sm font-medium text-text mb-2">{label}</Text>
       )}
-      
+
       <View
         className={cn(
-          'flex-row items-center bg-interactive border rounded-lg px-3',
-          error ? 'border-error' : 'border-interactive-dark',
+          "flex-row items-center bg-interactive border rounded-lg px-3",
+          error ? "border-error" : "border-interactive-dark",
         )}
       >
         {leftIcon && <View className="mr-2">{leftIcon}</View>}
-        
+
         <TextInput
           className={cn(
-            'flex-1 py-3 text-base text-text',
+            "flex-1 py-3 text-base text-text",
             inputClassName,
-            className
+            className,
           )}
           placeholderTextColor="#8B7D6F"
           {...props}
         />
-        
+
         {rightIcon && (
           <TouchableOpacity
             onPress={onRightIconPress}
@@ -65,10 +63,8 @@ export function Input({
           </TouchableOpacity>
         )}
       </View>
-      
-      {error && (
-        <Text className="text-sm text-error mt-1">{error}</Text>
-      )}
+
+      {error && <Text className="text-sm text-error mt-1">{error}</Text>}
     </View>
   );
 }

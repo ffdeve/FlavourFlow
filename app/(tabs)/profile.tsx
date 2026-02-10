@@ -1,37 +1,31 @@
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "expo-router";
+import React from "react";
+import { Alert, ScrollView, Text, View } from "react-native";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
 
   const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/(auth)/welcome');
-          },
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          router.replace("/(auth)/welcome");
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
     <ScrollView className="flex-1 bg-background">
       <View className="px-6 pt-16 pb-6">
-        <Text className="text-2xl font-bold text-text mb-6">
-          Profile
-        </Text>
+        <Text className="text-2xl font-bold text-text mb-6">Profile</Text>
 
         {/* Profile Info */}
         <View className="bg-white rounded-lg p-6 mb-4 border border-gray-200">
@@ -40,21 +34,17 @@ export default function ProfileScreen() {
               <Text className="text-4xl">👤</Text>
             </View>
             <Text className="text-xl font-semibold text-text">
-              {profile?.full_name || 'User'}
+              {profile?.full_name || "User"}
             </Text>
-            <Text className="text-text-secondary mt-1">
-              {user?.email}
-            </Text>
+            <Text className="text-text-secondary mt-1">{user?.email}</Text>
           </View>
         </View>
 
         {/* Settings Placeholder */}
         <View className="bg-white rounded-lg p-6 mb-4 border border-gray-200">
-          <Text className="text-lg font-semibold text-text mb-3">
-            Settings
-          </Text>
+          <Text className="text-lg font-semibold text-text mb-3">Settings</Text>
           <Text className="text-text-secondary">
-            • Language: {profile?.language === 'ur' ? 'Urdu' : 'English'}
+            • Language: {profile?.language === "ur" ? "Urdu" : "English"}
           </Text>
           <Text className="text-text-secondary mt-2">
             • Preferences & notifications coming soon
@@ -62,11 +52,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Sign Out Button */}
-        <Button
-          onPress={handleSignOut}
-          variant="outline"
-          className="w-full"
-        >
+        <Button onPress={handleSignOut} variant="outline" className="w-full">
           Sign Out
         </Button>
       </View>

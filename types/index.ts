@@ -4,7 +4,7 @@ export interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  language: 'en' | 'ur';
+  language: "en" | "ur";
   created_at: string;
   updated_at: string;
 }
@@ -28,7 +28,7 @@ export interface Recipe {
   image_url: string | null;
   video_url: string | null;
   cook_time: number | null;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: "easy" | "medium" | "hard";
   cuisine_type: string | null;
   diet_tags: string[];
   allergens: string[];
@@ -63,7 +63,7 @@ export interface RecipeInteraction {
   id: string;
   user_id: string;
   recipe_id: string;
-  interaction_type: 'view' | 'like' | 'save' | 'cooked';
+  interaction_type: "view" | "like" | "save" | "cooked";
   created_at: string;
 }
 
@@ -113,30 +113,30 @@ export interface RecipeWithDetails extends Recipe {
 }
 
 // UI State types
-export type DietType = 
-  | 'halal'
-  | 'vegetarian'
-  | 'vegan'
-  | 'diabetic'
-  | 'low-carb'
-  | 'keto'
-  | 'gluten-free';
+export type DietType =
+  | "halal"
+  | "vegetarian"
+  | "vegan"
+  | "diabetic"
+  | "low-carb"
+  | "keto"
+  | "gluten-free";
 
-export type CuisineType = 
-  | 'pakistani'
-  | 'mughlai'
-  | 'punjabi'
-  | 'sindhi'
-  | 'balochi'
-  | 'pashtun'
-  | 'kashmiri';
+export type CuisineType =
+  | "pakistani"
+  | "mughlai"
+  | "punjabi"
+  | "sindhi"
+  | "balochi"
+  | "pashtun"
+  | "kashmiri";
 
-export type MealTime = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type MealTime = "breakfast" | "lunch" | "dinner" | "snack";
 
 export interface RecipeFilters {
   cuisines?: CuisineType[];
   dietTags?: DietType[];
   maxCookTime?: number;
-  difficulty?: Recipe['difficulty'][];
+  difficulty?: Recipe["difficulty"][];
   ingredients?: string[];
 }

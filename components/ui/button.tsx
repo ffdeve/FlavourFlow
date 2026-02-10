@@ -1,17 +1,17 @@
-import { cn } from '@/lib/utils';
-import React from 'react';
+import { cn } from "@/lib/utils";
+import React from "react";
 import {
-    ActivityIndicator,
-    Text,
-    TouchableOpacity,
-    View,
-    type TouchableOpacityProps,
-} from 'react-native';
+  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+  View,
+  type TouchableOpacityProps,
+} from "react-native";
 
 interface ButtonProps extends TouchableOpacityProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "outline" | "ghost";
+  size?: "sm" | "md" | "lg";
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -19,8 +19,8 @@ interface ButtonProps extends TouchableOpacityProps {
 
 export function Button({
   children,
-  variant = 'primary',
-  size = 'md',
+  variant = "primary",
+  size = "md",
   isLoading = false,
   leftIcon,
   rightIcon,
@@ -28,32 +28,32 @@ export function Button({
   className,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'flex-row items-center justify-center rounded-lg';
-  
+  const baseStyles = "flex-row items-center justify-center rounded-lg";
+
   const variantStyles = {
-    primary: 'bg-primary',
-    secondary: 'bg-interactive',
-    outline: 'bg-transparent border-2 border-primary',
-    ghost: 'bg-transparent',
+    primary: "bg-primary",
+    secondary: "bg-interactive",
+    outline: "bg-transparent border-2 border-primary",
+    ghost: "bg-transparent",
   };
-  
+
   const sizeStyles = {
-    sm: 'px-3 py-2',
-    md: 'px-4 py-3',
-    lg: 'px-6 py-4',
+    sm: "px-3 py-2",
+    md: "px-4 py-3",
+    lg: "px-6 py-4",
   };
-  
+
   const textVariantStyles = {
-    primary: 'text-white font-semibold',
-    secondary: 'text-text font-semibold',
-    outline: 'text-primary font-semibold',
-    ghost: 'text-primary font-semibold',
+    primary: "text-white font-semibold",
+    secondary: "text-text font-semibold",
+    outline: "text-primary font-semibold",
+    ghost: "text-primary font-semibold",
   };
-  
+
   const textSizeStyles = {
-    sm: 'text-sm',
-    md: 'text-base',
-    lg: 'text-lg',
+    sm: "text-sm",
+    md: "text-base",
+    lg: "text-lg",
   };
 
   return (
@@ -62,24 +62,23 @@ export function Button({
         baseStyles,
         variantStyles[variant],
         sizeStyles[size],
-        disabled && 'opacity-50',
-        className
+        disabled && "opacity-50",
+        className,
       )}
       disabled={disabled || isLoading}
       {...props}
     >
       {isLoading ? (
         <ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? '#FBA82E' : '#FFFFFF'}
+          color={
+            variant === "outline" || variant === "ghost" ? "#FBA82E" : "#FFFFFF"
+          }
         />
       ) : (
         <>
           {leftIcon && <View className="mr-2">{leftIcon}</View>}
           <Text
-            className={cn(
-              textVariantStyles[variant],
-              textSizeStyles[size]
-            )}
+            className={cn(textVariantStyles[variant], textSizeStyles[size])}
           >
             {children}
           </Text>
