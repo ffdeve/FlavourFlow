@@ -9,21 +9,40 @@ export default function Index() {
   const navigationAttempted = useRef(false);
 
   useEffect(() => {
-    if (!isInitialized || navigationAttempted.current) return;
-
-    navigationAttempted.current = true;
-
-    // Delay navigation to ensure layout is mounted
-    const timer = setTimeout(() => {
+    // Give a 2 second timeout for initialization, then navigate anyway
+    const initTimeout = setTimeout(() => {
+      if (navigationAttempted.current) return;
+      
+      navigationAttempted.current = true;
+      
       if (isAuthenticated) {
         router.replace("/(tabs)");
       } else {
         router.replace("/(auth)/welcome");
       }
-    }, 100);
+    }, 2000);
 
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, isInitialized]);
+    // If initialized quickly, navigate immediately
+    if (isInitialized && !navigationAttempted.current) {
+      clearTimeout(initTimeout);
+      navigationAttempted.current = true;
+
+      const timer = setTimeout(() => {
+        if (isAuthenticated) {
+          router.replace("/(tabs)");
+        } else {
+          router.replace("/(auth)/welcome");
+        }
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(initTimeout);
+      };
+    }
+
+    return () => clearTimeout(initTimeout);
+  }, [isAuthenticated, isInitialized, router]);
 
   return (
     <View className="flex-1 items-center justify-center bg-background">

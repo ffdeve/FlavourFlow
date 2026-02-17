@@ -21,12 +21,10 @@ export default function SignupDetailsScreen() {
   const [countryCode, setCountryCode] = useState("PK");
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
 
-  // Error states
   const [fullNameError, setFullNameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
 
-  // Validation functions
   const validateFullName = (name: string): boolean => {
     if (!name.trim()) {
       setFullNameError("Full name is required");
