@@ -1,7 +1,6 @@
 import BackButton from '@/components/ui/back-button';
-import { Input } from '@/components/ui/input';
+import { Password } from '@/components/ui/password';
 import { useAuth } from '@/hooks/use-auth';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -15,8 +14,6 @@ export default function SignupPasswordScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleContinue = async () => {
     if (!password || !confirmPassword) {
@@ -46,73 +43,63 @@ export default function SignupPasswordScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 p-2 bg-background">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className=" py-2">
+        
           {/* Back Button */}
           <BackButton />
 
           {/* Header */}
-          <View className="mb-8 mt-4">
-            <Text className="text-6xl font-poppins-semibold text-primary">
+        <View className="px-4 mt-2">
+            <View>
+            <Text
+              className="text-5xl text-primary mt-2 mb-1 font-poppins-semibold"
+              style={{ lineHeight: 55 }}>
               Register
             </Text>
-            <Text className="text-text text-base font-poppins-regular mt-2">
+
+            <Text className="text-text text-sm font-poppins-light mb-2">
               Enter Your Password
             </Text>
-          </View>
+            </View>
+          
 
           {/* Chef Illustration */}
-          <View className="items-center justify-center py-8">
-            <Image
-              source={require('@/FF-ChefBoo/ghost-8356786_1920.png')}
-              style={{
-                width: 200,
-                height: 200,
-                resizeMode: 'contain',
-              }}
-            />
+          <View className="items-center justify-center mb-6">
+             <Image
+                source={require("@/FF-ChefBoo/Register2nd.png")}
+                style={{
+                width: 300,
+                height: 270,
+                resizeMode: "contain",
+                transform: [{ scaleX: -1 }],
+                alignSelf: "center",
+               }}
+              />
           </View>
 
           {/* Form */}
-          <View>
-            <Input
-              label="Set Your Password"
-              placeholder="Set Your Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoComplete="password-new"
-              rightIcon={
-                <FontAwesome6
-                  name={showPassword ? 'eye-slash' : 'eye'}
-                  size={20}
-                  color="#3B3328"
-                />
-              }
-              onRightIconPress={() => setShowPassword(!showPassword)}
-            />
+          <View >
+            <View className='mb-1 mx-2'>
+              <Password
+                variant="form"
+                placeholder="Set Your Password"
+                value={password}
+                onChangeText={setPassword}
+                fieldClassName="bg-interactive/80 rounded-lg px-6 py-5 flex-row items-center"
+              />
 
-            <Input
-              label="Confirm Your Password"
-              placeholder="Confirm Your Password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirm}
-              autoComplete="password-new"
-              containerClassName="mt-4"
-              rightIcon={
-                <FontAwesome6
-                  name={showConfirm ? 'eye-slash' : 'eye'}
-                  size={20}
-                  color="#3B3328"
-                />
-              }
-              onRightIconPress={() => setShowConfirm(!showConfirm)}
-            />
-
+              <Password
+                variant="form"
+                placeholder="Confirm Your Password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                containerClassName="mt-2"
+                fieldClassName="bg-interactive/80 rounded-lg px-6 py-5 flex-row items-center"
+              />
+            </View>
             {/* Terms & Conditions */}
-            <View className="mt-6 mb-8 items-center">
+            <View className="mt-4 mb-6 items-center">
               <Text className="text-text text-sm font-poppins-regular">
                 By registering you agree to our
               </Text>
@@ -138,7 +125,7 @@ export default function SignupPasswordScreen() {
           </View>
 
           {/* Footer */}
-          <View className="flex-row items-center justify-center mt-8 mb-8">
+          <View className="flex-row items-center justify-center mt-7 mb-7">
             <Text className="text-text text-base">
               Already have an account?{' '}
             </Text>
@@ -149,6 +136,7 @@ export default function SignupPasswordScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        
       </ScrollView>
     </SafeAreaView>
   );

@@ -13,6 +13,8 @@ interface InputProps extends TextInputProps {
   error?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  rightIconContainerClassName?: string;
+  fieldClassName?: string;
   containerClassName?: string;
   inputClassName?: string;
   onRightIconPress?: () => void;
@@ -23,6 +25,8 @@ export function Input({
   error,
   leftIcon,
   rightIcon,
+  rightIconContainerClassName,
+  fieldClassName,
   containerClassName,
   inputClassName,
   className,
@@ -37,7 +41,8 @@ export function Input({
 
       <View
         className={cn(
-          "flex-row items-center bg-interactive border rounded-lg px-3",
+          "flex-row items-center",
+          fieldClassName ?? "bg-interactive border rounded-lg px-3",
           error ? "border-error" : "border-interactive-dark",
         )}
       >
@@ -56,7 +61,7 @@ export function Input({
         {rightIcon && (
           <TouchableOpacity
             onPress={onRightIconPress}
-            className="ml-2"
+            className={cn("ml-2", rightIconContainerClassName)}
             disabled={!onRightIconPress}
           >
             <View>{rightIcon}</View>

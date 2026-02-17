@@ -10,7 +10,7 @@ export default function AuthLayout() {
       <Stack.Screen name="signup/register-with-email-setup" />
       <Stack.Screen name="signup/regitser-with-email-password-setup" />
       <Stack.Screen name="onboarding" />
-      <Stack.Screen name="forgot-password" />
+      <Stack.Screen name="forgotPasword/forgot-password" />
     </Stack>
   );
 }

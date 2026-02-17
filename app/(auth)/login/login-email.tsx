@@ -1,15 +1,15 @@
 import BackButton from "@/components/ui/back-button";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { Password } from "@/components/ui/password";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    Image,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -17,7 +17,6 @@ export default function LoginEmailScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -90,35 +89,18 @@ export default function LoginEmailScreen() {
           </View>
 
           {/* Password Input with Eye Icon */}
-          <View className="mb-4 mx-2">
-            <View className="mb-4 bg-interactive/80 rounded-lg px-6 py-4 flex-row items-center ">
-              <TextInput
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoComplete="password"
-                placeholderTextColor="#3B3328"
-                className="flex-1 text-base text-black font-poppins-light opacity-100"
-              />
-              <TouchableOpacity
-                className=""
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <FontAwesome6
-                  name={showPassword ? "eye" : "eye-slash"}
-                  size={18}
-                  color="#3B3328"
-                  style={{ marginLeft: 16 }}
-                />
-              </TouchableOpacity>
-            </View>
+          <View>
+            <Password
+              variant="inline"
+              value={password}
+              onChangeText={setPassword}
+            />
           </View>
 
           {/* Forgot Password Link */}
-          <View className="mb-6 w-full flex-row flex-wrap items-center justify-center">
+          <View className="mt-2 mb-6 w-full flex-row flex-wrap items-center justify-center">
             <TouchableOpacity
-              onPress={() => router.push("/(auth)/forgot-password")}
+              onPress={() => router.push("/(auth)/forgotPasword/forgot-password")}
               className="px-2"
             >
               <Text className="text-sm text-text font-poppins-medium text-center">

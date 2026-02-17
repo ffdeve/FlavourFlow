@@ -84,6 +84,7 @@ export default function SignupDetailsScreen() {
   };
 
   const handleNext = () => {
+    /* Validation disabled for testing/validation checking
     // Validate all fields
     const isNameValid = validateFullName(fullName);
     const isEmailValid = validateEmail(email);
@@ -92,6 +93,7 @@ export default function SignupDetailsScreen() {
     if (!isNameValid || !isEmailValid || !isPhoneValid) {
       return;
     }
+    */
 
     // Pass data to password screen via navigation params
     router.push({
@@ -111,17 +113,18 @@ export default function SignupDetailsScreen() {
         
           {/* Back Button */}
           <BackButton />
-          <View className="px-4 mt-2">
           {/* Header */}
+          <View className="px-4 mt-2">
+          
           <View >
             <Text
               className="text-5xl text-primary mt-2 mb-1 font-poppins-semibold"
               style={{ lineHeight: 55 }}
             >
-              Register
+            Register
             </Text>
             <Text className="text-text text-sm font-poppins-light mb-2">
-              Enter Your Details
+            Enter Your Details
             </Text>
           </View>
 
