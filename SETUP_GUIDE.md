@@ -9,8 +9,8 @@ The app requires Supabase environment variables. There's a naming inconsistency 
 
 **Current `.env` file uses:**
 ```env
-EXPO_PUBLIC_SUPABASE_URL=https://gcuunqmbapmoelvczanv.supabase.co
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_m1FVWBhsdK8WDFT001qS7g_s_zAMsuy
+
+
 ```
 
 **⚠️ Issue:** The variable name is `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` but the `.env.example` and TypeScript types reference `EXPO_PUBLIC_SUPABASE_ANON_KEY`.

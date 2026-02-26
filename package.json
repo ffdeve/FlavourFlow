@@ -19,6 +19,7 @@
     "@react-navigation/native": "^7.1.8",
     "@supabase/supabase-js": "^2.93.3",
     "clsx": "^2.1.1",
+    "nativewind": "^4.2.1",
     "expo": "~54.0.33",
     "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
@@ -59,7 +60,6 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "nativewind": "^4.2.1",
     "typescript": "~5.9.2"
   },
   "overrides": {
