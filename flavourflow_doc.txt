@@ -1,0 +1,592 @@
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+  
+ FlavourFlow  
+  Project ID: Fall-2025-00 Session: BSCS Fall 2021 to 2025 Project Advisor:  Mishal Muneer & M. Ali Ilyas Submitted By Muhammad Usman 70140621 Muhammad Haroon Hanif 70138188 Abdul Mateen 70137808  Department of Computer Science & IT The University of Lahore Lahore, Pakistan 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+ii  
+Declaration We have reviewed and have a full understanding of the project guidelines and the definition of academic dishonesty, specifically plagiarism and collusion. We acknowledge that the submitted document, FlavourFlow, was created specifically for the purposes of our final year project, has not been reproduced or published in any form, and has never been submitted or presented for publication or any other research. Group Member 1 Name:  Muhammad Usman  SAP No:    70140621  Signature:              _______________________   Group Member 2 Name:  Muhammad Haroon Hanif SAP No:    70138188  Signature:              _______________________   Group Member 3 Name:   Abdul Mateen SAP No:    70137808  Signature:              _______________________   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+iii  
+  Statement of Submission  This is to certify that Muhammad Usman Roll No. 70104621, Muhammad Haroon Hanif Roll No. 70138188 and Abdul Mateen Roll No. 70137808 have successfully submitted the final year project titled  “FlavourFlow” at the Department of Computer Science & IT Campus, to fulfill the partial requirement of the degree of BS in Computer Science.    Supervisor Name:  Misshal Muneer & M. Ali Ilyas   Signature:       ________________________   Signature:       _______________________  Date:       __________________   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+iv  
+ Dedication  This project is for our mother. She is a special person. Our mother has always been there for us praying for us and making sacrifices for our benefit. Her love for us has no limits. Our mother has helped us become the people we're today. We have learned a lot from her. She is very strong and brave. Our mother has shown us how to deal with times and how to feel happy about our successes. Our mother is a part of our lives and we are grateful, for her guidance and love. We think about our mother and all that she does for us every day.  We want to thank every chef, food creator, home cook and culinary artist. They inspire students and people who're not in a classroom. This includes YouTube chefs, people who write recipe blogs and food vloggers. We are talking about every person who teaches people how to cook, shares recipes and spreads the love of cooking. The YouTube chefs, recipe bloggers, food vloggers and culinary artists are very creative. They make it easy for people, like us to learn how to cook. They help us try things and get better at cooking on our own. The chefs, food creators, home cooks and culinary artists have really helped us.  Lastly, this dedication extends to all individuals who strive to balance life, education, and daily meals, especially students living away from home — may this application serve as support, inspiration, and a digital companion on their journey.  
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+v  
+ Acknowledgement First and foremost, we bow our heads in gratitude to Almighty Allah, who blessed us with strength, health, and opportunities to complete this project. We are sincerely thankful to our respected supervisor, Misshal Munner & M. Ali Ilyas, for continuous guidance, valuable feedback, and support, without which the successful completion of this project would not have been possible. We express gratitude to all faculty members and the Department of Computer Science & IT for providing us with knowledge, resources, and encouragement throughout our degree program. A special thanks to our parents, whose prayers, patience, support, and love have been the foundation of our success. We also acknowledge our friends & classmates for their moral support, contributions, and shared journey throughout this project. May Allah reward them all abundantly.   Date:________________   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+vi  
+ Abstract FlavourFlow is an app that utilizes AI to assist with cooking and meal preparation. This app simplifies your daily mealtime preparation and shopping by suggesting recipes based on what you already have on hand, and connecting you with other users through a social network to create a community where you can share cooking experiences. You can search for recipes, generate a meal from what you currently have in your pantry; you can also manage your pantry using an organized inventory of everything in your pantry, including the nutritional value of what is on your shelves. Additionally, you will have access to an interactive digital assistant that will guide you through each step of the cooking process in real-time via a hands-free interface. FlavourFlow was designed by utilizing advanced technology and utilizes AI algorithms for personalized recommendations based on the ingredients in your pantry and personal preferences. Some of the features included in FlavourFlow are ingredient-based suggestions, a voice-to-text mode for cooking instructions, the ability to upload your own recipes and a social dashboard where users can post photos, comments, and share their cooking experiences with the FlavourFlow community. The goal of this project is to decrease the amount of stress related to the meal preparation process, stimulate creativity in meal preparation, and to help individuals become better organized and efficient at managing their meal preparation and cooking business. The use of FlavourFlow technology and ease of use allows countries across the globe to develop their own digital cooking culture; there are also certain groups of users (e.g. college students and people with busy schedules) who will benefit greatly from using FlavourFlow.   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+vii  
+ Area of the Project  • Mobile Application (Android / iOS) Technologies used  • React Native(Frontend – Cross platform UI) • Python • TypeScript • Firebase /Clerk ( Authentication ) • DataStax /SupaBase  (Backend – Database ) • Android Studio (Android Development Tools) • XCode (IOS Development Tools) • VS Code    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+viii  
+List of Figures:  Figure 3.1-1: Account Management ..................................................................................... 24 Figure 3.1-2: User Preference Management ........................................................................ 26 Figure 3.1-3: Meal Recommendation ................................................................................... 28 Figure 3.1-4: Search Recipes ................................................................................................. 30 Figure 3.1-5: Recipe Interaction ........................................................................................... 32 Figure 3.1-6: Community Dashboard .................................................................................. 34 Figure 3.1-7: Recipe Upload and Management ................................................................... 36 Figure 3.1-8: Rate and Review .............................................................................................. 38 Figure 3.1-9: Find Recipes from Ingredients ...................................................................... 40 Figure 3.1-10: Start Cooking ................................................................................................ 42 Figure 3.1-11: Trending and Popular Recipes .................................................................... 44 Figure 3.1-12: Manage Application Settings ....................................................................... 46 Figure 4.1-1 Architecture Diagram ...................................................................................... 48 Figure 4.2-1 ERD with data dictionary ................................................................................ 49 Figure 4.3-1Data Flow Diagram: Level 0 ............................................................................ 50 Figure 4.3-2 Data Flow Diagram: Level 1 ........................................................................... 50 Figure 4.3-3 Data Flow Diagram: Level 2 ........................................................................... 51 Figure 4.4-1 Class Diagram ................................................................................................... 52 Figure 4.5-1 Activity Diagram: Account Management ...................................................... 53 Figure 4.5-2 Activity Diagram: User Preference ................................................................ 53 Figure 4.5-3 Activity Diagram: Meal Recommendation .................................................... 54 Figure 4.5-4 Activity Diagram: Recipe Interactions ........................................................... 55 Figure 4.5-5 Activity Diagram: Recipe Search & Discovery ............................................. 56 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+ix  
+Figure 4.5-6 Activity Diagram: Community Dashboard .................................................... 57 Figure 4.5-7 Activity Diagram: Recipe Upload & Management ....................................... 58 Figure 4.5-8 Activity Diagram: Feedback & Rating ........................................................... 59 Figure 4.5-9 Activity Diagram: Smart Pantry & Ingredient Insights ............................... 60 Figure 4.5-10 Activity Diagram: Cooking Assistance ......................................................... 61 Figure 4.5-11 Activity Diagram: Trending & Popular Recipes ......................................... 62 Figure 4.5-12 Activity Diagram: Manage Application Settings ......................................... 63 Figure 4.6-1 Sequence Diagram: Account Management .................................................... 64 Figure 4.6-2 Sequence Diagram: User Preference .............................................................. 65 Figure 4.6-3 Sequence Diagram: Meal Recommendation .................................................. 65 Figure 4.6-4 Sequence Diagram: Recipe Interactions ........................................................ 66 Figure 4.6-5 Sequence Diagram: Recipe Search & Discovery ........................................... 66 Figure 4.6-6 Sequence Diagram: Community Dashboard ................................................. 67 Figure 4.6-7 Sequence Diagram: Recipe Upload & Management ..................................... 67 Figure 4.6-8 Sequence Diagram: Feedback & Rating ........................................................ 68 Figure 4.6-9 Sequence Diagram: Smart Pantry & Ingredient Insights ............................ 68 Figure 4.6-10 Sequence Diagram: Cooking Assistance ...................................................... 69 Figure 4.6-11 Sequence Diagram: Trending & Popular Recipes ...................................... 69 Figure 4.6-12 Sequence Diagram: Manage Application Settings ...................................... 70 Figure 4.7-1 Collaboration Diagram: Auth ......................................................................... 71 Figure 4.7-2 Collaboration Diagram: Personalized ............................................................ 72 Figure 4.7-3 Collaboration Diagram: Community ............................................................. 73 Figure 4.7-4 Collaboration Diagram: User Recipe ............................................................. 74 Figure 4.7-5 Collaboration Diagram: Smart Pantry .......................................................... 75 Figure 4.7-6 Collaboration Diagram: Cooking Assitance .................................................. 76 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+x  
+Figure 4.7-7 Collabration Diagram: Application Settings & Localization ....................... 77 Figure 4.8-1 State Transition Diagram: User State ............................................................ 78 Figure 4.8-2 State Transition Diagram: Cooking Session .................................................. 79 Figure 4.9-1 Component Diagram ........................................................................................ 80 Figure 4.10-1 Deployment ..................................................................................................... 81 Figure 5.1-1 Onboarding Welcome ...................................................................................... 82 Figure 5.1-2 Sign In ............................................................................................................... 82 Figure 5.1-3 Forget Password ............................................................................................... 83 Figure 5.1-4 Sign In ............................................................................................................... 83 Figure 5.1-5 Forget Verify ..................................................................................................... 84 Figure 5.1-6 Set New Password ............................................................................................. 84 Figure 5.1-7 Sign Up .............................................................................................................. 85 Figure 5.1-8 Register Account: 1 .......................................................................................... 85 Figure 5.1-9 Register Account :2 .......................................................................................... 86 Figure 5.1-10 Account Verify ................................................................................................ 86 Figure 5.1-11 Sign Up Successful .......................................................................................... 87 Figure 5.1-12 Set Country Preference .................................................................................. 87 Figure 5.1-13 Set Cuisines Preference .................................................................................. 88 Figure 5.1-14 Set Allergies Preference ................................................................................. 88 Figure 5.1-15 Setup Completion ........................................................................................... 89 Figure 5.1-16 Home ................................................................................................................ 89 Figure 5.1-17 Create Recipe .................................................................................................. 90 Figure 5.1-18 Notification ...................................................................................................... 90    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+xi  
+ List of Tables:  Table 1.4-1: Existing Solutions ............................................................................................... 4 Table 2.3-1: Account Management ...................................................................................... 11 Table 2.3-2 User Preference .................................................................................................. 11 Table 2.3-3 Meal Recommendation ...................................................................................... 12 Table 2.3-4 Recipe Interactions ............................................................................................ 13 Table 2.3-5 Recipe Search & Discovery ............................................................................... 14 Table 2.3-6 Community Dashboard ..................................................................................... 15 Table 2.3-7 Recipe Upload & Management ......................................................................... 16 Table 2.3-8 Rate & Review .................................................................................................... 17 Table 2.3-9 Smart Pantry & Ingredient Insights ................................................................ 17 Table 2.3-10 Cooking Assistance .......................................................................................... 18 Table 2.3-11 Trending & Popular Recipe ............................................................................ 19 Table 2.3-12 Manage Application Settings .......................................................................... 20 Table 2.3-13: NFR .................................................................................................................. 21 Table 3.1-1: Use Case – 1: Account Management ............................................................... 24 Table 3.1-2: Use Case – 2: User Preference Management: ................................................ 26 Table 3.1-3: Use Case – 3: Meal Recommendation System ............................................... 28 Table 3.1-4: Use Case – 4: Search Recipes .......................................................................... 30 Table 3.1-5: Use Case – 5: Recipe Interaction & Engagement .......................................... 32 Table 3.1-6: Use Case – 6: Community Dashboard ............................................................ 34 Table 3.1-7: Use Case – 7: Recipe Upload & Management ................................................ 36 Table 3.1-8: Use Case – 8: Feedback & Rating System ...................................................... 38 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+xii  
+Table 3.1-9: Use Case – 9: Find Recipes from Ingredients ................................................ 40 Table 3.1-10: Use Case – 10: Start Cooking ........................................................................ 42 Table 3.1-11: Use Case – 11: Trending & Popular Recipe ................................................. 44 Table 3.1-12: Use Case – 12: Manage Application Settings ............................................... 46     
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+xiii  
+ 1. Table of Contents  Declaration ........................................................................................................................ ii Statement of Submission .................................................................................................. iii Dedication ........................................................................................................................ iv Acknowledgement ............................................................................................................. v Abstract ............................................................................................................................ vi Area of the Project ........................................................................................................... vii Technologies used ............................................................................................................ vii List of Figures: ................................................................................................................. viii List of Tables: .................................................................................................................... xi 1. Chapter 1: Introduction to the Problem: ..................................................................... 1 1.1 Introduction: .................................................................................................................. 1 1.2 Purpose: ......................................................................................................................... 1 1.3 Objectives: ..................................................................................................................... 2 1.4 Existing Solution ............................................................................................................. 2 1.5 Proposed Solution .......................................................................................................... 5 2. Chapter 2: Software Requirement Specification .......................................................... 6 2.1. Introduction: .................................................................................................................. 6 2.1.1. Purpose: .......................................................................................................................................... 6 2.1.2. Scope ............................................................................................................................................... 6 2.1.3. Definitions, Acronyms, and Abbreviations ...................................................................................... 7 2.2. Overall Description ......................................................................................................... 9 2.2.1. Product Perspective ........................................................................................................................ 9 2.2.2. Product Functions ........................................................................................................................... 9 2.2.3. User Characteristics ........................................................................................................................ 9 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+xiv  
+2.2.4. Constraints ...................................................................................................................................... 9 2.2.5. Assumptions and Dependencies ................................................................................................... 10 2.2.6. Apportioning of requirements ...................................................................................................... 10 2.3. Specific Requirements .................................................................................................. 10 2.3.1. Functional Requirements .............................................................................................................. 10 2.3.2. Non-functional Requirements: ..................................................................................................... 21 3. Chapter 3: Use Case Analysis: ................................................................................... 23 3.1. Use Cases: .................................................................................................................... 23 4. Chapter 4: Design: .................................................................................................... 48 4.1 Architecture Diagram ................................................................................................... 48 4.2 ERD with data dictionary: ............................................................................................. 49 4.3 Data Flow Diagram: ...................................................................................................... 50 4.3.1 The Level 0: ................................................................................................................................... 50 4.3.2 The Level 1: ................................................................................................................................... 50 4.3.3 The Level 2: ................................................................................................................................... 51 4.4 Class Diagram: .............................................................................................................. 52 4.5 Activity Diagrams: ........................................................................................................ 53 4.5.1 Account Management .................................................................................................................. 53 4.5.2 User Prefernce .............................................................................................................................. 53 4.5.3 Meal Recommendation ................................................................................................................ 54 4.5.4 Recipe Interaction ......................................................................................................................... 55 4.5.5 Recipe Search & Discovery ............................................................................................................ 56 4.5.6 Community Dashboard ................................................................................................................. 57 4.5.7 Recipe Upload & Management ..................................................................................................... 58 4.5.8 Feedback & Rating ........................................................................................................................ 59 4.5.9 Smart Pantry & Ingredient Insights ............................................................................................... 60 4.5.10 Cooking Assistance ................................................................................................................... 61 4.5.11 Trending & Popular Recipes ..................................................................................................... 62 4.5.12 Manage Application Settings ................................................................................................... 63 4.6 Sequence Diagrams ...................................................................................................... 64 4.6.1 Account Management .................................................................................................................. 64 4.6.2 User Preference ............................................................................................................................ 65 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+xv  
+4.6.3 Meal Recommendation ................................................................................................................ 65 4.6.4 Recipe Interactions ....................................................................................................................... 66 4.6.5 Recipe Search & Discovery ............................................................................................................ 66 4.6.6 Community Dashboard ................................................................................................................. 67 4.6.7 Recipe Upload & Management ..................................................................................................... 67 4.6.8 Feedback & Rating ........................................................................................................................ 68 4.6.9 Smart Pantry & Ingredient Insights ............................................................................................... 68 4.6.10 Cooking Assistance ................................................................................................................... 69 4.6.11 Trending & Popular Recipes ..................................................................................................... 69 4.6.12 Manage Application Settings ................................................................................................... 70 4.7 Collaboration Diagrams ................................................................................................ 71 4.7.1 Auth .............................................................................................................................................. 71 4.7.2 Personalized Meal Recommendation ........................................................................................... 72 4.7.3 Community Dashboard & Social Feed ........................................................................................... 73 4.7.4 User Recipe ................................................................................................................................... 74 4.7.5 Smart Pantry ................................................................................................................................. 75 4.7.6 Cooking Assistance ........................................................................................................................ 76 4.7.7 Application Settings & Localization ............................................................................................... 77 4.8 State Transition Diagram .............................................................................................. 78 4.8.1 User State Transition .................................................................................................................... 78 4.8.2 Cooking Session State Transition .................................................................................................. 79 4.9 Component Diagram .................................................................................................... 80 4.10 Deployment Diagram ................................................................................................... 81 5. Chapter 5: User Manual:  .......................................................................................... 82 5.1.  User Manual Visual Prototype: .................................................................................... 82    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+1  
+1. Chapter 1: Introduction to the Problem: 1.1  Introduction: The world is complicated. Cooking at home is one of the most complicated parts of living at home. People still ask, "What's for dinner?" every day. This makes it difficult to eat healthily. For people with dietary restrictions, they also have the difficulty of not being able to find meals made with their specific product allergy. FlavourFlow aims to solve this issue through technology. FlavourFlow leverages artificial intelligence to build an app tailored to each user's preferences, restrictions, and available ingredients. It can then offer up meal ideas that are both appealing and compatible with what users have at their disposal. With the inclusion of such features as "What’s in Your Fridge," community chat, and users sharing recipe ideas, FlavourFlow makes daily cooking easy, healthy, and fun for everyone! 1.2 Purpose: FlavourFlow aims to be a smart recipe system built around Pakistan's culture of food. Many cooking apps out there don't consider local food, the way each region grows their food and how families in Pakistan prepare their food, therefore FlavourFlow serves this area of need.  The primary goals of FlavourFlow are: • Provide an easier way for people to decide what to cook daily by offering intelligent recipe recommendations powered by AI. • Encourage users to eat healthier and discover a wider variety of meals, including diabetic-friendly options as well as low-carb and high-protein meals. • Prevent wasted food by providing recipes based on what users already have on hand. • Create opportunities for users to connect and interact with each other in a vibrant cooking community where they can post cooking tips, recipes and photos. • Introduce cutting-edge AI technology into the average person's kitchen with a user-friendly application. 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+2  
+1.3 Objectives: The core objectives of FlavourFlow are to deliver a comprehensive AI-powered culinary solution: • To develop an AI system that learns user preferences and suggests appropriate recipes. • To implement the "What’s in Your Fridge" feature with manual and AI-based ingredient input. • To provide a wide variety of recipe choices for every meal. • To offer clear, step-by-step instructions, embedded videos, and smart cooking timers. • To launch a "Community Chat" for users to interact and share their cooking experiences. • To display "Trending Recipes" based on real-time user activity. • To create an adaptive AI that continuously improves suggestions by learning from user feedback. • To integrate nutritional filters for needs like diabetic-friendly, low-carb, or high-protein meals. • To build a "User Dashboard" for users to upload their own recipes. • To provide Voice-to-Text dictation for search and pantry input. 1.4 Existing Solution Among the various digital cooking and meal-recommendation platforms available nowadays, Tasty, Yummly (Mealtime), Mealime, Plan to Eat, HelloFresh, and Nestlé Goodnes are some notable examples. The users of these platforms are provided with a variety of options like discovering recipes, following cooking videos, building grocery lists, or exploring curated meal plans. However, the use of these platforms is not widespread among the Pakistani households as the platforms are not able to cater to the practical, cultural, or dietary needs of that society. Platforms like Tasty provide short visual cooking tutorials but lack interactive guidance, step-based timers, or any intelligent personalization. Yummly Mealtime gets us limited AI-generated suggestions and grocery shopping automation but is heavily dependent on Western ingredients, U.S.-specific shopping integrations, and does not account for local cuisine, halal dietary rules, language accessibility, or Pakistani cooking styles. Plan to Eat and Mealime help with meal scheduling and basic planning but do not dynamically update their recommendations based on real user behavior or feedback. 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+3  
+Nestlé Goodnes in Pakistan has a website where you can find recipes and a thing called "My Menu Planner".. It is only on the web and it does not change based on what you like or what you have at home. You can not tell it what ingredients you have. It will not suggest what you can make. It is also not a place where you can talk to people or share your own recipes. The problem for people in Pakistan is that they want to know what they can make with the food they already have at home. They want it to be good, for their familys health and they want it to taste like the food they are used to eating. Nestlé Goodnes does not really help with this. These solutions are also missing some things: • Recipe suggestions generated from available household ingredients. • Urdu language accessibility and voice-to-text interaction. • Cooking assistance with real-time step-by-step guidance. • Allergy-aware and halal-filtered recipe recommendations.  This is a place where people who like to cook can come together. They can share their recipes with each other. They can also write posts. Talk to other people who like to cook. It is like a group of friends who like food and want to share that with each other. People can upload their recipes and see what other people are cooking. They can even talk about the recipes. Share tips with each other. This community is, about cooking and sharing food with other people who like to cook. Because of these gaps, existing international solutions do not meaningfully support Pakistani kitchens, making daily cooking decisions repetitive, stressful, and inefficient.   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+4  
+  Table 1.4-1: Existing Solutions 
+Feature / Capability Tasty Plan to Eat Mealtime HelloFresh Nestle Goodnes Flavour Flow AI-Powered Suggestions ❌ ❌ ✔ ❌ ❌ ✔ 
+Smart-Pantry-Based Recipe Generator ❌ ❌ ❌ ❌ ❌ ✔ 
+AI Predicts Taste Preferences  ❌ ❌ ❌ ✔ ❌ ✔ 
+Allergy-Friendly / Dietary-Awareness ❌ ✔ ✔ ✔ ❌ ✔ 
+Live Cooking – Step-By-Step Guidance with Timers, Voice & Video Help ❌ ❌ ❌ ❌ ❌ ✔ 
+User Recipe Uploads ❌ ❌ ❌ ❌ ❌ ✔ Community Interaction ❌ ❌ ❌ ❌ ❌ ✔ 
+Urdu Language + Voice Support  ❌ ❌ ❌ ❌ ❌ ✔ 
+   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+5  
+ 1.5 Proposed Solution FlavourFlow provides an AI-Powered Cooking Experience Designed Specifically for Families Living in Pakistan. Our solution consists of the following features: • Personalized Recipes Based on Your Preference: The AI learns your cooking habits via ratings, likes, previous cooking history, and profile information (such as dietary restrictions). The AI provides you with recipes tailored to your lifestyle and preferences • Smart Pantry: A What’s In Your Fridge? feature will help provide meal ideas using only what is on hand to eat or to prepare from ingredients already available in your home, eliminating food waste and relieving the daily burden of deciding what to make for dinner • Local Recipe Database: Recipes by US-based chefs who focus on traditional Indonesian or South Asian meals based on ingredients available locally and made with home-style cooking methods. • Hands-Free Cooking: A Start Cooking feature allows users to use the app to start preparing their meals hands-free. The feature provides timers, step-by-step guided instructions, instructional videos, and optional voice commands for instructions. • Urdu Language and Voice Accessibility: The app is designed to be accessible for older users, mothers, or those who do not speak English. • Social Cooking Community: Users can upload their own recipes and create connections to others through comments and likes to share recipes collectively. • Real-Time Trending Recipe Insights: Users will find out what recipes are trending in Pakistan and what recipes are being cooked the most across Pakistan, which will allow them to discover new meals being prepared by others. • AI learns and improves. Every time a user rates, saves, creates, or completes a recipe, the app improves its ability to provide better suggestions. This allows for an ongoing loop of machine learning. • Healthy Recipes for Diabetics, gluten-free, low-carb, high-protein, and halal-compliant diets, based on your personal needs, will be provided to you.  
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+6  
+2. Chapter 2: Software Requirement Specification 2.1. Introduction: 2.1.1. Purpose: The purpose of FlavourFlow is to serve as a smart culinary companion, helping users decide what to cook. It aims to reduce daily meal-planning stress, support healthy eating habits, and minimize food waste by providing accessible, AI-powered cooking ideas. 2.1.2. Scope FlavourFlow is a cross-platform mobile application that provides personalized meal plans and recipe suggestions. The system scope includes step-by-step cooking guidance, a "Smart Pantry" feature (with manual and AI-detection), a user-generated recipe dashboard, and a community hub for social sharing. The main goals are: • Deliver daily, personalized meal plans. • Provide interactive, step-by-step cooking tutorials. • Generate recipes from user-provided available ingredients. • Foster an active and engaged cooking community. • Enable users to upload and share their own content. • Continuously improve recommendations through an AI feedback loop.   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+7  
+ 2.1.3. Definitions, Acronyms, and Abbreviations Term Category Definition 
+FlavourFlow Definition The AI-powered cooking application developed as the Final Year Project 
+User Definition Any individual interacting with the FlavourFlow mobile or web application 
+Recipe Definition A set of ingredients, quantities, and cooking instructions used to prepare a meal 
+Pantry Ingredients Definition Items available at the user's home, stored digitally in the Smart Pantry feature 
+Smart Pantry Definition A module that suggests meals based on available ingredients 
+Cooking Assistance Definition Step-by-step guidance with timers, instructions, and videos for cooking Community Dashboard Definition A social module where users upload recipes, share posts, like, comment and interact AI Recommendation Definition Automatic meal suggestions based on user preferences, behavior, and history 
+Trending Recipes Definition Recipes currently most cooked or interacted with by users in Pakistan Voice-To-Text Search Definition A feature allowing users to speak instead of typing to search or navigate cooking steps 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+8  
+Meal Recommendation Definition Personalized meals suggested to the user for breakfast, lunch, or dinner UI/UX Abbreviation User Interface / User Experience AI Abbreviation Artificial Intelligence ML Abbreviation Machine Learning FR Abbreviation Functional Requirement NFR Abbreviation Non-Functional Requirement UC Abbreviation Use Case API Abbreviation Application Programming Interface 
+JSON Abbreviation Text-based data-exchange format used between app and server Authentication Definition Process of verifying user credentials during login 
+Authorization Definition System granting access permissions based on login status 
+Database Definition Storage system used to save recipes, user data, pantry items, and reviews Encryption Definition Security measure used to protect sensitive user data    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+9  
+ 2.2. Overall Description 2.2.1. Product Perspective FlavourFlow is architected as a cloud-native application, leveraging a modern microservices structure. The mobile and web clients (the "frontend") communicate with backend services via a secure REST API, ensuring scalability and maintainability. 2.2.2. Product Functions The primary functions of the FlavourFlow platform include: • Creating and managing user profiles. • Recommending recipes using an AI engine. • Suggesting meals using the Smart Pantry feature. • Guiding users through cooking with steps and videos. • Allowing users to share recipes and posts in a community. • Enabling users to search for and upload their own recipes. • Improving all recommendations based on user feedback. 2.2.3. User Characteristics • Tech-enthusiasts who enjoy trying different new and healthy foods out and sharing their thoughts on them, often referred to as 'The Millennial Explorer.' • Users focused on convenient, easy-to-make meals for families referred to as 'The Busy Parent,' who are often short of time due to other commitments.  • A category of users who are still learning how to cook and require step-by-step guidance, known as 'The Novice Cook.'  • Users whose diets are based on health requirements or advise from the doctor (such as with dieters or those living with diabetes) are considered 'The Dietary Planner.' 2.2.4. Constraints • The system must comply with all local and international data privacy laws (like GDPR) regarding sensitive health data. • The mobile application must support iOS 15+ and Android 8.0+. • A persistent internet connection is required for all AI and real-time community features. 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+10  
+• The initial accuracy of the AI is dependent on the quality and diversity of the seed dataset. 2.2.5. Assumptions and Dependencies The system will use accurate information from users about their food preference and allergies Reliance on the reliability of the cloud service provider is critical to the success of the system Accessible and stable third-party services such as social login and video hosting are necessary for continued use of the system, as well as Auth service. 2.2.6. Apportioning of requirements For the Final Year Project to be developed using an agile development methodology, the entire scope of FlavourFlow has been broken down and distributed between multiple releases. While this is the current project (Version 1.0), there will be further additions of more sophisticated technology in future projects as set forth in the section labelled Future Integration (Post-FYP). The Scope of this FYP as it is currently understood (Version 1.0) includes the 12 Functional Requirements identified within the previous sections (Section 2.3.1). Thus, the 12 Functional Requirements include Account Management, AI Recommendations, Community, User Recipe Uploads, Smart Pantry, and Interactive Assistance (Voice to Text) as identified. • Future Additions (Post-FYP): The following advanced features are anticipated for future iterations to enhance the user experience with FlavourFlow:  • A Real-time Voice-activated Cooking Assistant: A hands-free, voice-activated assistant that communicates with the user while they prepare a meal. • Community Moderation: A full reporting and moderation function for reporting to oversee the collection of community-generated content. 2.3. Specific Requirements 2.3.1. Functional Requirements This section details the 12 primary functional requirements of the FlavourFlow system.   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+11  
+Table 2.3-1: Account Management ID FR_01 Name Account Management Description Input Output Requirements Basic Work Flow This module handles all functions related to user authentication, session, and profile. 
+User credentials (email, password), Profile data 
+Secure session token, Created/Updated user account 
+Internet Connectivity, Valid Email User submits credentials to create, login, or reset account. System validates credentials and manages the user's session and profile.  Table 2.3-2 User Preference ID FR_02 Name User Preference Management Description Input Output Requirements Basic Work Flow Allows the user to set up their culinary profile, which is essential for the AI. 
+User selections for allergies, diet, cuisines, etc. 
+Updated user preference profile in DB. 
+User must be logged in. User selects or updates preferences (allergies, diet, cuisines). System saves preferences to the user's profile and updates the AI model.  
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+12  
+    Table 2.3-3 Meal Recommendation  ID FR_03 Name Meal Recommendation Description Input Output Requirements Basic Work Flow The core AI Model that analyzes a user's profile and behavior to suggest meals. 
+User ID, User Preferences, User Feedback. 
+A personalized list of recipes. User must be logged in. User preferences must be set. 
+User opens the home screen. System analyzes user profile and feedback to generate and display personalized meal recommendations.    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+13  
+    Table 2.3-4 Recipe Interactions  ID FR_04 Name Recipe Interactions Description Input Output Requirements Basic Work Flow Allows users to interact with recipe content, which also serves as implicit feedback for the AI. 
+User click/tap on 'Like', 'Comment', 'Share', 'Save'. 
+Updated recipe metadata, Saved user bookmark. 
+User must be logged in. User must be viewing a recipe. 
+User interacts with a recipe (likes, saves, comments, or shares). System records the interaction, updates recipe metadata, and saves to the user's profile.     
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+14  
+    Table 2.3-5 Recipe Search & Discovery ID FR_05 Name Recipe Search & Discovery Description Input Output Requirements Basic Work Flow Provides tools for users to manually find recipes. 
+Search query (text), Filter selections, Sort selection. 
+A list of recipes matching the user's query. 
+Internet Connectivity. User enters search keywords, applies filters, or selects a recipe. System queries the database and returns a list of matching recipes or a detailed recipe view.    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+15  
+    Table 2.3-6 Community Dashboard ID FR_06 Name Community Dashboard  Description Input Output Requirements Basic Work Flow A social hub where users can share their own cooking experiences and interact with others. 
+User-generated post (text, image), User comment. 
+A new post or comment in the community feed. 
+User must be logged in. User creates a post or comments on an existing post. System saves the content and displays it in the community feed.      
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+16  
+    Table 2.3-7 Recipe Upload & Management ID FR_07 Name Recipe Upload & Management Description Input Output Requirements Basic Work Flow Allows users to become creators by uploading their own recipes to the platform. 
+Recipe form (title, ingredients, steps, and images/video). 
+A new user-generated recipe in the database. 
+User must be logged in . User submits, edits, or deletes their own recipe from their dashboard. System saves, updates, or removes the user-generated recipe from the database.      
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+17  
+ Table 2.3-8 Rate & Review ID FR_08 Name Rate and Review Description Input Output Requirements Basic Work Flow The explicit feedback loop for the AI. Allows users to rate and review recipes. 
+1-5 star rating, Written review as a (text). 
+A new rating/review saved to the database. 
+User must be logged in. User submits a star rating or a written review for a recipe. System saves the feedback and provides it to the AI learning loop.  Table 2.3-9 Smart Pantry & Ingredient Insights  ID FR_09 Name Smart Pantry & Ingredient Insights Description Input Output Requirements Basic Work Flow The "What's in Your Fridge?" feature. Allows users to get recipes based on ingredients they own. 
+User's add text/query. or user select multiple option menu from a list.  
+A list of recipes based on those ingredients. 
+User must be logged in. User adds ingredients to their pantry and requests recipes. System returns recipes based on allergies.  
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+18  
+    Table 2.3-10 Cooking Assistance ID FR_10 Name Cooking Assistance Description Input Output Requirements Basic Work Flow Provides a guided, step-by-step experience to help users while they are actively cooking. 
+User tap on "Start Cooking" or timer. Voice-to-Text input for search. 
+A guided, step-by-step UI. An active timer. 
+User must select a recipe. User selects "Start Cooking" on a recipe or uses voice-to-text for search. System displays the step-by-step guide with timers/videos or transcribes voice to text.    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+19  
+    Table 2.3-11 Trending & Popular Recipe ID FR_11 Name Trending & Popular Recipe Description Input Output Requirements Basic Work Flow A non-personalized discovery module that shows what is popular in the community. 
+System query for popular recipes. A list of trending/popular recipes. 
+Internet Connectivity. User navigates to the "Trending" or "Discover" section. System aggregates data and displays lists of popular or most-cooked recipes.    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+20  
+    Table 2.3-12 Manage Application Settings ID FR_12 Name Manage Application Settings Description Input Output Requirements Basic Work Flow Allows users to customize their app experience, including language and notifications. 
+User selection of language or notification toggle. 
+App UI rendered in a new language. 
+User must be logged in. User selects a new language or toggles notification preferences in Settings. System updates the app's configuration and saves the user's choice.     
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+21  
+ 2.3.2. Non-functional Requirements:  Table 2.3-13: NFR ID Category Description NFR_1 Usability The application must be intuitive and easy to navigate for all user types. The UI must be clean, responsive, and provide clear feedback for user actions. NFR_2 Reliability The application will maintain a service availability of 99.9% ("three nines"). It must include robust error handling to prevent crashes and ensure a stable user experience. NFR_3 Performance The system must be highly responsive. Core API calls (e.g., recommendations) must complete in < 500ms. The mobile app must achieve a cold start time of under 3 seconds. NSFR_4 Security All user data must be protected. All data in transit must use TLS 1.2+ encryption. Sensitive data at rest (e.g., allergies, passwords) must be encrypted. NFR_5 Portability The application must provide a consistent user experience across target platforms: iOS (15+) and Android (8.0+). NFR_6 Maintainability The codebase must be well-documented, follow SOLID principles, and have high unit test coverage to facilitate efficient updates and agile development cycles. 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+22  
+NFR_7 Localization The application's UI text and recipe content must fully support both English and Urdu. The architecture must be flexible to accommodate additional languages. NFR_8 Design Constraints The system must be compliant with data protection laws (like GDPR) regarding the handling of sensitive health data (allergies, diets). The AI must be trained to avoid harmful recommendations. NFR_9 Scalability The backend architecture must be horizontally scalable to handle 100,000 concurrent users with no degradation in performance, leveraging cloud-native auto-scaling.    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+23  
+3. Chapter 3: Use Case Analysis: This chapter includes the detailed use case specifications for the 12 primary functional modules of the project. 3.1. Use Cases: 
+ Figure 3.1-1: System Use Cases     
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+24  
+  
+ Figure 3.1-1: Account Management  Table 3.1-1: Use Case – 1: Account Management 
+Field Details 
+Use Case ID UC_1 
+Use Case Name Account Management 
+Description This use case covers all functions related to user authentication and profile management. 
+Primary Actor User 
+Secondary Actor(s) Auth Service, Database 
+Pre-Condition User has opened the application and has an internet connection. 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+25  
+Post-Condition The user's session is securely created, managed, or terminated. The user's profile data is updated. 
+Basic Flow 1. The user initiates an authentication action. 2. The user can Create a New Account with their email and password. 3. An existing user can Login. 4. A user can request a Password Reset. 5. Once logged in, the user can Edit their Profile (e.g., change name, photo). 6. A logged-in user can Logout, which securely terminates their session. 
+Alternate Flow - If login credentials are invalid, the system displays an "Invalid credentials" error. - If the user tries to create an account with an email that already exists, the system prompts them to log in instead. - If the network connection fails, the system displays a "Connection error" message.     
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+26  
+  
+ Figure 3.1-2: User Preference Management  Table 3.1-2: Use Case – 2: User Preference Management: 
+Field Details 
+Use Case ID UC_2 
+Use Case Name User Preference Management 
+Description This use case allows the user to set up their culinary profile, which is essential for the AI to provide personalized recommendations. 
+Primary Actor User 
+Secondary Actor(s) Database, AI Model 
+Pre-Condition The user must be logged in.  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+27  
+Post-Condition The user's preferences (allergies, diet, etc.) are saved to their profile in the database. The AI model is updated. 
+Basic Flow 1. The user redirects to the "My Preferences" screen, often after first-time login. 2. The user can Add/Remove Allergies from a predefined list. 3. The user can Select multiple Cuisine Preferences (e.g., Pakistani, Italian). The user can Update Dietary Preferences (e.g., Vegetarian, Halal, Diabetic-Friendly). 5. The user saves their profile. The AI Model is updated with this new information. 
+Alternate Flow - If the user exits without saving, the system asks to confirm discarding changes.      
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+28  
+  
+ Figure 3.1-3: Meal Recommendation  Table 3.1-3: Use Case – 3: Meal Recommendation System 
+Field Details 
+Use Case ID UC_3 
+Use Case Name Meal Recommendation 
+Description This use case allows the user to view personalized meal recommendations generated by the AI model, based on their stored preferences and past behavior. 
+Primary Actor User 
+Secondary Actor(s) AI Model, Database 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+29  
+Pre-Condition The user must be logged in and have saved at least basic preferences. 
+Post-Condition A personalized list of recipes is displayed to the user on their home screen. 
+Basic Flow 1. The user opens the app's home screen. 2. The system retrieves the user’s profile and relevant data from the Database. 3. The AI Model processes the input data and generates personalized recipe recommendations. 4. The system generates a list of Today's Meals. 5. The system presents personalized Breakfast, Lunch, and Dinner Recommendations. 
+Alternate Flow - If the user is new and has no preferences, the system will redirect the user to complete their user preference page.    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+30  
+  
+ Figure 3.1-4: Search Recipes  Table 3.1-4: Use Case – 4: Search Recipes 
+Field Details 
+Use Case ID UC_4 
+Use Case Name Search Recipes 
+Description This use case provides the tools for users to manually find, filter, sort and view recipes. 
+Primary Actor User 
+Secondary Actor(s) Database 
+Pre-Condition User has an internet connection. 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+31  
+Post-Condition A list of recipes or a detailed recipe view is displayed to the user according to user filtered preferences. 
+Basic Flow 1. The user can Search Recipes by name or ingredient. 2. The user can Filter Recipes (e.g., by cuisine, cook time, dietary need, spiciness-level). 3. The user can Sort Recipes (e.g., by rating, popularity). 4. The user selects a recipe to View Recipe Details (ingredients, steps, video). 
+ Alternate Flow - If no recipes match the search criteria, the system displays a "No results found" message.      
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+32  
+  
+ Figure 3.1-5: Recipe Interaction Table 3.1-5: Use Case – 5: Recipe Interaction & Engagement 
+Field Details 
+Use Case ID UC_5 
+Use Case Name Recipe Interaction  
+Description Allows users to interact with recipe content, providing implicit feedback for the AI and saving content. 
+Primary Actor User 
+Secondary Actor(s) Database, AI Model 
+Pre-Condition The user must be logged in and access/open a recipe. 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+33  
+Post-Condition All engagement interactions (like, comment, save, share) are stored in the Database and/or sent to the AI Model to improve recommendations. 
+Basic Flow 1. The user opens a recipe.  2. The user can Like a recipe. 3. The user can Comment on a recipe. 4. The user can Share a recipe to an external application. 5. The user can Save/Bookmark the recipe to their personal list. 6. The system saves this interaction to the AI Model as implicit feedback by that user. 
+Alternate Flow - If the recipe fails to load (e.g., network error), the system displays: “Unable to load recipe. Please check your connection.”    
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+34  
+  
+ Figure 3.1-6: Community Dashboard  Table 3.1-6: Use Case – 6: Community Dashboard 
+Field Details 
+Use Case ID UC_6 
+Use Case Name Community Dashboard 
+Description A social hub where users can share their cooking experiences and interact with other community members. 
+Primary Actor User 
+Secondary Actor(s) Database 
+Pre-Condition The user must be logged in. 
+Post-Condition A new post or comment is created and visible on the feed. 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+35  
+Basic Flow 1. The user navigates to the "Community" tab. 2. The user can View the Community Feed (a timeline of posts). 3. The user can Create a Community Post (with text and/or images). 4. The user can Comment on a Post made by another user. 
+Alternate Flow - If the network connection fails, a "Could not load posts" message is shown.     
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+36  
+  
+ Figure 3.1-7: Recipe Upload and Management  Table 3.1-7: Use Case – 7: Recipe Upload & Management 
+Field Details 
+Use Case ID UC_7 
+Use Case Name Recipe Upload & Management 
+Description Allows users to become creators by uploading their own recipes to the platform via a personal dashboard. 
+Primary Actor User 
+Secondary Actor(s) Database 
+Pre-Condition The user must be logged in.  
+Post-Condition A new recipe, submitted by the user, is added to the database and linked to their profile. 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+37  
+Basic Flow 1. The user navigates to their "My Recipes" dashboard. 2. The user selects "Upload a New Recipe." 3. The user fills out a structured form (title, description, ingredients, steps, image, attachs video link). 4. The user submits the form. The system saves the recipe. 5. The user can later Edit an Uploaded Recipe. 6. The user can Delete an Uploaded Recipe. 
+Alternate Flow - If the form validation fails (e.g., missing title), the system displays an error and highlights the required fields.     
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+38  
+  
+ Figure 3.1-8: Rate and Review  Table 3.1-8: Use Case – 8: Feedback & Rating System 
+Field Details 
+Use Case ID UC_8 
+Use Case Name Rate & Review 
+Description The explicit feedback loop for the AI. Allows users to rate and review recipes they have tried. 
+Primary Actor User 
+Secondary Actor(s) Database, AI Model 
+Pre-Condition The user must be logged in and must have cooked the recipe at least once. 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+39  
+Post-Condition A new rating/review is saved. The AI Model is updated with this explicit feedback. 
+Basic Flow 1. The user opens a recipe.  2. The user can Rate a Recipe (1-5 stars). 3. The user can Submit Review (a detailed written review). 4. The system saves the review to the database. 5. The system sends this data to the AI Model to improve future recommendations for the user. 
+Alternate Flow - If the system detects that the user has not cooked the recipe before. The system displays a message: “You can only give feedback after cooking this recipe at least once.” The system disables the rating/review form OR redirects the user to “Start Cooking”.      
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+40  
+  
+ Figure 3.1-9: Find Recipes from Ingredients  Table 3.1-9: Use Case – 9: Find Recipes from Ingredients 
+Field Details 
+Use Case ID UC_9 
+Use Case Name Find Recipes 
+Description The "What's in Your Fridge?" feature. Allows users to get recipes based on ingredients they own. 
+Primary Actor User 
+Secondary Actor(s) Database, AI Model, Voice Recognition Service 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+41  
+Pre-Condition The user must be logged in and must have added at least two ingredients before requesting pantry-based recipe suggestions. 
+Post-Condition A list of recipes based on the user's ingredients is displayed. 
+Basic Flow 1. The user navigates to the " What's in Your Fridge?”(fridge icon) feature. 2. The user can Add Ingredients to Pantry (by typing or selecting mutli-options) or use a Microphone for voice-to-text dictation. 3. The user submits their ingredient list. 4. The system queries the AI Model and returns Pantry-Based Recipes. 5. The system also performs an Allergen Warning check against the user's profile. 
+Alternate Flow - If no recipes match the ingredients, the system suggests adding 1-2 more items.     
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+42  
+  
+ Figure 3.1-10: Start Cooking Table 3.1-10: Use Case – 10: Start Cooking 
+Field Details 
+Use Case ID UC_10 
+Use Case Name Start Cooking 
+Description Provides a guided, step-by-step experience and input methods to help users while they are actively cooking. 
+Primary Actor User 
+Secondary Actor(s) Voice Recognition Service ,AI Assistance 
+Pre-Condition The user must have opened a recipe detail page i.e., selected a recipe to cook. 
+Post-Condition The user is guided through a recipe, or their voice is transcribed to text. 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+43  
+Basic Flow 1. The user opens a recipe. 2. The user can select "Start Cooking" to launch the Step-by-Step Guide. 3. On a cooking step, the user can Start a Smart Timer. 4. The user can Watch Embedded Video Tutorials for the recipe. 5. When user is cooking, they can take help about cooking by tapping a microphone icon to use Voice-to-Text dictation or can add a text query from AI Cooking Assistance. 
+Alternate Flow - If the Voice Recognition Service fails, the system shows an error and prompts the user to type manually.      
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+44  
+ 
+ Figure 3.1-11: Trending and Popular Recipes  Table 3.1-11: Use Case – 11: Trending & Popular Recipe 
+Field Details 
+Use Case ID UC_11 
+Use Case Name Trending & Popular Recipe 
+Description A non-personalized discovery module that shows what is popular in the community. 
+Primary Actor System 
+Secondary Actor(s) User, Database 
+Pre-Condition User has an internet connection. 
+Post-Condition A list of trending/popular recipes is displayed to the user. 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+45  
+Basic Flow 1. The user navigates to the "Trending" & “Popular this Week” section on the Home page. 2. The system automatically curates a list of Popular Recipes. 3. The system generates a list of Most Cooked Today (based on all user activity). 4. The user can browse and select these recipes to view their details. 
+Alternate Flow - If there is not enough data to generate a list, the system displays a default set of popular recipes. 
+   
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+46  
+  
+ Figure 3.1-12: Manage Application Settings  Table 3.1-12: Use Case – 12: Manage Application Settings 
+Field Details 
+Use Case ID UC_12 
+Use Case Name Manage Application Settings 
+Description Allows users to customize their app experience, including language and notifications. 
+Primary Actor User 
+Secondary Actor(s) Database 
+Pre-Condition The user must be logged in to save settings.  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+47  
+Post-Condition The application's UI is re-rendered in the selected language, and notification preferences are saved. 
+Basic Flow 1. The user navigates to the "Settings" screen. 2. The user can Change Language (from English to Urdu, or vice-versa). 3. The user can Change Notification Settings (e.g., toggle meal reminders on/off). 4. The system saves the user's choices. 
+Alternate Flow - N/A     
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+48  
+4. Chapter 4: Design: 4.1 Architecture Diagram     
+   
+Figure 4.1-1 Architecture Diagram 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+49  
+4.2 ERD with data dictionary:    
+Figure 4.2-1 ERD with data dictionary 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+50  
+4.3 Data Flow Diagram: 4.3.1 The Level 0: 
+ Figure 4.3-1Data Flow Diagram: Level 0  4.3.2 The Level 1: 
+ Figure 4.3-2 Data Flow Diagram: Level 1   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+51  
+    4.3.3 The Level 2: 
+ Figure 4.3-3 Data Flow Diagram: Level 2   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+52  
+4.4 Class Diagram:  
+ Figure 4.4-1 Class Diagram   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+53  
+  4.5 Activity Diagrams: 4.5.1 Account Management 
+ Figure 4.5-1 Activity Diagram: Account Management  4.5.2 User Preference 
+ Figure 4.5-2 Activity Diagram: User Preference 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+54  
+4.5.3 Meal Recommendation    
+Figure 4.5-3 Activity Diagram: Meal Recommendation 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+55  
+4.5.4 Recipe Interaction 
+ Figure 4.5-4 Activity Diagram: Recipe Interactions  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+56  
+4.5.5 Recipe Search & Discovery 
+ Figure 4.5-5 Activity Diagram: Recipe Search & Discovery   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+57  
+4.5.6 Community Dashboard 
+ Figure 4.5-6 Activity Diagram: Community Dashboard    
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+58  
+4.5.7 Recipe Upload & Management 
+ Figure 4.5-7 Activity Diagram: Recipe Upload & Management   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+59  
+4.5.8 Feedback & Rating 
+ Figure 4.5-8 Activity Diagram: Feedback & Rating 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+60  
+4.5.9 Smart Pantry & Ingredient Insights 
+ Figure 4.5-9 Activity Diagram: Smart Pantry & Ingredient Insights 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+61  
+4.5.10 Cooking Assistance 
+ Figure 4.5-10 Activity Diagram: Cooking Assistance  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+62  
+4.5.11 Trending & Popular Recipes 
+ Figure 4.5-11 Activity Diagram: Trending & Popular Recipes 
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+63  
+4.5.12 Manage Application Settings 
+ Figure 4.5-12 Activity Diagram: Manage Application Settings   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+64  
+4.6 Sequence Diagrams   4.6.1 Account Management  
+ Figure 4.6-1 Sequence Diagram: Account Management  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+65  
+4.6.2 User Preference 
+ Figure 4.6-2 Sequence Diagram: User Preference   4.6.3 Meal Recommendation 
+ Figure 4.6-3 Sequence Diagram: Meal Recommendation  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+66  
+4.6.4 Recipe Interactions 
+ Figure 4.6-4 Sequence Diagram: Recipe Interactions   4.6.5 Recipe Search & Discovery 
+ Figure 4.6-5 Sequence Diagram: Recipe Search & Discovery  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+67  
+4.6.6 Community Dashboard 
+ Figure 4.6-6 Sequence Diagram: Community Dashboard  4.6.7 Recipe Upload & Management 
+ Figure 4.6-7 Sequence Diagram: Recipe Upload & Management  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+68  
+4.6.8 Feedback & Rating 
+ Figure 4.6-8 Sequence Diagram: Feedback & Rating  4.6.9 Smart Pantry & Ingredient Insights 
+ Figure 4.6-9 Sequence Diagram: Smart Pantry & Ingredient Insights  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+69  
+4.6.10 Cooking Assistance 
+ Figure 4.6-10 Sequence Diagram: Cooking Assistance 4.6.11 Trending & Popular Recipes 
+ Figure 4.6-11 Sequence Diagram: Trending & Popular Recipes  
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+70  
+4.6.12 Manage Application Settings 
+ Figure 4.6-12 Sequence Diagram: Manage Application Settings    
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+71  
+4.7 Collaboration Diagrams  4.7.1 Auth  
+ Figure 4.7-1 Collaboration Diagram: Auth   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+72  
+4.7.2 Personalized Meal Recommendation  
+ Figure 4.7-2 Collaboration Diagram: Personalized    
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+73  
+4.7.3 Community Dashboard & Social Feed  
+ Figure 4.7-3 Collaboration Diagram: Community   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+74  
+4.7.4 User Recipe  
+ Figure 4.7-4 Collaboration Diagram: User Recipe   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+75  
+4.7.5 Smart Pantry  
+ Figure 4.7-5 Collaboration Diagram: Smart Pantry   
+
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+76  
+4.7.6 Cooking Assistance   
+   
+Figure 4.7-6 Collaboration Diagram: Cooking Assitance 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+77  
+4.7.7 Application Settings & Localization     
+Figure 4.7-7 Collabration Diagram: Application Settings & Localization 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+78  
+4.8 State Transition Diagram 4.8.1 User State Transition 
+ 
+Figure 4.8-1 State Transition Diagram: User State 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+79  
+4.8.2 Cooking Session State Transition   
+Figure 4.8-2 State Transition Diagram: Cooking Session 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+80  
+4.9 Component Diagram   
+Figure 4.9-1 Component Diagram 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+81  
+4.10 Deployment Diagram     
+    
+Figure 4.10-1 Deployment 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+82  
+ 5. Chapter 5: User Manual:  5.1  User Manual Visual Prototype:  
+ Figure 5.1-2 Sign In 
+Figure 5.1-1 Onboarding Welcome 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+83  
+  
+Figure 5.1-4 Sign In Figure 5.1-3 Forget Password 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+84  
+     
+Figure 5.1-5 Forget Verify Figure 5.1-6 Set New Password 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+85  
+  
+Figure 5.1-7 Sign Up Figure 5.1-8 Register Account: 1 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+86  
+Figure 5.1-9 Register Account :2 Figure 5.1-10 Account Verify 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+87  
+  
+Figure 5.1-11 Sign Up Successful Figure 5.1-12 Set Country Preference 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+88  
+   
+Figure 5.1-13 Set Cuisines Preference Figure 5.1-14 Set Allergies Preference 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+89  
+    
+   
+Figure 5.1-15 Setup Completion Figure 5.1-16 Home 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+90  
+  
+Figure 5.1-17 Create Recipe Figure 5.1-18 Notification 
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+91  
+  
+© Department of CS & IT, The University of Lahore, Final Year Project Documentation.                                                                                Project ID: Fall-2025-00 Session: Fall 2021 – 2025 
+92  
+ 

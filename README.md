@@ -4,26 +4,33 @@ AI-powered cooking app for Pakistani households that suggests recipes from avail
 
 ## 🚀 Quick Start
 
-1. **Install dependencies**
-
+### For Collaborators (Team Members)
+1. **Clone the repository**
+2. **Setup Environment**:
+   - Create a `.env` file in the root.
+   - Copy the structure from `.env.example`.
+   - Ask the lead for the Supabase credentials (never share these in the repo!).
+3. **Install Dependencies**:
    ```bash
    npm install
    ```
+4. **Start the app**:
+   ```bash
+   npx expo start --clear
+   ```
 
+### For New Setup (or Lead)
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
 2. **Set up environment variables**
    - Copy `.env.example` to `.env`
-   - Add your Supabase credentials (already configured)
-
+   - Add your Supabase credentials
 3. **Start the app**
-
    ```bash
    npx expo start
    ```
-
-4. **Run on device**
-   - Scan QR code with Expo Go app (iOS/Android)
-   - Press `i` for iOS simulator
-   - Press `a` for Android emulator
 
 ## 📁 Project Structure
 
@@ -321,7 +328,7 @@ flavourflow
 ├─ eslint.config.js
 ├─ examples
 │  └─ design-system-usage.tsx
-├─ figma-desgin
+├─ figma-design
 │  ├─ Bottom Bar.png
 │  ├─ Continue with Email.png
 │  ├─ Create recipe.png

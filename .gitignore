@@ -35,10 +35,27 @@ yarn-error.*
 # local env files
 .env*.local
 .env
+.env.production
+.env.development
 
 # typescript
 *.tsbuildinfo
 
+# Python
+.venv/
+
+# Design assets (large source files)
+src/FF-ChefBoo/
+src/figma-design/
+
 app-example
+
+# Agent files & local config
+.agents/
+skills-lock.json
+.vscode/mcp.json
+
+# PDF text extraction dependencies
+pdf_deps/
 
 

@@ -7,10 +7,10 @@ Follow these steps to ensure the app runs without issues after cloning:
 ### 1. **Environment Variables** ⚠️
 The app requires Supabase environment variables. There's a naming inconsistency to be aware of:
 
-**Current `.env` file uses:**
+**Current `.env` file structure:**
 ```env
-
-
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 ```
 
 **⚠️ Issue:** The variable name is `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` but the `.env.example` and TypeScript types reference `EXPO_PUBLIC_SUPABASE_ANON_KEY`.

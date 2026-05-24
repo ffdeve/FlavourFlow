@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "expo-router";
-import React from "react";
+
 import { Alert, ScrollView, Text, View } from "react-native";
 
 export default function ProfileScreen() {

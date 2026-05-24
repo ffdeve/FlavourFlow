@@ -5,7 +5,7 @@ import { ActivityIndicator, View } from "react-native";
 
 export default function Index() {
   const router = useRouter();
-  const { isAuthenticated, isInitialized } = useAuth();
+  const { isAuthenticated, isInitialized, preferenceDone } = useAuth();
   const navigationAttempted = useRef(false);
 
   useEffect(() => {
@@ -16,9 +16,13 @@ export default function Index() {
       navigationAttempted.current = true;
       
       if (isAuthenticated) {
-        router.replace("/(tabs)");
+        if (preferenceDone) {
+          router.replace("/(tabs)");
+        } else {
+          router.replace("/(auth)/userpreference");
+        }
       } else {
-        router.replace("/(auth)/welcome");
+        router.replace("/(auth)/entry");
       }
     }, 2000);
 
@@ -29,9 +33,13 @@ export default function Index() {
 
       const timer = setTimeout(() => {
         if (isAuthenticated) {
-          router.replace("/(tabs)");
+          if (preferenceDone) {
+            router.replace("/(tabs)");
+          } else {
+            router.replace("/(auth)/userpreference");
+          }
         } else {
-          router.replace("/(auth)/welcome");
+          router.replace("/(auth)/entry");
         }
       }, 100);
 
@@ -42,7 +50,7 @@ export default function Index() {
     }
 
     return () => clearTimeout(initTimeout);
-  }, [isAuthenticated, isInitialized, router]);
+  }, [isAuthenticated, isInitialized, preferenceDone, router]);
 
   return (
     <View className="flex-1 items-center justify-center bg-background">

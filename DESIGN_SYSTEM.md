@@ -288,6 +288,6 @@ Colors are prepared for future dark mode support with light/dark variants. Curre
 
 ## Figma Source
 
-Design files located in: `/figma-desgin/`
+Design files located in: `/figma-design/`
 
 All component designs, screens, and specifications are documented in the Figma files for reference.
