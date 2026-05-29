@@ -25,7 +25,7 @@ export const CategoryPill = ({ label, isSelected, onPress }: CategoryPillProps) 
       }}
     >
       <Text
-        className={`font-poppins-medium text-sm ${
+        className={`font-jakarta-semibold text-sm ${
           isSelected ? "text-white" : "text-text"
         }`}
       >

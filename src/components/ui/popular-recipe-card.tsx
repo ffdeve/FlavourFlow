@@ -32,7 +32,7 @@ export const PopularRecipeCard = ({
       }}
     >
       <View className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
-        <Image source={image} className="w-full h-full" contentFit="cover" />
+        <Image source={{ uri: image }} className="w-full h-full" contentFit="cover" />
         
         {/* Spice Level Badge Overlay */}
         {spiceLevel > 0 && (
@@ -46,7 +46,7 @@ export const PopularRecipeCard = ({
 
       <View className="px-2 pb-2">
         <Text
-          className="font-poppins-semibold text-text text-sm mb-2"
+          className="font-jakarta-bold text-text text-sm mb-2"
           numberOfLines={2}
         >
           {title}
@@ -54,7 +54,7 @@ export const PopularRecipeCard = ({
 
         <View className="flex-row items-center">
           <Feather name="clock" size={14} color="#8B7D6F" />
-          <Text className="font-poppins-regular text-text-secondary text-xs ml-1">
+          <Text className="font-inter-medium text-text-secondary text-xs ml-1">
             {time}
           </Text>
         </View>

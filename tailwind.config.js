@@ -70,6 +70,19 @@ module.exports = {
         "poppins-bold": ["Poppins_700Bold"],
         "poppins-extrabold": ["Poppins_800ExtraBold"],
         "poppins-black": ["Poppins_900Black"],
+
+        // Plus Jakarta Sans font family
+        "jakarta-regular": ["PlusJakartaSans_400Regular"],
+        "jakarta-medium": ["PlusJakartaSans_500Medium"],
+        "jakarta-semibold": ["PlusJakartaSans_600SemiBold"],
+        "jakarta-bold": ["PlusJakartaSans_700Bold"],
+        "jakarta-extrabold": ["PlusJakartaSans_800ExtraBold"],
+
+        // Inter font family
+        "inter-regular": ["Inter_400Regular"],
+        "inter-medium": ["Inter_500Medium"],
+        "inter-semibold": ["Inter_600SemiBold"],
+        "inter-bold": ["Inter_700Bold"],
       },
 
       fontSize: {

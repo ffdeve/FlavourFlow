@@ -7,6 +7,7 @@ import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated"
 // Components
 import { CategoryPill } from "@/components/ui/category-pill";
 import { PopularRecipeCard } from "@/components/ui/popular-recipe-card";
+import { RecommendationCard } from "@/components/ui/recommendation-card";
 import { AnimatedSearchBar } from "@/components/ui/animated-search-bar";
 import { PromotionCarousel } from "@/components/ui/promotion-carousel";
 
@@ -58,10 +59,10 @@ export default function HomeScreen() {
                 <Feather name="box" size={22} color="#FFFFFF" /> 
               </View>
               <View>
-                <Text className="font-poppins-regular text-white/80 text-sm">
+                <Text className="font-inter-regular text-white/80 text-sm">
                   Welcome Back!
                 </Text>
-                <Text className="font-poppins-bold text-white text-xl">
+                <Text className="font-jakarta-bold text-white text-xl">
                   {profile?.full_name || "M.Usman"}
                 </Text>
               </View>
@@ -91,7 +92,7 @@ export default function HomeScreen() {
           {/* Today's Recommendation Section (Formerly Category) */}
           <View>
             <View className="px-6 flex-row justify-between items-end mb-4">
-              <Text className="font-poppins-bold text-primary-dark text-xl">
+              <Text className="font-inter-semibold text-primary-dark text-xl">
                 Today's Recommendation
               </Text>
             </View>
@@ -120,13 +121,10 @@ export default function HomeScreen() {
               className="mt-2"
             >
               {recommendedRecipes.map((recipe) => (
-                <PopularRecipeCard
+                <RecommendationCard
                   key={recipe.id}
-                  title={recipe.title}
-                  time={recipe.time}
-                  spiceLevel={recipe.spiceLevel}
-                  image={recipe.image}
-                  onPress={() => console.log("Press", recipe.title)}
+                  recipe={recipe}
+                  onPress={() => router.push(`/recipe-detail?id=${recipe.id}`)}
                 />
               ))}
               
@@ -134,19 +132,12 @@ export default function HomeScreen() {
               <TouchableOpacity
                 onPress={() => router.push("/category-details")}
                 activeOpacity={0.8}
-                className="w-32 h-[200px] ml-2 mr-6 bg-white rounded-3xl border-2 border-gray-100 items-center justify-center shadow-sm"
-                style={{
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.05,
-                  shadowRadius: 8,
-                  elevation: 2,
-                }}
+                className="w-28 h-[200px] ml-2 mr-6 bg-transparent items-center justify-center"
               >
-                <View className="w-12 h-12 rounded-full bg-primary/10 items-center justify-center mb-3">
-                  <Feather name="arrow-right" size={24} color="#FBA82E" />
+                <View className="w-14 h-14 rounded-full bg-primary/20 items-center justify-center mb-3">
+                  <Feather name="arrow-right" size={26} color="#FBA82E" />
                 </View>
-                <Text className="font-poppins-medium text-primary-dark">
+                <Text className="font-jakarta-semibold text-primary text-sm">
                   See All
                 </Text>
               </TouchableOpacity>
@@ -156,11 +147,11 @@ export default function HomeScreen() {
           {/* Popular Recipes Section */}
           <View className="mt-6 pb-32">
             <View className="px-6 flex-row justify-between items-end mb-4">
-              <Text className="font-poppins-bold text-primary-dark text-xl">
+              <Text className="font-inter-semibold text-primary-dark text-xl">
                 Popular Recipes
               </Text>
               <TouchableOpacity>
-                <Text className="font-poppins-medium text-primary text-sm">
+                <Text className="font-jakarta-semibold text-primary text-sm">
                   See All
                 </Text>
               </TouchableOpacity>
@@ -177,7 +168,7 @@ export default function HomeScreen() {
                   time={recipe.time}
                   spiceLevel={recipe.spiceLevel}
                   image={recipe.image}
-                  onPress={() => console.log("Press", recipe.title)}
+                  onPress={() => router.push(`/recipe-detail?id=${recipe.id}`)}
                 />
               ))}
             </ScrollView>

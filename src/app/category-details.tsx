@@ -22,7 +22,7 @@ export default function CategoryDetailsScreen() {
         >
           <Feather name="arrow-left" size={20} color="#1A1A1A" />
         </TouchableOpacity>
-        <Text className="flex-1 text-center font-poppins-bold text-lg text-primary-dark mr-10">
+        <Text className="flex-1 text-center font-inter-semibold text-lg text-primary-dark mr-10">
           All Recommendations
         </Text>
       </View>
@@ -32,37 +32,37 @@ export default function CategoryDetailsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="mb-4">
-          <Text className="font-poppins-bold text-2xl text-primary-dark">
+          <Text className="font-inter-semibold text-2xl text-primary-dark">
             Find what you crave
           </Text>
-          <Text className="font-poppins-regular text-text-secondary mt-1">
+          <Text className="font-inter-regular text-text-secondary mt-1">
             Browse all our personalized recommendations for you right now.
           </Text>
         </View>
 
         {/* Recipe Grid Layout */}
         <View className="flex-row flex-wrap justify-between pb-10">
-          {recommendedRecipes.map((recipe, index) => (
+          {recommendedRecipes.map((recipe) => (
             <View key={recipe.id} className="w-[48%] mb-4">
               <PopularRecipeCard
                 title={recipe.title}
                 time={recipe.time}
                 spiceLevel={recipe.spiceLevel}
                 image={recipe.image}
-                onPress={() => console.log("Press", recipe.title)}
+                onPress={() => router.push(`/recipe-detail?id=${recipe.id}`)}
               />
             </View>
           ))}
           
           {/* Repeat dummy data to show scrolling list */}
-          {recommendedRecipes.map((recipe, index) => (
+          {recommendedRecipes.map((recipe) => (
             <View key={recipe.id + "_clone"} className="w-[48%] mb-4">
               <PopularRecipeCard
                 title={recipe.title}
                 time={recipe.time}
                 spiceLevel={recipe.spiceLevel}
                 image={recipe.image}
-                onPress={() => console.log("Press", recipe.title)}
+                onPress={() => router.push(`/recipe-detail?id=${recipe.id}`)}
               />
             </View>
           ))}
