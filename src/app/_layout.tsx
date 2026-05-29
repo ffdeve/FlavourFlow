@@ -14,7 +14,7 @@ import { useEffect } from "react";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import "../global.css";
+import "../../global.css";
 
 // Configure Reanimated logger to suppress strict mode rendering warnings
 configureReanimatedLogger({
