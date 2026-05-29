@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { verifyInstallation } from "nativewind";
 import "../../global.css";
 
 // Configure Reanimated logger to suppress strict mode rendering warnings
@@ -48,6 +49,7 @@ const linking = {
 };
 
 export default function RootLayout() {
+  verifyInstallation();
   const initialize = useAuthStore((state) => state.initialize);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const refreshProfile = useAuthStore((state) => state.refreshProfile);

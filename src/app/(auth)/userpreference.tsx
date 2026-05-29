@@ -1,52 +1,15 @@
 import AnimatedSearchBar from "@/components/ui/animated-search-bar";
 import { BrickWallCarousel } from "@/components/ui/brick-wall-carousel";
+import { DiamondChip } from "@/components/ui/diamond-chip";
 import { Button } from "@/components/ui/button";
 import SpiceSelector from "@/components/ui/spice-selector";
 import { profileService } from "@/services/profile.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { CuisineItem } from "@/types";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// Fallback Country data with country/flag codes
-const STATIC_COUNTRIES = [
-  { value: "PK", label: "Pakistan", code: "PK" },
-  { value: "IT", label: "Italy", code: "IT" },
-  { value: "MX", label: "Mexico", code: "MX" },
-  { value: "FR", label: "France", code: "FR" },
-  { value: "CN", label: "China", code: "CN" },
-  { value: "JP", label: "Japan", code: "JP" },
-  { value: "US", label: "America", code: "US" },
-  { value: "ES", label: "Spain", code: "ES" },
-  { value: "TR", label: "Turkey", code: "TR" },
-  { value: "IN", label: "India", code: "IN" },
-];
-
-const STATIC_CUISINES = [
-  { value: "Biryani", label: "Biryani", emoji: "🍛" },
-  { value: "Karahi", label: "Karahi", emoji: "🍲" },
-  { value: "Pizza", label: "Pizza", emoji: "🍕" },
-  { value: "Pasta", label: "Pasta", emoji: "🍝" },
-  { value: "Sushi", label: "Sushi", emoji: "🍣" },
-  { value: "Tacos", label: "Tacos", emoji: "🌮" },
-  { value: "Burgers", label: "Burgers", emoji: "🍔" },
-  { value: "Kabab", label: "Kabab", emoji: "🍢" },
-  { value: "Nihari", label: "Nihari", emoji: "🍲" },
-  { value: "Daal Chawal", label: "Daal Chawal", emoji: "🍛" },
-];
-
-const STATIC_ALLERGIES = [
-  { value: "Peanuts", label: "Peanuts", emoji: "🥜" },
-  { value: "Gluten", label: "Gluten", emoji: "🌾" },
-  { value: "Dairy", label: "Dairy", emoji: "🥛" },
-  { value: "Soy", label: "Soy", emoji: "🫛" },
-  { value: "Shellfish", label: "Shellfish", emoji: "🍤" },
-  { value: "Tree Nuts", label: "Tree Nuts", emoji: "🌰" },
-  { value: "Eggs", label: "Eggs", emoji: "🍳" },
-  { value: "Fish", label: "Fish", emoji: "🐟" },
-];
 
 export default function UserPreferenceScreen() {
   const { updatePreferences, markPreferencesComplete, signOut } = useAuthStore();
@@ -55,10 +18,10 @@ export default function UserPreferenceScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // DB catalog lists and loading state
-  const [countries, setCountries] = useState<any[]>(STATIC_COUNTRIES);
-  const [cuisines, setCuisines] = useState<any[]>(STATIC_CUISINES);
-  const [allergies, setAllergies] = useState<any[]>(STATIC_ALLERGIES);
+  // DB catalog lists
+  const [countries, setCountries] = useState<CuisineItem[]>([]);
+  const [allCuisines, setAllCuisines] = useState<CuisineItem[]>([]);
+  const [allergies, setAllergies] = useState<CuisineItem[]>([]);
 
   // States for user choices
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
@@ -77,14 +40,43 @@ export default function UserPreferenceScreen() {
         ]);
 
         if (dbCountries.length > 0) setCountries(dbCountries);
-        if (dbCuisines.length > 0) setCuisines(dbCuisines);
+        if (dbCuisines.length > 0) setAllCuisines(dbCuisines);
         if (dbAllergens.length > 0) setAllergies(dbAllergens);
       } catch (err) {
-        console.warn("Could not load dynamic DB catalog, using static fallback lists:", err);
+        console.warn("Could not load dynamic DB catalog:", err);
       }
     }
     loadCatalog();
   }, []);
+
+  // Show all cuisines regardless of country selection for now
+  // Further filter cuisines by search query
+  const searchedCuisines = useMemo(() => {
+    // Only show items that have an icon_url
+    const availableCuisines = allCuisines.filter(c => c.icon_url);
+    if (!searchQuery.trim()) return availableCuisines;
+    
+    const q = searchQuery.toLowerCase();
+    return availableCuisines.filter((c) => {
+      const name = c.name || "";
+      const nameUrdu = c.name_urdu || "";
+      return name.toLowerCase().includes(q) || nameUrdu.toLowerCase().includes(q);
+    });
+  }, [allCuisines, searchQuery]);
+
+  // Filter allergies by search query
+  const searchedAllergies = useMemo(() => {
+    // Only show items that have an icon_url
+    const availableAllergies = allergies.filter(a => a.icon_url);
+    if (!searchQuery.trim()) return availableAllergies;
+    
+    const q = searchQuery.toLowerCase();
+    return availableAllergies.filter((a) => {
+      const name = a.name || "";
+      const nameUrdu = a.name_urdu || "";
+      return name.toLowerCase().includes(q) || nameUrdu.toLowerCase().includes(q);
+    });
+  }, [allergies, searchQuery]);
 
   const toggleSelection = (
     item: string,
@@ -96,17 +88,23 @@ export default function UserPreferenceScreen() {
     );
   };
 
+  // Clear search query when navigating steps
+  const goToStep = (nextStep: number) => {
+    setSearchQuery("");
+    setStep(nextStep);
+  };
+
   const handleNext = () => {
     if (step === 1 && selectedCountries.length < 1) {
       Alert.alert("Requirement", "Please select at least 1 Country.");
       return;
     }
-    if (step === 2 && selectedCuisines.length < 5) {
-      Alert.alert("Requirement", "Please select at least 5 cuisines.");
+    if (step === 2 && selectedCuisines.length < 3) {
+      Alert.alert("Requirement", "Please select at least 3 cuisines.");
       return;
     }
     if (step < 5) {
-      setStep(step + 1);
+      goToStep(step + 1);
     }
   };
 
@@ -133,12 +131,6 @@ export default function UserPreferenceScreen() {
     }
   };
 
-  // Filter allergies locally based on search bar query
-  const filteredAllergies = allergies.filter((allergen) => {
-    const name = allergen.label || allergen.name || "";
-    return name.toLowerCase().includes(searchQuery.toLowerCase());
-  });
-
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
@@ -150,7 +142,7 @@ export default function UserPreferenceScreen() {
               <TouchableOpacity
                 onPress={async () => {
                   if (step > 1) {
-                    setStep(step - 1);
+                    goToStep(step - 1);
                   } else {
                     try {
                       await signOut();
@@ -194,10 +186,10 @@ export default function UserPreferenceScreen() {
             {step === 2 && (
               <View>
                 <Text className="text-4xl text-primary font-poppins-semibold leading-tight">
-                  Your Preferred{"\n"}Cuisines?
+                  Your Favourite{"\n"}Dishes/Cuisines?
                 </Text>
                 <Text className="text-text-secondary font-poppins-light text-sm mt-1">
-                  Select At-least 5 Options
+                  Select At-least 3 Options
                 </Text>
               </View>
             )}
@@ -205,7 +197,7 @@ export default function UserPreferenceScreen() {
             {step === 3 && (
               <View>
                 <Text className="text-4xl text-primary font-poppins-semibold leading-tight">
-                  Any Allergies{"\n"}Or Dislikes?
+                  Any Allergies?
                 </Text>
                 <Text className="text-text-secondary font-poppins-light text-sm mt-1">
                   Select if any (Optional)
@@ -227,7 +219,7 @@ export default function UserPreferenceScreen() {
             {step === 5 && (
               <View className="items-center mt-8">
                 <View className="w-full">
-                  <TouchableOpacity onPress={() => setStep(4)} className="mb-4 w-10 h-10 items-center justify-center bg-black/5 rounded-full">
+                  <TouchableOpacity onPress={() => goToStep(4)} className="mb-4 w-10 h-10 items-center justify-center bg-black/5 rounded-full">
                     <Text className="text-xl text-text font-bold">←</Text>
                   </TouchableOpacity>
                   <Text className="text-4xl text-primary font-poppins-semibold leading-tight">
@@ -238,7 +230,7 @@ export default function UserPreferenceScreen() {
             )}
           </View>
 
-          {/* Staggered Brick Wall Slider Sections */}
+          {/* Step 1: Countries */}
           {step === 1 && (
             <BrickWallCarousel
               data={countries}
@@ -249,16 +241,48 @@ export default function UserPreferenceScreen() {
             />
           )}
 
+          {/* Step 2: Cuisines filtered by selected countries + search */}
           {step === 2 && (
-            <BrickWallCarousel
-              data={cuisines}
-              isFlag={false}
-              selectedItems={selectedCuisines}
-              toggleSelection={toggleSelection}
-              setSelectedItems={setSelectedCuisines}
-            />
+            <View className="flex-1">
+              <AnimatedSearchBar 
+                value={searchQuery} 
+                onChangeText={setSearchQuery} 
+                placeholder="Search cuisines..." 
+              />
+              {searchQuery.trim().length > 0 ? (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  className="mt-6 pb-12"
+                  contentContainerStyle={{ paddingHorizontal: 16 }}
+                >
+                  <View className="flex-row items-center">
+                    {searchedCuisines.map((item) => (
+                      <View key={item.id} className="mr-4">
+                        <DiamondChip
+                          label={item.name || ""}
+                          isFlag={false}
+                          isSelected={selectedCuisines.includes(item.name || "")}
+                          onPress={() => toggleSelection(item.name || "", selectedCuisines, setSelectedCuisines)}
+                          imageUrl={item.icon_url}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <BrickWallCarousel
+                  data={searchedCuisines}
+                  isFlag={false}
+                  selectedItems={selectedCuisines}
+                  toggleSelection={toggleSelection}
+                  setSelectedItems={setSelectedCuisines}
+                />
+              )}
+            </View>
           )}
 
+          {/* Step 3: Allergies to ingredients + search */}
           {step === 3 && (
             <View className="flex-1">
               <AnimatedSearchBar 
@@ -266,16 +290,40 @@ export default function UserPreferenceScreen() {
                 onChangeText={setSearchQuery} 
                 placeholder="Search allergies..." 
               />
-              <BrickWallCarousel
-                data={filteredAllergies}
-                isFlag={false}
-                selectedItems={selectedAllergies}
-                toggleSelection={toggleSelection}
-                setSelectedItems={setSelectedAllergies}
-              />
+              {searchQuery.trim().length > 0 ? (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  className="mt-6 pb-12"
+                  contentContainerStyle={{ paddingHorizontal: 16 }}
+                >
+                  <View className="flex-row items-center">
+                    {searchedAllergies.map((item) => (
+                      <View key={item.id} className="mr-4">
+                        <DiamondChip
+                          label={item.name || ""}
+                          isFlag={false}
+                          isSelected={selectedAllergies.includes(item.name || "")}
+                          onPress={() => toggleSelection(item.name || "", selectedAllergies, setSelectedAllergies)}
+                          imageUrl={item.icon_url}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <BrickWallCarousel
+                  data={searchedAllergies}
+                  isFlag={false}
+                  selectedItems={selectedAllergies}
+                  toggleSelection={toggleSelection}
+                  setSelectedItems={setSelectedAllergies}
+                />
+              )}
             </View>
           )}
 
+          {/* Step 4: Spice level with custom icons */}
           {step === 4 && (
             <View className="flex-1 justify-center my-6">
               <SpiceSelector 
@@ -285,19 +333,9 @@ export default function UserPreferenceScreen() {
             </View>
           )}
 
-          {step === 5 && (
-            <View className="flex-1 items-center justify-center mt-4">
-              <Text className="text-6xl mb-8">🎉</Text>
-              <Text className="text-center font-poppins-medium text-text mt-8 px-8 text-base leading-6">
-                Your profile is now customized!{"\n"}Let's start exploring{"\n"}
-                <Text className="text-primary font-poppins-bold">FlavourFlow</Text> recipes & features
-              </Text>
-            </View>
-          )}
-
           {/* Responsive Action Footer */}
           <View className="mt-auto pt-10">
-            {step < 5 ? (
+            {step < 4 ? (
               <Button onPress={handleNext} className="w-full h-14 rounded-xl">
                 Continue
               </Button>

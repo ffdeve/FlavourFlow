@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useAuthStore } from "@/store/auth.store";
 import { useRouter } from "expo-router";
 import * as WebBrowser from 'expo-web-browser';
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -26,6 +27,13 @@ export default function SignupHomeScreen() {
         
         if (result.type === "success" && result.url) {
           await setSessionFromUrl(result.url);
+          
+          const isPreferenceDone = useAuthStore.getState().isPreferenceDone();
+          if (isPreferenceDone) {
+            router.replace('/(tabs)');
+          } else {
+            router.replace('/(auth)/userpreference');
+          }
         } else if (result.type === "cancel") {
           console.log("User cancelled the signup flow.");
         }

@@ -1,7 +1,7 @@
 import BackButton from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Alert,
   ScrollView,
@@ -25,6 +25,15 @@ export default function VerifyEmailScreen() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
   const inputs = useRef<Array<TextInput | null>>([]);
+  const [countdown, setCountdown] = useState(49);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   const handleVerify = async () => {
     const fullCode = code.join("");
@@ -82,56 +91,84 @@ export default function VerifyEmailScreen() {
     }
   };
 
+  const handleResend = () => {
+    if (countdown === 0) {
+      Alert.alert("Success", "Code resent to your email");
+      setCountdown(49);
+    }
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-[#FFFDF5]">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-6 pt-4 pb-10">
           {/* Back Button */}
           <BackButton />
 
-          {/* Header & Mascot */}
-          <View className="items-center mt-2">
-            <Text
-              className="text-5xl font-poppins-semibold text-primary text-center mb-1"
-              style={{ lineHeight: 55 }}
-            >
+          {/* Header */}
+          <View className="mt-6 mb-4">
+            <Text className="text-4xl font-poppins-bold text-[#FBA82E] mb-2">
               Verify Email
             </Text>
-            
-            <Text
-              className="text-sm text-center text-text font-poppins-light mb-6 px-4"
-            >
-              Enter the verification code we sent to{"\n"}
-              <Text className="font-poppins-semibold text-primary">{email}</Text>
+            <Text className="text-sm font-poppins-regular text-text-secondary">
+              Enter The Code
             </Text>
-
-            {/* Illustration */}
-            <View className="mb-8">
-              <Image
-                source={require("@/assets/images/Register2nd.png")}
-                style={{
-                  width: 280,
-                  height: 250,
-                  resizeMode: "contain",
-                }}
-              />
-            </View>
           </View>
 
-          {/* Verification Code Inputs */}
-          <View className="flex-row justify-between mb-10 w-full px-1">
+          {/* Mascot Illustration */}
+          <View className="items-center mb-6">
+            <Image
+              source={require("@/assets/images/Verify-OTP.png")}
+              style={{
+                width: 250,
+                height: 250,
+                resizeMode: "contain",
+              }}
+            />
+          </View>
+
+          {/* Text Message */}
+          <View className="items-center mb-8">
+            <Text className="text-center font-poppins-regular text-text-secondary text-sm">
+              We've sent a verification code to{"\n"}
+              {email}
+            </Text>
+          </View>
+
+          {/* Code Input Area */}
+          <View className="bg-[#EEDDAA]/30 rounded-3xl py-4 px-6 flex-row justify-between items-center mb-8 h-20">
             {code.map((digit, index) => (
               <TextInput
                 key={index}
                 ref={(el) => (inputs.current[index] = el)}
-                className="w-12 h-14 bg-interactive/60 border border-interactive-dark rounded-2xl text-center text-xl font-poppins-semibold text-text"
+                className="w-10 h-12 text-center text-2xl font-poppins-medium text-text bg-transparent"
                 maxLength={1}
                 keyboardType="number-pad"
                 value={digit}
+                placeholder="-"
+                placeholderTextColor="#8B7D6F"
                 onChangeText={(text) => handleCodeChange(text, index)}
                 onKeyPress={(e) => handleKeyPress(e, index)}
               />
             ))}
+          </View>
+
+          {/* Resend Link */}
+          <View className="items-center mb-8">
+            <Text className="text-text-secondary text-sm font-poppins-regular mb-1">
+              Didn't receive the mail?
+            </Text>
+            {countdown > 0 ? (
+              <Text className="text-text-secondary text-sm font-poppins-regular">
+                You can resend it in <Text className="font-poppins-bold">{countdown}</Text> sec
+              </Text>
+            ) : (
+              <TouchableOpacity onPress={handleResend}>
+                <Text className="text-primary font-poppins-semibold text-sm">
+                  Resend Email
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Verify Button */}
@@ -140,22 +177,11 @@ export default function VerifyEmailScreen() {
             disabled={isLoading || code.some(c => c === "")}
             isLoading={isLoading}
             size="lg"
-            className="w-full mb-6 py-4 rounded-xl shadow-sm"
+            className="w-full py-4 rounded-2xl"
           >
-            Verify
+            Verify & Continue
           </Button>
 
-          {/* Resend Link */}
-          <View className="flex-row items-center justify-center">
-            <Text className="text-text text-sm font-poppins-regular">
-              Didn't receive the code?{" "}
-            </Text>
-            <TouchableOpacity onPress={() => Alert.alert("Success", "Code resent to your email")}>
-              <Text className="text-primary font-poppins-semibold text-sm">
-                Resend
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </SafeAreaView>

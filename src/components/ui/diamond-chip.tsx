@@ -66,8 +66,6 @@ export const DiamondChip = ({
               />
             ) : isFlag && emoji ? (
               <Text className="text-4xl">{emoji}</Text>
-            ) : emoji ? (
-              <Text className="text-3xl">{emoji}</Text>
             ) : null}
             <Text
               style={{

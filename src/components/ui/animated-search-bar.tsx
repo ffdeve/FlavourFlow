@@ -1,93 +1,50 @@
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import React, { useRef, useState } from "react";
-import { Keyboard, Pressable, TextInput, View } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import { Feather } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import { View, Text, TouchableOpacity } from "react-native";
+import Animated, { FadeInUp, FadeOutUp, SlideInDown, SlideOutUp } from "react-native-reanimated";
 
-interface AnimatedSearchBarProps {
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder?: string;
-}
+const SEARCH_ITEMS = ["Ramen", "Nihari", "Biryani", "Sushi", "Pasta", "Burgers"];
 
-export default function AnimatedSearchBar({
-  value,
-  onChangeText,
-  placeholder = "Search...",
-}: AnimatedSearchBarProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const inputRef = useRef<TextInput>(null);
-  
-  // Reanimated shared values
-  const widthVal = useSharedValue(44); // Initial collapsed icon width (w-11)
-  
-  const handlePress = () => {
-    if (!isExpanded) {
-      setIsExpanded(true);
-      widthVal.value = withSpring(280, { damping: 15 });
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  };
+export function AnimatedSearchBar({ onPress }: { onPress: () => void }) {
+  const [index, setIndex] = useState(0);
 
-  const handleBlur = () => {
-    if (value === "") {
-      setIsExpanded(false);
-      widthVal.value = withSpring(44, { damping: 15 });
-      Keyboard.dismiss();
-    }
-  };
-
-  const handleClear = () => {
-    onChangeText("");
-    inputRef.current?.focus();
-  };
-
-  const animatedContainerStyle = useAnimatedStyle(() => {
-    return {
-      width: widthVal.value,
-    };
-  });
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % SEARCH_ITEMS.length);
+    }, 4000); // Slowed down from 2500 to 4000
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <View className="items-center justify-center h-12 w-full my-2">
-      <Animated.View
-        style={[animatedContainerStyle]}
-        className="h-11 flex-row items-center bg-black/5 rounded-full overflow-hidden relative"
-      >
-        {/* Search Icon Button */}
-        <Pressable
-          onPress={handlePress}
-          className="w-11 h-11 bg-primary rounded-full items-center justify-center z-10"
+    <TouchableOpacity 
+      activeOpacity={0.9} 
+      onPress={onPress}
+      className="flex-row items-center bg-white rounded-full px-4 mx-6 shadow-sm border border-gray-100 h-14"
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+      }}
+    >
+      <Feather name="search" size={20} color="#8B7D6F" />
+      
+      {/* Search Text Container */}
+      <View className="flex-row items-center ml-3 overflow-hidden flex-1 h-full relative justify-center">
+        <Text className="text-[#8B7D6F] font-poppins-regular text-base absolute left-0">
+          Search for 
+        </Text>
+        
+        <Animated.Text
+          key={index} // Key change triggers enter/exit animations
+          entering={SlideInDown.duration(600)}
+          exiting={SlideOutUp.duration(600)}
+          className="text-primary font-poppins-medium text-base absolute left-[90px]"
         >
-          <FontAwesome6 name="magnifying-glass" size={16} color="white" />
-        </Pressable>
-
-        {/* Text Input (fades in/out) */}
-        {isExpanded && (
-          <View className="flex-1 flex-row items-center pr-4 pl-2 h-full">
-            <TextInput
-              ref={inputRef}
-              value={value}
-              onChangeText={onChangeText}
-              onBlur={handleBlur}
-              placeholder={placeholder}
-              placeholderTextColor="#8B7D6F"
-              className="flex-1 text-sm font-poppins-regular text-text py-0"
-              style={{ includeFontPadding: false }}
-            />
-            {value.length > 0 && (
-              <Pressable onPress={handleClear} className="p-1">
-                <FontAwesome6 name="xmark" size={16} color="#8B7D6F" />
-              </Pressable>
-            )}
-          </View>
-        )}
-      </Animated.View>
-    </View>
+          {SEARCH_ITEMS[index]}
+        </Animated.Text>
+      </View>
+    </TouchableOpacity>
   );
 }
