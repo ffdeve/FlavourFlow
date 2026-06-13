@@ -1,19 +1,23 @@
-import BackButton from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import CircleBackButton from "@/components/ui/circle-back-button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import type { Country } from "react-native-country-picker-modal";
 import { PhoneInput, isValidNumber } from "react-native-phone-entry";
+import {
+  heightPercentageToDP as hp,
+  widthPercentageToDP as wp,
+} from "react-native-responsive-screen";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SignupDetailsScreen() {
@@ -112,159 +116,151 @@ export default function SignupDetailsScreen() {
   return (
     <SafeAreaView className="flex-1 p-2 bg-background">
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        
           {/* Back Button */}
-          <BackButton />
+          <CircleBackButton className="ml-4 mt-2 mb-2" />
           {/* Header */}
           <View className="px-4 mt-2">
-          
-          <View >
-            <Text
-              className="text-5xl text-primary mt-2 mb-1 font-poppins-semibold"
-              style={{ lineHeight: 55 }}
-            >
-            Register
-            </Text>
-            <Text className="text-text text-sm font-poppins-light mb-2">
-            Enter Your Details
-            </Text>
-          </View>
-
-          {/* Illustration */}
-          <View className="items-center justify-center mb-7">
-            <Image
-              source={require("@/assets/images/Register1st_2x.png")}
-              style={{
-                width: 300,
-                height: 260,
-                resizeMode: "contain",
-                transform: [{ scaleX: -1 }],
-                alignSelf: "center",
-              }}
-            />
-          </View>
-
-          {/* Form */}
-          <View>
-            {/* Full Name Input */}
-            <Input
-              containerClassName="mb-1 mx-2"
-              placeholder="Full Name"
-              value={fullName}
-              onChangeText={setFullName}
-              onBlur={() => validateFullName(fullName)}
-              autoComplete="name"
-              error={fullNameError}
-              fieldClassName="bg-interactive/80 rounded-lg px-6 py-5 flex-row items-center border-0"
-              inputClassName="text-base text-black font-poppins-light py-0"
-            />
-
-            {/* Email Input */}
-            <Input
-              containerClassName="mb-1 mt-3 mx-2"
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              onBlur={() => validateEmail(email)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              error={emailError}
-              fieldClassName="bg-interactive/80 rounded-lg px-6 py-5 flex-row items-center border-0"
-              inputClassName="text-base text-black font-poppins-light py-0"
-            />
-
-            {/* Phone Number Input */}
-            <View className="mt-3 mx-2">
-              <PhoneInput
-                defaultValues={{
-                  countryCode: "PK",
-                  callingCode: "+92",
-                  phoneNumber: "+92",
-                }}
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                onChangeCountry={(country) => {
-                  setCountryCode(country.cca2 as string);
-                  setSelectedCountry(country);
-                  // Reset phone number when country changes
-                  setPhoneNumber(
-                    country.callingCode ? `+${country.callingCode}` : "+92",
-                  );
-                  setPhoneError("");
-                }}
-                autoFocus={false}
-                disabled={false}
-                countryPickerProps={{
-                  withFilter: true,
-                  withFlag: true,
-                  withCountryNameButton: true,
-                }}
-                theme={{
-                  containerStyle: {
-                    borderRadius: 16,
-                    backgroundColor: "#EDD8A9",
-                    paddingHorizontal: 8,
-                    paddingVertical: 0,
-                    marginTop: 0,
-                    marginBottom: 12,
-                    borderWidth: phoneError ? 2 : 0,
-                    borderColor: phoneError ? "#ef4444" : "transparent",
-                  },
-                  textInputStyle: {
-                    fontSize: 16,
-                    color: "#3B3328",
-                    fontFamily: "Poppins_300Light",
-                  },
-                  flagButtonStyle: {
-                    paddingHorizontal: 8,
-                  },
-                  codeTextStyle: {
-                    fontSize: 16,
-                    color: "#3B3328",
-                    fontFamily: "Poppins_600SemiBold",
-                    marginRight: 4,
-                  },
-                }}
-                hideDropdownIcon={false}
-                isCallingCodeEditable={false}
-              />
-              {phoneError ? (
-                <Text className="text-red-500 text-sm font-poppins-regular mt-1 ml-2">
-                  {phoneError}
-                </Text>
-              ) : null}
+            <View>
+              <Text
+                className="text-5xl text-primary mt-2 mb-1 font-poppins-semibold"
+                style={{ lineHeight: 55 }}
+              >
+                Register
+              </Text>
+              <Text className="text-text text-sm font-poppins-light mb-2">
+                Enter Your Details
+              </Text>
             </View>
 
-            {/* Next Button */}
-            <Button
-              onPress={handleNext}
-              size="lg"
-              className="w-full mt-6"
-            >
-              Next
-            </Button>
-          </View>
+            {/* Illustration */}
+            <View className="items-center justify-center mb-7">
+              <Image
+                source={require("@/assets/images/Register1st_2x.webp")}
+                style={{
+                  width: wp("75%"),
+                  height: hp("28%"),
+                  resizeMode: "contain",
+                  transform: [{ scaleX: -1 }],
+                  alignSelf: "center",
+                }}
+              />
+            </View>
 
-          {/* Footer */}
-          <View className="flex-row items-center justify-center mt-6 mb-8">
-            <Text className="text-text text-base">
-              Already have an account?{" "}
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/login")}
-            >
-              <Text className="text-primary font-poppins-semibold text-base">
-                Sign In
+            {/* Form */}
+            <View>
+              {/* Full Name Input */}
+              <Input
+                containerClassName="mb-1 mx-2"
+                placeholder="Full Name"
+                value={fullName}
+                onChangeText={setFullName}
+                onBlur={() => validateFullName(fullName)}
+                autoComplete="name"
+                error={fullNameError}
+                fieldClassName="bg-interactive/80 rounded-lg px-6 py-5 flex-row items-center border-0"
+                inputClassName="text-base text-black font-poppins-light py-0"
+              />
+
+              {/* Email Input */}
+              <Input
+                containerClassName="mb-1 mt-3 mx-2"
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                onBlur={() => validateEmail(email)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                error={emailError}
+                fieldClassName="bg-interactive/80 rounded-lg px-6 py-5 flex-row items-center border-0"
+                inputClassName="text-base text-black font-poppins-light py-0"
+              />
+
+              {/* Phone Number Input */}
+              <View className="mt-3 mx-2">
+                <PhoneInput
+                  defaultValues={{
+                    countryCode: "PK",
+                    callingCode: "+92",
+                    phoneNumber: "+92",
+                  }}
+                  value={phoneNumber}
+                  onChangeText={handlePhoneChange}
+                  onChangeCountry={(country) => {
+                    setCountryCode(country.cca2 as string);
+                    setSelectedCountry(country);
+                    // Reset phone number when country changes
+                    setPhoneNumber(
+                      country.callingCode ? `+${country.callingCode}` : "+92",
+                    );
+                    setPhoneError("");
+                  }}
+                  autoFocus={false}
+                  disabled={false}
+                  countryPickerProps={{
+                    withFilter: true,
+                    withFlag: true,
+                    withCountryNameButton: true,
+                  }}
+                  theme={{
+                    containerStyle: {
+                      borderRadius: 16,
+                      backgroundColor: "#EDD8A9",
+                      paddingHorizontal: 8,
+                      paddingVertical: 0,
+                      marginTop: 0,
+                      marginBottom: 12,
+                      borderWidth: phoneError ? 2 : 0,
+                      borderColor: phoneError ? "#ef4444" : "transparent",
+                    },
+                    textInputStyle: {
+                      fontSize: 16,
+                      color: "#3B3328",
+                      fontFamily: "Poppins_300Light",
+                    },
+                    flagButtonStyle: {
+                      paddingHorizontal: 8,
+                    },
+                    codeTextStyle: {
+                      fontSize: 16,
+                      color: "#3B3328",
+                      fontFamily: "Poppins_600SemiBold",
+                      marginRight: 4,
+                    },
+                  }}
+                  hideDropdownIcon={false}
+                  isCallingCodeEditable={false}
+                />
+                {phoneError ? (
+                  <Text className="text-red-500 text-sm font-poppins-regular mt-1 ml-2">
+                    {phoneError}
+                  </Text>
+                ) : null}
+              </View>
+
+              {/* Next Button */}
+              <Button onPress={handleNext} size="lg" className="w-full mt-6">
+                Next
+              </Button>
+            </View>
+
+            {/* Footer */}
+            <View className="flex-row items-center justify-center mt-6 mb-8">
+              <Text className="text-text text-base">
+                Already have an account?{" "}
               </Text>
-            </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
+                <Text className="text-primary font-poppins-semibold text-base">
+                  Sign In
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

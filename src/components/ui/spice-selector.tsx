@@ -24,16 +24,41 @@ const SPICE_ICONS: Record<number, any> = {
 };
 
 const SPICE_LEVELS = [
-  { level: 1, title: "Mild & Mellow", subtitle: "Just a gentle warmth", color: "#FFC107" },
-  { level: 2, title: "Warming Up", subtitle: "A pleasant kick", color: "#FF9800" },
-  { level: 3, title: "Getting Spicy", subtitle: "The sweet spot for most", color: "#FF5722" },
-  { level: 4, title: "Fiery!", subtitle: "For the adventurous palate", color: "#F44336" },
-  { level: 5, title: "Inferno! 🔥", subtitle: "Maximum heat, maximum flavor", color: "#B71C1C" },
+  {
+    level: 1,
+    title: "Mild & Mellow",
+    subtitle: "Just a gentle warmth",
+    color: "#FFC107",
+  },
+  {
+    level: 2,
+    title: "Warming Up",
+    subtitle: "A pleasant kick",
+    color: "#FF9800",
+  },
+  {
+    level: 3,
+    title: "Getting Spicy",
+    subtitle: "The sweet spot for most",
+    color: "#FF5722",
+  },
+  {
+    level: 4,
+    title: "Fiery!",
+    subtitle: "For the adventurous palate",
+    color: "#F44336",
+  },
+  {
+    level: 5,
+    title: "Inferno!",
+    subtitle: "Maximum heat, maximum flavor",
+    color: "#B71C1C",
+  },
 ];
 
 export default function SpiceSelector({ value, onChange }: SpiceSelectorProps) {
   const currentLevel = SPICE_LEVELS[value - 1] || SPICE_LEVELS[2];
-  
+
   // Animation shared values
   const iconScale = useSharedValue(1);
   const textOpacity = useSharedValue(1);
@@ -108,7 +133,8 @@ export default function SpiceSelector({ value, onChange }: SpiceSelectorProps) {
                 width: level <= value ? 12 : 8,
                 height: level <= value ? 12 : 8,
                 borderRadius: 6,
-                backgroundColor: level <= value ? currentLevel.color : "rgba(0,0,0,0.1)",
+                backgroundColor:
+                  level <= value ? currentLevel.color : "rgba(0,0,0,0.1)",
               }}
             />
           </Pressable>
@@ -127,14 +153,18 @@ export default function SpiceSelector({ value, onChange }: SpiceSelectorProps) {
               : "border-primary bg-primary/5 active:bg-primary/20"
           }`}
         >
-          <Text className={`text-2xl font-poppins-bold ${value <= 1 ? "text-text-secondary" : "text-primary"}`}>−</Text>
+          <Text
+            className={`text-2xl font-poppins-bold ${value <= 1 ? "text-text-secondary" : "text-primary"}`}
+          >
+            −
+          </Text>
         </Pressable>
 
         {/* Level Number */}
         <Animated.View style={textAnimatedStyle}>
           <Text
             style={{ color: currentLevel.color }}
-            className="text-5xl font-poppins-bold"
+            className="text-5xl font-poppins-bold pt-4"
           >
             {value}
           </Text>
@@ -150,7 +180,11 @@ export default function SpiceSelector({ value, onChange }: SpiceSelectorProps) {
               : "border-primary bg-primary/5 active:bg-primary/20"
           }`}
         >
-          <Text className={`text-2xl font-poppins-bold ${value >= 5 ? "text-text-secondary" : "text-primary"}`}>+</Text>
+          <Text
+            className={`text-2xl font-poppins-bold ${value >= 5 ? "text-text-secondary" : "text-primary"}`}
+          >
+            +
+          </Text>
         </Pressable>
       </View>
 

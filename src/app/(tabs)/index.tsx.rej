@@ -1,0 +1,15 @@
+@@ -148,11 +147,13 @@
+     const loadHomeData = async () => {
+       try {
+         setLoading(true);
+-        const [featured, popular, trending] = await Promise.all([
++        const [featured, popular, trending, dbCategories] = await Promise.all([
+           recipeService.getFeaturedRecipes(5),
+           recipeService.getPopularRecipes(10),
+           recipeService.getTrendingRecipes(10),
++          recipeService.getCategories(),
+         ]);
+         setFeaturedRecipes(featured);
+         setPopularRecipes(popular);
+         setCookAgainRecipes(trending);
++        setCategories(dbCategories);

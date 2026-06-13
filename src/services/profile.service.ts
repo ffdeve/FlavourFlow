@@ -1,4 +1,7 @@
 import { supabase } from "@/services/supabase";
+import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
+import { decode } from "base64-arraybuffer";
 import type { CuisineItem, Profile, UserPreferences } from "@/types";
 
 export class ProfileService {
@@ -16,6 +19,27 @@ export class ProfileService {
     }
 
     return data;
+  }
+
+  // Check if username is available
+  async checkUsernameAvailability(username: string, excludeUserId?: string): Promise<boolean> {
+    if (!username) return false;
+    let query = supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", username);
+
+    if (excludeUserId) {
+      query = query.neq("id", excludeUserId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    if (error && error.code !== "PGRST116") {
+      console.error("Error checking username:", error);
+      return false; // Assume taken on error to be safe
+    }
+
+    return !data; // Available if no profile found
   }
 
   // Create or update profile
@@ -109,17 +133,28 @@ export class ProfileService {
 
   // Upload avatar image
   async uploadAvatar(userId: string, fileUri: string) {
-    const response = await fetch(fileUri);
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    const fileExt = fileUri.split(".").pop();
+    // Compress image for avatar (max width 400px)
+    const manipResult = await ImageManipulator.manipulateAsync(
+      fileUri,
+      [{ resize: { width: 400 } }],
+      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+    );
+
+    const fileExt = "jpg";
     const fileName = `${userId}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
+    // Using root path or 'avatars' folder depending on bucket structure.
+    const filePath = `${fileName}`;
+
+    const formData = new FormData();
+    formData.append("file", {
+      uri: manipResult.uri,
+      name: fileName,
+      type: "image/jpeg",
+    } as any);
 
     const { error: uploadError } = await supabase.storage
       .from("user-avartars")
-      .upload(filePath, arrayBuffer, {
-        contentType: blob.type,
+      .upload(filePath, formData, {
         upsert: true,
       });
 
@@ -129,7 +164,106 @@ export class ProfileService {
       .from("user-avartars")
       .getPublicUrl(filePath);
 
+    // Update the profile in the database with the new URL
+    await this.upsertProfile({ id: userId, avatar_url: data.publicUrl });
+
     return data.publicUrl;
+  }
+
+  // ============= FOLLOW SYSTEM =============
+
+  /** Follow a user */
+  async followUser(followerId: string, followingId: string) {
+    const { error } = await supabase.from("follows").insert({
+      follower_id: followerId,
+      following_id: followingId,
+    });
+    if (error && error.code !== "23505") throw error; // Ignore duplicate key if already following
+  }
+
+  /** Unfollow a user */
+  async unfollowUser(followerId: string, followingId: string): Promise<void> {
+    const { error } = await supabase
+      .from("follows")
+      .delete()
+      .eq("follower_id", followerId)
+      .eq("following_id", followingId);
+    if (error) throw error;
+  }
+
+  /** Check if current user follows target user */
+  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from("follows")
+      .select("id")
+      .eq("follower_id", followerId)
+      .eq("following_id", followingId)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  }
+
+  /** Get follower count */
+  async getFollowerCount(userId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from("follows")
+      .select("id", { count: "exact", head: true })
+      .eq("following_id", userId);
+    if (error) return 0;
+    return count || 0;
+  }
+
+  /** Get following count */
+  async getFollowingCount(userId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from("follows")
+      .select("id", { count: "exact", head: true })
+      .eq("follower_id", userId);
+    if (error) return 0;
+    return count || 0;
+  }
+
+  /** Get post count for a user */
+  async getPostCount(userId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from("posts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    if (error) return 0;
+    return count || 0;
+  }
+
+  /** Get recipe count for a user */
+  async getRecipeCount(userId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from("recipes")
+      .select("id", { count: "exact", head: true })
+      .eq("created_by", userId);
+    if (error) return 0;
+    return count || 0;
+  }
+
+  /** Get user's recipes for display */
+  async getUserRecipesPublic(userId: string) {
+    const { data, error } = await supabase
+      .from("recipes")
+      .select("id, title, image_url, cook_time, difficulty, created_at")
+      .eq("created_by", userId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  /** Get public profile + stats bundle */
+  async getUserProfileWithStats(userId: string) {
+    const [profile, followers, following, posts, recipes] = await Promise.all([
+      this.getProfile(userId),
+      this.getFollowerCount(userId),
+      this.getFollowingCount(userId),
+      this.getPostCount(userId),
+      this.getRecipeCount(userId),
+    ]);
+    return { profile, followers, following, posts, recipes };
   }
 }
 

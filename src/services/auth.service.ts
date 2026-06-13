@@ -79,12 +79,13 @@ export class AuthService {
   }
 
   // Sign in with OAuth (Google, Facebook)
-  async signInWithOAuth(provider: 'google' | 'facebook' | 'apple') {
+  async signInWithOAuth(provider: 'google' | 'facebook' | 'apple', redirectTo?: string) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: 'flavourflow://', // Redirect to app root
+        redirectTo: redirectTo || 'flavourflow://', // Redirect to app root or dynamic url
         skipBrowserRedirect: true,
+        queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined,
       },
     });
 
@@ -145,6 +146,20 @@ export class AuthService {
 
     if (error) throw error;
     return data;
+  }
+
+  // Resend OTP
+  async resendOtp(email: string, type: 'signup' | 'recovery') {
+    if (type === 'recovery') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
+      if (error) throw error;
+    }
   }
 
   // Listen to auth state changes

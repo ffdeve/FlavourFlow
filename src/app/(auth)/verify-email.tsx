@@ -1,26 +1,30 @@
-import BackButton from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import CircleBackButton from "@/components/ui/circle-back-button";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Image,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  TextInput,
-  Image,
 } from "react-native";
+import {
+  heightPercentageToDP as hp,
+  widthPercentageToDP as wp,
+} from "react-native-responsive-screen";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/hooks/use-auth";
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
-  const { verifyOtp } = useAuth();
+  const { verifyOtp, resendOtp } = useAuth();
   const params = useLocalSearchParams();
   const email = (params?.email as string) || "your email";
-  const type = (params?.type as 'signup' | 'recovery') || 'signup';
+  const type = (params?.type as "signup" | "recovery") || "signup";
   const fullName = params?.fullName as string;
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,29 +32,31 @@ export default function VerifyEmailScreen() {
   const [countdown, setCountdown] = useState(49);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: any;
     if (countdown > 0) {
       timer = setTimeout(() => setCountdown(countdown - 1), 1000);
     }
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const handleVerify = async () => {
-    const fullCode = code.join("");
+  const handleVerify = async (overrideCode?: string[]) => {
+    const fullCode = (overrideCode || code).join("");
     if (fullCode.length !== 6) {
-      Alert.alert("Error", "Please enter the complete 6-digit code.");
+      if (!overrideCode) {
+        Alert.alert("Error", "Please enter the complete 6-digit code.");
+      }
       return;
     }
 
     try {
       setIsLoading(true);
       await verifyOtp(email, fullCode, type, fullName);
-      
-      if (type === 'signup') {
+
+      if (type === "signup") {
         router.replace("/(auth)/userpreference");
       } else {
         router.push({
-          pathname: "/(auth)/set-new-password",
+          pathname: "/(auth)/set-new-password" as any,
           params: { email },
         });
       }
@@ -73,6 +79,11 @@ export default function VerifyEmailScreen() {
       if (chars.length > 0 && chars.length <= 6) {
         inputs.current[chars.length - 1]?.focus();
       }
+
+      // Auto-verify if all 6 characters are pasted
+      if (newCode.every((c) => c !== "")) {
+        handleVerify(newCode);
+      }
       return;
     }
 
@@ -80,8 +91,13 @@ export default function VerifyEmailScreen() {
     newCode[index] = text;
     setCode(newCode);
 
-    if (text !== "" && index < 5) {
-      inputs.current[index + 1]?.focus();
+    if (text !== "") {
+      if (index < 5) {
+        inputs.current[index + 1]?.focus();
+      } else if (index === 5 && newCode.every((c) => c !== "")) {
+        // Auto-verify when the 6th digit is typed and all are filled
+        handleVerify(newCode);
+      }
     }
   };
 
@@ -91,10 +107,18 @@ export default function VerifyEmailScreen() {
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (countdown === 0) {
-      Alert.alert("Success", "Code resent to your email");
-      setCountdown(49);
+      try {
+        setIsLoading(true);
+        await resendOtp(email, type);
+        Alert.alert("Success", "Code resent to your email");
+        setCountdown(49);
+      } catch (error: any) {
+        Alert.alert("Error", error.message || "Failed to resend code");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -103,7 +127,7 @@ export default function VerifyEmailScreen() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-6 pt-4 pb-10">
           {/* Back Button */}
-          <BackButton />
+          <CircleBackButton />
 
           {/* Header */}
           <View className="mt-6 mb-4">
@@ -118,10 +142,10 @@ export default function VerifyEmailScreen() {
           {/* Mascot Illustration */}
           <View className="items-center mb-6">
             <Image
-              source={require("@/assets/images/Verify-OTP.png")}
+              source={require("@/assets/images/Verify-OTP.webp")}
               style={{
-                width: 250,
-                height: 250,
+                width: wp("75%"),
+                height: hp("32%"),
                 resizeMode: "contain",
               }}
             />
@@ -140,7 +164,9 @@ export default function VerifyEmailScreen() {
             {code.map((digit, index) => (
               <TextInput
                 key={index}
-                ref={(el) => (inputs.current[index] = el)}
+                ref={(el) => {
+                  inputs.current[index] = el;
+                }}
                 className="w-10 h-12 text-center text-2xl font-poppins-medium text-text bg-transparent"
                 maxLength={1}
                 keyboardType="number-pad"
@@ -160,7 +186,8 @@ export default function VerifyEmailScreen() {
             </Text>
             {countdown > 0 ? (
               <Text className="text-text-secondary text-sm font-poppins-regular">
-                You can resend it in <Text className="font-poppins-bold">{countdown}</Text> sec
+                You can resend it in{" "}
+                <Text className="font-poppins-bold">{countdown}</Text> sec
               </Text>
             ) : (
               <TouchableOpacity onPress={handleResend}>
@@ -173,15 +200,14 @@ export default function VerifyEmailScreen() {
 
           {/* Verify Button */}
           <Button
-            onPress={handleVerify}
-            disabled={isLoading || code.some(c => c === "")}
+            onPress={() => handleVerify()}
+            disabled={isLoading || code.some((c) => c === "")}
             isLoading={isLoading}
             size="lg"
             className="w-full py-4 rounded-2xl"
           >
             Verify & Continue
           </Button>
-
         </View>
       </ScrollView>
     </SafeAreaView>

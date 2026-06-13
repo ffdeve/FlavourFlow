@@ -57,7 +57,7 @@ export function Password({
             placeholder={placeholder || 'Enter password'}
             secureTextEntry={!showPassword}
             autoComplete="password-new"
-            placeholderTextColor="#3B3328"
+            placeholderTextColor="#8B7D6F"
             className={inputClassName || 'flex-1 text-base text-black font-poppins-light opacity-100'}
             {...props}
           />
@@ -81,7 +81,7 @@ export function Password({
         placeholder={placeholder || 'Password'}
         secureTextEntry={!showPassword}
         autoComplete="password"
-        placeholderTextColor="#3B3328"
+        placeholderTextColor="#8B7D6F"
         className={inputClassName || 'flex-1 text-base text-black font-poppins-light opacity-100'}
         {...props}
       />

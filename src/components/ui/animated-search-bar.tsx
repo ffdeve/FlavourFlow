@@ -19,7 +19,7 @@ export function AnimatedSearchBar({ onPress }: { onPress: () => void }) {
     <TouchableOpacity 
       activeOpacity={0.9} 
       onPress={onPress}
-      className="flex-row items-center bg-white rounded-full px-4 mx-6 shadow-sm border border-gray-100 h-14"
+      className="flex-row items-center bg-white rounded-full px-4 mx-6 shadow-sm border border-gray-100 h-11"
       style={{
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
@@ -31,7 +31,7 @@ export function AnimatedSearchBar({ onPress }: { onPress: () => void }) {
       <Feather name="search" size={20} color="#8B7D6F" />
       
       {/* Search Text Container */}
-      <View className="flex-row items-center ml-3 overflow-hidden flex-1 h-full relative justify-center">
+      <View pointerEvents="none" className="flex-row items-center ml-3 overflow-hidden flex-1 h-full relative justify-center">
         <Text className="text-[#8B7D6F] font-poppins-regular text-base absolute left-0">
           Search for 
         </Text>

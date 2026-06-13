@@ -14,9 +14,12 @@ export interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  bio: string | null;
+  username: string | null;
   language: "en" | "ur";
   created_at: string;
   updated_at: string;
+  last_username_change?: string | null;
 }
 
 export interface UserPreferences {
@@ -25,6 +28,7 @@ export interface UserPreferences {
   preferred_country: string[];       // Array of country codes
   preferred_cuisines: string[];      // Array of cuisine names
   allergies: string[];               // Array of allergen names
+  dislikes: string[];                // Array of disliked ingredients and cuisines
   diet_type: string | null;          // e.g. "halal", "vegan"
   spice_level: number;               // 1-5
   preference_completed: boolean;     // Gate flag
@@ -81,6 +85,9 @@ export interface Recipe {
   diet_tags?: string[];
   allergens?: string[];
   is_verified?: boolean;
+  kitchen_essentials?: string[];
+  preview_video_start_time?: number | null;
+  preview_video_end_time?: number | null;
 }
 
 export interface RecipeIngredient {
@@ -95,6 +102,18 @@ export interface RecipeStep {
   instruction_urdu?: string;
   duration?: number; // in minutes
   image_url?: string;
+  action?: string;
+  parallel?: boolean;
+  linkedIngredients?: string[];
+  heatSetting?: string | null;
+  hasTimer?: boolean;
+  timerType?: "countdown" | "target";
+  timerHours?: string;
+  timerMinutes?: string;
+  targetTime?: string;
+  leaveOvernight?: boolean;
+  video_start_time?: number;
+  video_end_time?: number;
 }
 
 // ============= RATINGS & FEEDBACK =============
@@ -193,17 +212,20 @@ export interface Post {
   user_id: string;
   content: string;
   image_url: string | null;
+  images: string[] | null;
+  recipe_id: string | null;
+  category: string;
   likes_count: number;
   comments_count: number;
   created_at: string;
-  // Joined data
   profile?: Profile;
+  recipes?: any;
 }
 
 export interface Like {
-  like_id: number;
+  id: string;
   user_id: string;
-  post_id: number;
+  post_id: string;
   created_at: string;
 }
 
@@ -214,13 +236,19 @@ export interface PostLike {
 }
 
 export interface Comment {
-  comment_id: number;
+  id: string;
   user_id: string;
-  post_id: number;
-  text: string;
+  post_id: string;
+  content: string;
   created_at: string;
-  // Joined data
   profile?: Profile;
+}
+
+export interface Follow {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  created_at: string;
 }
 
 // ============= EXTENDED TYPES =============
@@ -258,6 +286,6 @@ export interface RecipeFilters {
   cuisines?: CuisineType[];
   dietTags?: DietType[];
   maxCookTime?: number;
-  difficulty?: Recipe["difficulty"][];
+  difficulty?: Recipe["difficulty_level"][];
   ingredients?: string[];
 }

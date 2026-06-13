@@ -48,6 +48,9 @@ yarn-error.*
 src/FF-ChefBoo/
 src/figma-design/
 
+# Scratch folder
+scratch/
+
 app-example
 
 # Agent files & local config

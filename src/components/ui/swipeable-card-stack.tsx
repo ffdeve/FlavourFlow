@@ -172,8 +172,9 @@ export const SwipeableCardStack = ({ data }: SwipeableCardStackProps) => {
               {/* Card Image Area with grey placeholder bg */}
               <View className="relative w-full h-[220px] rounded-[24px] overflow-hidden bg-gray-100">
                 <Image
-                  source={recipe.image}
+                  source={{ uri: recipe.image }}
                   className="w-full h-full"
+                  style={{ width: "100%", height: "100%" }}
                   contentFit="cover"
                 />
 

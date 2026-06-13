@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.flavourflow.flavourflow"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +18,8 @@
         "foregroundImage": "./src/assets/icons/adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.flavourflow.flavourflow"
     },
     "web": {
       "bundler": "metro",
@@ -25,7 +27,12 @@
       "favicon": "./src/assets/icons/icon.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "root": "./src/app"
+        }
+      ],
       [
         "expo-splash-screen",
         {

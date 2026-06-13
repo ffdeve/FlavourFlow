@@ -1,8 +1,17 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
-import { Feather, FontAwesome } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { HeartButton } from "@/components/ui/heart-button";
+
+const SPICE_IMAGES: Record<number, any> = {
+  1: require("@/assets/icons/spice_1.png"),
+  2: require("@/assets/icons/spice_2.png"),
+  3: require("@/assets/icons/spice_3.png"),
+  4: require("@/assets/icons/spice_4.png"),
+  5: require("@/assets/icons/spice_5.png"),
+};
 
 interface Recipe {
   id: string;
@@ -18,12 +27,17 @@ interface Recipe {
 
 interface RecommendationCardProps {
   recipe: Recipe;
+  isLiked?: boolean;
+  onToggleFavorite?: () => void;
   onPress?: () => void;
 }
 
-export const RecommendationCard = ({ recipe, onPress }: RecommendationCardProps) => {
-  const [isSaved, setIsSaved] = useState(false);
-
+export const RecommendationCard = ({ 
+  recipe, 
+  isLiked = false,
+  onToggleFavorite,
+  onPress 
+}: RecommendationCardProps) => {
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -42,8 +56,20 @@ export const RecommendationCard = ({ recipe, onPress }: RecommendationCardProps)
         <Image
           source={{ uri: recipe.image }}
           className="w-full h-full"
+          style={{ width: "100%", height: "100%" }}
           contentFit="cover"
         />
+
+        {/* Spice Level Badge (Top Left) */}
+        {recipe.spiceLevel > 0 && SPICE_IMAGES[recipe.spiceLevel] && (
+          <View className="absolute top-3 -left-1 z-10">
+            <Image
+              source={SPICE_IMAGES[recipe.spiceLevel]}
+              style={{ width: 64, height: 32 }}
+              contentFit="contain"
+            />
+          </View>
+        )}
 
         {/* Fading gradient to merge image background into the white text area below */}
         <LinearGradient
@@ -54,22 +80,17 @@ export const RecommendationCard = ({ recipe, onPress }: RecommendationCardProps)
             left: 0,
             right: 0,
             bottom: 0,
-            height: 70,
+            height: 35,
           }}
         />
 
         {/* Heart Favorite Toggle on Top Right of the Image */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setIsSaved(!isSaved)}
-          className="absolute top-3 right-3 w-8 h-8 bg-black/30 rounded-full items-center justify-center z-10"
-        >
-          <FontAwesome
-            name={isSaved ? "heart" : "heart-o"}
-            size={14}
-            color={isSaved ? "#FF4B4B" : "#FFFFFF"}
-          />
-        </TouchableOpacity>
+        <HeartButton
+          isLiked={isLiked}
+          onToggle={onToggleFavorite || (() => {})}
+          size={22}
+          className="absolute top-2.5 right-2.5 z-10 bg-black/30 rounded-full items-center justify-center"
+        />
       </View>
 
       {/* Details Area with padding */}
@@ -84,12 +105,12 @@ export const RecommendationCard = ({ recipe, onPress }: RecommendationCardProps)
 
         {/* Ingredients Count and Preparation Time Row */}
         <View className="flex-row items-center justify-between mt-1">
-          {/* Ingredients Count (Left) */}
-          <Text className="font-inter-medium text-text-secondary/70 text-xs">
-            {recipe.ingredientsCount} Ingredients
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text className="font-inter-medium text-text-secondary/70 text-xs">
+              {recipe.ingredientsCount} Ingredients
+            </Text>
+          </View>
 
-          {/* Cook Time (Right) */}
           <View className="flex-row items-center">
             <Feather name="clock" size={12} color="#8B7D6F" style={{ marginRight: 4 }} />
             <Text className="font-inter-medium text-text-secondary/70 text-xs">

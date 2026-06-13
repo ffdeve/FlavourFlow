@@ -1,13 +1,27 @@
-import BackButton from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useAuthStore } from "@/store/auth.store";
+import { cn } from "@/utils";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useAuthStore } from "@/store/auth.store";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
-import * as WebBrowser from 'expo-web-browser';
-import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  heightPercentageToDP as hp,
+  widthPercentageToDP as wp,
+} from "react-native-responsive-screen";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Ensure the auth session component closes properly after redirect
 WebBrowser.maybeCompleteAuthSession();
@@ -15,67 +29,115 @@ WebBrowser.maybeCompleteAuthSession();
 export default function LogInHomeScreen() {
   const router = useRouter();
   const { signInWithOAuth, setSessionFromUrl } = useAuth();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [socialProvider, setSocialProvider] = useState<
+    "google" | "facebook" | "apple" | null
+  >(null);
+  const insets = useSafeAreaInsets();
 
-  const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
+  const handleSocialLogin = async (
+    provider: "google" | "facebook" | "apple",
+  ) => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
+    setSocialProvider(provider);
     try {
-      const data = await signInWithOAuth(provider);
-      
+      // Generate redirect URL dynamically (supports both Expo Go exp:// and standalone flavourflow://)
+      const redirectUrl = Linking.createURL("", { scheme: "flavourflow" });
+
+      const data = await signInWithOAuth(provider, redirectUrl);
+
       // Open the system browser to handle Google/Facebook Login safely inside the app
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(
-          data.url, 
-          'flavourflow://'  // Redirect to app root
+          data.url,
+          redirectUrl,
         );
-        
+
         if (result.type === "success" && result.url) {
           await setSessionFromUrl(result.url);
-          
+
           const isPreferenceDone = useAuthStore.getState().isPreferenceDone();
           if (isPreferenceDone) {
-            router.replace('/(tabs)');
+            router.replace("/(tabs)");
           } else {
-            router.replace('/(auth)/userpreference');
+            router.replace("/(auth)/userpreference");
           }
-        } else if (result.type === "cancel") {
-          console.log("User cancelled the login flow.");
         }
+      } else {
+        Alert.alert(
+          "Login Error",
+          "Unable to initiate Google Sign-in. Please try again.",
+        );
       }
     } catch (error: any) {
-      Alert.alert("Login Error", error.message || `Failed to sign in with ${provider}`);
+      const errorMessage = error?.message || "";
+      // Catch browser conflict errors and dismiss the browser instead of showing a scary popup
+      if (
+        errorMessage.includes("already open") ||
+        errorMessage.includes("openAuthSessionAsync")
+      ) {
+        try {
+          await WebBrowser.dismissBrowser();
+        } catch (dismissError) {
+          console.error("Failed to dismiss browser:", dismissError);
+        }
+      } else {
+        Alert.alert(
+          "Login Error",
+          errorMessage || `Failed to sign in with ${provider}`,
+        );
+      }
+    } finally {
+      setIsLoggingIn(false);
+      setSocialProvider(null);
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="py-2">
-          {/* Back Button */}
-          <BackButton className=" pl-6 pt-4" />
+        <View style={{ paddingTop: insets.top }}>
+          {/* Title Header above the image */}
+          <View className="items-center justify-center pt-4 pb-2">
+            <Text
+              style={{ fontSize: wp("12%") }}
+              className="font-poppins-semibold text-primary text-center"
+            >
+              FlavourFlow
+            </Text>
+          </View>
 
-          {/* Image Container with Title Overlay */}
-          <View className="mb-5 items-center justify-center w-full h-full relative">
+          {/* Image Container - Edge-to-Edge */}
+          <View
+            style={{ height: hp("52%"), width: wp("100%") }}
+            className="mb-8 items-center justify-center"
+          >
             <Image
-              source={require("@/assets/images/LogIn_front_photo.png")}
+              source={require("@/assets/images/LogIn_front_photo.webp")}
               style={{
-                resizeMode: "cover",
+                resizeMode: "contain",
                 width: "100%",
                 height: "100%",
                 alignSelf: "center",
               }}
             />
-            {/* Title Overlay */}
-            <Text className="absolute text-6xl font-poppins-semibold pt-2 text-primary top-2 text-center ">
-              FlavourFlow
-            </Text>
           </View>
 
-          <View className="pt-8 mx-10">
+          <View style={{ paddingHorizontal: wp("8%"), paddingTop: hp("1%") }}>
             {/* Email Button */}
             <Button
               className="w-full mb-3"
               size="lg"
+              disabled={isLoggingIn}
               onPress={() => router.push("/(auth)/login-email")}
-              leftIcon={<MaterialIcons name="mail-outline" size={28} color="white" />}
+              leftIcon={
+                <MaterialIcons
+                  name="mail-outline"
+                  size={wp("7%")}
+                  color="white"
+                />
+              }
             >
               Continue with Email
             </Button>
@@ -83,17 +145,58 @@ export default function LogInHomeScreen() {
             <View className="flex-wrap">
               {/* Social Buttons Row */}
               <View className="flex-row items-center justify-center gap-4 mb-6">
-                <TouchableOpacity 
-                  onPress={() => handleSocialLogin('google')}
-                  className="flex-1 bg-primary rounded-lg py-4 items-center justify-center"
+                <TouchableOpacity
+                  onPress={() => handleSocialLogin("google")}
+                  disabled={isLoggingIn}
+                  className={cn(
+                    "flex-1 bg-primary rounded-2xl items-center justify-center",
+                    isLoggingIn && "opacity-50",
+                  )}
+                  style={{ paddingVertical: hp("1.2%") }}
                 >
-                  <FontAwesome6 name="google" size={28} color="white" />
+                  {isLoggingIn && socialProvider === "google" ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <View
+                      className="bg-white rounded-full items-center justify-center"
+                      style={{ width: wp("10%"), height: wp("10%") }}
+                    >
+                      <Image
+                        source={{
+                          uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
+                        }}
+                        style={{
+                          width: wp("5.5%"),
+                          height: wp("5.5%"),
+                          resizeMode: "contain",
+                        }}
+                      />
+                    </View>
+                  )}
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => handleSocialLogin('facebook')}
-                  className="flex-1 bg-primary rounded-lg py-4 items-center justify-center"
+                <TouchableOpacity
+                  onPress={() => handleSocialLogin("facebook")}
+                  disabled={isLoggingIn}
+                  className={cn(
+                    "flex-1 bg-primary rounded-2xl items-center justify-center",
+                    isLoggingIn && "opacity-50",
+                  )}
+                  style={{ paddingVertical: hp("1.2%") }}
                 >
-                  <FontAwesome6 name="facebook" size={28} color="white" />
+                  {isLoggingIn && socialProvider === "facebook" ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <View
+                      className="bg-[#1877F2] rounded-full items-center justify-center"
+                      style={{ width: wp("10%"), height: wp("10%") }}
+                    >
+                      <FontAwesome6
+                        name="facebook-f"
+                        size={wp("4.5%")}
+                        color="white"
+                      />
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -101,12 +204,10 @@ export default function LogInHomeScreen() {
 
           {/* Sign Up Link */}
           <View className="flex-row items-center justify-center">
-            <Text className="text-text text-base">
+            <Text className="text-text text-base font-poppins-regular">
               {"Don't have an account?"}{" "}
             </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/signup")}
-            >
+            <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
               <Text className="text-primary font-poppins-semibold text-base">
                 Sign Up
               </Text>
@@ -114,6 +215,6 @@ export default function LogInHomeScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -52,7 +52,7 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
             accessibilityLabel={options.tabBarAccessibilityLabel}
-            testID={options.tabBarTestID}
+            testID={(options as any).tabBarTestID}
             onPress={onPress}
             onLongPress={onLongPress}
             layout={LinearTransition.springify().damping(14).mass(0.9).stiffness(150)}

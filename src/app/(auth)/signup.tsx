@@ -1,115 +1,219 @@
-import BackButton from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useAuthStore } from "@/store/auth.store";
+import { cn } from "@/utils";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useAuthStore } from "@/store/auth.store";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
-import * as WebBrowser from 'expo-web-browser';
-import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  heightPercentageToDP as hp,
+  widthPercentageToDP as wp,
+} from "react-native-responsive-screen";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function SignupHomeScreen() {
   const router = useRouter();
   const { signInWithOAuth, setSessionFromUrl } = useAuth();
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [socialProvider, setSocialProvider] = useState<
+    "google" | "facebook" | "apple" | null
+  >(null);
+  const insets = useSafeAreaInsets();
 
-  const handleSocialSignup = async (provider: 'google' | 'facebook' | 'apple') => {
+  const handleSocialSignup = async (
+    provider: "google" | "facebook" | "apple",
+  ) => {
+    if (isSigningUp) return;
+    setIsSigningUp(true);
+    setSocialProvider(provider);
     try {
-      const data = await signInWithOAuth(provider);
-      
+      // Generate redirect URL dynamically (supports both Expo Go exp:// and standalone flavourflow://)
+      const redirectUrl = Linking.createURL("", { scheme: "flavourflow" });
+
+      const data = await signInWithOAuth(provider, redirectUrl);
+
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(
-          data.url, 
-          'flavourflow://'  // Redirect to app root
+          data.url,
+          redirectUrl,
         );
-        
+
         if (result.type === "success" && result.url) {
           await setSessionFromUrl(result.url);
-          
+
           const isPreferenceDone = useAuthStore.getState().isPreferenceDone();
           if (isPreferenceDone) {
-            router.replace('/(tabs)');
+            router.replace("/(tabs)");
           } else {
-            router.replace('/(auth)/userpreference');
+            router.replace("/(auth)/userpreference");
           }
-        } else if (result.type === "cancel") {
-          console.log("User cancelled the signup flow.");
         }
+      } else {
+        Alert.alert(
+          "Signup Error",
+          "Unable to initiate Google Sign-in. Please try again.",
+        );
       }
     } catch (error: any) {
-      Alert.alert("Signup Error", error.message || `Failed to sign up with ${provider}`);
+      const errorMessage = error?.message || "";
+      // Catch browser conflict errors and dismiss the browser instead of showing a scary popup
+      if (
+        errorMessage.includes("already open") ||
+        errorMessage.includes("openAuthSessionAsync")
+      ) {
+        try {
+          await WebBrowser.dismissBrowser();
+        } catch (dismissError) {
+          console.error("Failed to dismiss browser:", dismissError);
+        }
+      } else {
+        Alert.alert(
+          "Signup Error",
+          errorMessage || `Failed to sign in with ${provider}`,
+        );
+      }
+    } finally {
+      setIsSigningUp(false);
+      setSocialProvider(null);
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 p-2 bg-background">
+    <View className="flex-1 bg-background">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View >
-          {/* Back Button */}
-         <BackButton/>
-
-          <View className="mb-4 items-center justify-center w-full h-full relative">
-            <Image
-              source={require("@/assets/images/SignUpHome_2x.png")}
-              style={{
-                width: "100%",
-                height: "70%",
-                resizeMode: "contain",
-                alignSelf: "center",
-                marginTop: 20,
-                paddingBottom: 12,
-              
-              }}
-            />
-            <Text className="absolute text-6xl font-poppins-semibold pt-2 text-primary top-2 text-center ">
+        <View style={{ paddingTop: insets.top }}>
+          {/* Title Header above the image */}
+          <View className="items-center justify-center pt-4 pb-2">
+            <Text
+              style={{ fontSize: wp("12%") }}
+              className="font-poppins-semibold text-primary text-center"
+            >
               FlavourFlow
             </Text>
-            <Text className="text-2xl text-primary font-poppins-semibold mt-6 mb-2">
-              Create You Account
-            </Text>
           </View>
+
+          {/* Image Container - Edge-to-Edge */}
+          <View
+            style={{ height: hp("48%"), width: wp("100%") }}
+            className="mb-2 items-center justify-center"
+          >
+            <Image
+              source={require("@/assets/images/SignUpHome_2x.webp")}
+              style={{
+                width: "100%",
+                height: "100%",
+                resizeMode: "contain",
+                alignSelf: "center",
+              }}
+            />
+          </View>
+
+          <Text
+            style={{ fontSize: wp("6%") }}
+            className="text-primary font-poppins-semibold mt-4 mb-4 text-center"
+          >
+            Create Your Account
+          </Text>
 
           {/* Register Button */}
-          <View >
-          <Button
-            className="w-auto mx-8 mb-3"
-            size="lg"
-            onPress={() => router.push("/(auth)/register-email")}
-            leftIcon={<MaterialIcons name="mail-outline" size={28} color="white" />}
-          >
-            Register with Email
-          </Button>
+          <View>
+            <Button
+              className="w-auto mb-3"
+              style={{ marginHorizontal: wp("8%") }}
+              size="lg"
+              disabled={isSigningUp}
+              onPress={() => router.push("/(auth)/register-email")}
+              leftIcon={
+                <MaterialIcons
+                  name="mail-outline"
+                  size={wp("7%")}
+                  color="white"
+                />
+              }
+            >
+              Register with Email
+            </Button>
 
-          {/* Social Buttons Row */}
-          <View className="flex-wrap mx-8">
             {/* Social Buttons Row */}
-            <View className="flex-row items-center justify-center gap-4 mb-6">
-              <TouchableOpacity 
-                onPress={() => handleSocialSignup('google')}
-                className="flex-1 bg-primary rounded-lg py-4 items-center justify-center"
-              >
-                <FontAwesome6 name="google" size={28} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => handleSocialSignup('facebook')}
-                className="flex-1 bg-primary rounded-lg py-4 items-center justify-center"
-              >
-                <FontAwesome6 name="facebook" size={28} color="white" />
-              </TouchableOpacity>
+            <View style={{ marginHorizontal: wp("8%") }} className="flex-wrap">
+              <View className="flex-row items-center justify-center gap-4 mb-6">
+                <TouchableOpacity
+                  onPress={() => handleSocialSignup("google")}
+                  disabled={isSigningUp}
+                  className={cn(
+                    "flex-1 bg-primary rounded-2xl items-center justify-center",
+                    isSigningUp && "opacity-50",
+                  )}
+                  style={{ paddingVertical: hp("1.2%") }}
+                >
+                  {isSigningUp && socialProvider === "google" ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <View
+                      className="bg-white rounded-full items-center justify-center"
+                      style={{ width: wp("10%"), height: wp("10%") }}
+                    >
+                      <Image
+                        source={{
+                          uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
+                        }}
+                        style={{
+                          width: wp("5.5%"),
+                          height: wp("5.5%"),
+                          resizeMode: "contain",
+                        }}
+                      />
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleSocialSignup("facebook")}
+                  disabled={isSigningUp}
+                  className={cn(
+                    "flex-1 bg-primary rounded-2xl items-center justify-center",
+                    isSigningUp && "opacity-50",
+                  )}
+                  style={{ paddingVertical: hp("1.2%") }}
+                >
+                  {isSigningUp && socialProvider === "facebook" ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <View
+                      className="bg-[#1877F2] rounded-full items-center justify-center"
+                      style={{ width: wp("10%"), height: wp("10%") }}
+                    >
+                      <FontAwesome6
+                        name="facebook-f"
+                        size={wp("4.5%")}
+                        color="white"
+                      />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
           </View>
 
           {/* Sign In Link */}
           <View className="flex-row items-center justify-center">
-            <Text className="text-text text-base">
+            <Text className="text-text text-base font-poppins-regular">
               Already have an account?{" "}
             </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/login")}
-            >
+            <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
               <Text className="text-primary font-poppins-semibold text-base">
                 Sign In
               </Text>
@@ -117,6 +221,6 @@ export default function SignupHomeScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -1,3 +1,11 @@
+> [!IMPORTANT]
+> **CRITICAL RULES FOR ALL AI AGENTS:**
+> 1. **FOLLOW THE THEME**: You MUST strictly follow the theme coloring, styling, border radii, and loading systems defined in this document.
+> 2. **USE CUSTOM ICONS**: You MUST ONLY use the custom `.webp` icons located in `src/assets/icons/`. Do not use standard vector icons unless absolutely necessary.
+> 3. **ASK IF MISSING**: If you cannot find an appropriate custom icon, you MUST ask the user before proceeding.
+> 4. **DO NOT DEVIATE**: This style guide is the absolute law for the UI. Do not invent your own design tokens.
+
+
 # FlavourFlow Design System
 
 ## Color Palette

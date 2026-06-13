@@ -1,0 +1,6 @@
+# CRITICAL RULES FOR ALL AI AGENTS WORKING ON FLAVOURFLOW
+
+1. **FOLLOW THE THEME**: You MUST strictly follow the theme coloring, styling, border radii, and loading systems defined in `flavourflow_style_guide.md` and `DESIGN_SYSTEM.md`. Do NOT invent your own colors or deviate from the established UI aesthetics.
+2. **USE CUSTOM ICONS**: You MUST ONLY use the custom icons located in `src/assets/icons`. Do not use standard vector icons (like Ionicons, Feather) unless absolutely necessary.
+3. **ASK IF MISSING**: If you cannot find an appropriate custom icon in `src/assets/icons`, you MUST ask the user before proceeding.
+4. **STYLE GUIDE IS LAW**: You MUST read and follow `flavourflow_style_guide.md` before implementing any UI component.

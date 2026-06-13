@@ -5,6 +5,8 @@ import type { Session, User } from "@supabase/supabase-js";
 import { create } from "zustand";
 
 // Check if all 4 preference sections are filled
+const generateRandomUsername = () => `user_${Math.random().toString(36).substring(2, 10)}`;
+
 const isPreferenceComplete = (preferences: UserPreferences | null): boolean => {
   if (!preferences) return false;
   
@@ -45,7 +47,8 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ needsEmailVerification: boolean }>;
   verifyOtp: (email: string, token: string, type: 'signup' | 'recovery', fullName?: string) => Promise<void>;
-  signInWithOAuth: (provider: "google" | "facebook" | "apple") => Promise<any>;
+  resendOtp: (email: string, type: 'signup' | 'recovery') => Promise<void>;
+  signInWithOAuth: (provider: "google" | "facebook" | "apple", redirectTo?: string) => Promise<any>;
   setSessionFromUrl: (url: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
@@ -73,10 +76,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (session?.user) {
         // Load profile and preferences
-        const [profile, preferences] = await Promise.all([
+        let [profile, preferences] = await Promise.all([
           profileService.getProfile(session.user.id),
           profileService.getPreferences(session.user.id),
         ]);
+
+        if (!profile) {
+          profile = await profileService.upsertProfile({
+            id: session.user.id,
+            full_name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
+            username: generateRandomUsername(),
+            language: "en",
+          });
+        }
 
         set({
           session,
@@ -100,10 +112,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Subscribe to auth changes
       authService.onAuthStateChange(async (session) => {
         if (session?.user) {
-          const [profile, preferences] = await Promise.all([
+          let [profile, preferences] = await Promise.all([
             profileService.getProfile(session.user.id),
             profileService.getPreferences(session.user.id),
           ]);
+
+          if (!profile) {
+            profile = await profileService.upsertProfile({
+              id: session.user.id,
+              full_name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
+              username: generateRandomUsername(),
+              language: "en",
+            });
+          }
 
           set({
             session,
@@ -131,10 +152,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true });
       const { session, user } = await authService.signIn(email, password);
 
-      const [profile, preferences] = await Promise.all([
+      let [profile, preferences] = await Promise.all([
         profileService.getProfile(user.id),
         profileService.getPreferences(user.id),
       ]);
+
+      if (!profile) {
+        profile = await profileService.upsertProfile({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || email.split("@")[0] || "User",
+          username: generateRandomUsername(),
+          language: "en",
+        });
+      }
 
       set({
         session,
@@ -149,10 +179,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signInWithOAuth: async (provider: "google" | "facebook" | "apple") => {
+  signInWithOAuth: async (provider: "google" | "facebook" | "apple", redirectTo?: string) => {
     try {
       set({ isLoading: true });
-      const data = await authService.signInWithOAuth(provider);
+      const data = await authService.signInWithOAuth(provider, redirectTo);
       set({ isLoading: false });
       return data;
     } catch (error) {
@@ -165,7 +195,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true });
       const sessionData = await authService.setSessionFromUrl(url);
-      if (sessionData) {
+      if (sessionData && sessionData.user) {
         const { session, user } = sessionData;
         const [profile, preferences] = await Promise.all([
           profileService.getProfile(user.id),
@@ -202,6 +232,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const profile = await profileService.upsertProfile({
             id: user.id,
             full_name: fullName,
+            username: generateRandomUsername(),
             language: "en",
           });
 
@@ -240,6 +271,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           profile = await profileService.upsertProfile({
             id: user.id,
             full_name: fullName,
+            username: generateRandomUsername(),
             language: "en",
           });
         }
@@ -256,6 +288,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         set({ isLoading: false });
       }
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  resendOtp: async (email: string, type: 'signup' | 'recovery') => {
+    try {
+      set({ isLoading: true });
+      await authService.resendOtp(email, type);
+      set({ isLoading: false });
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -295,6 +338,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updatePreferences: async (updates: Partial<UserPreferences>) => {
     const { user, preferences } = get();
     if (!user) throw new Error("Not authenticated");
+
+    // Safeguard: Check database directly to see if profile exists to prevent FK constraint error
+    let activeProfile = await profileService.getProfile(user.id);
+    if (!activeProfile) {
+      activeProfile = await profileService.upsertProfile({
+        id: user.id,
+        full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+        username: generateRandomUsername(),
+        language: "en",
+      });
+    }
+    set({ profile: activeProfile });
 
     const updatedPreferences = await profileService.upsertPreferences({
       ...(preferences || {}),

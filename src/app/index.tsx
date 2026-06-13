@@ -1,7 +1,8 @@
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
 
 export default function Index() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function Index() {
 
   return (
     <View className="flex-1 items-center justify-center bg-background">
-      <ActivityIndicator size="large" color="#FBA82E" />
+      <CookingLoader scale={0.8} />
     </View>
   );
 }

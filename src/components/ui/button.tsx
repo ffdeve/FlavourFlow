@@ -44,10 +44,10 @@ export function Button({
   };
 
   const textVariantStyles = {
-    primary: "text-white font-semibold",
-    secondary: "text-text font-semibold",
-    outline: "text-primary font-semibold",
-    ghost: "text-primary font-semibold",
+    primary: "text-white font-poppins-semibold",
+    secondary: "text-text font-poppins-semibold",
+    outline: "text-primary font-poppins-semibold",
+    ghost: "text-primary font-poppins-semibold",
   };
 
   const textSizeStyles = {
