@@ -14,12 +14,14 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   FlatList,
   RefreshControl,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   LinearTransition,
@@ -38,6 +40,7 @@ const FILTER_TABS = ["All Feed", "Recipe Tips", "Q&A"];
 export default function CommunityScreen() {
   const { user, profile } = useAuth();
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +73,11 @@ export default function CommunityScreen() {
 
   // Auto-refresh timer (Silent background fetch)
   useEffect(() => {
+    if (!isFocused) return;
+
     const interval = setInterval(() => {
+      if (AppState.currentState !== "active") return;
+
       communityService.getPosts(activeFilter).then((data) => {
         setPosts(data);
       }).catch((err) => {
@@ -78,7 +85,7 @@ export default function CommunityScreen() {
       });
     }, 60000); // 1 minute
     return () => clearInterval(interval);
-  }, [activeFilter]);
+  }, [activeFilter, isFocused]);
 
   const loadPosts = async () => {
     setLoading(true);

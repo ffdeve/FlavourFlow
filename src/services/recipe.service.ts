@@ -45,6 +45,12 @@ export interface Recipe {
   }[];
   kitchen_essentials?: string[];
   created_at?: string;
+  matchScore?: number;
+  matchReason?: string;
+  cuisine_type?: string | null;
+  dish_category?: string;
+  created_by?: string;
+  diet_tags?: string[];
 }
 
 export function mapDbRecipeToUiRecipe(dbRecipe: any): Recipe {
@@ -88,6 +94,10 @@ export function mapDbRecipeToUiRecipe(dbRecipe: any): Recipe {
     steps: sortedSteps,
     kitchen_essentials: dbRecipe.kitchen_essentials || [],
     created_at: dbRecipe.created_at,
+    cuisine_type: dbRecipe.cuisine_type || "",
+    dish_category: dbRecipe.dish_category || "Dinner",
+    created_by: dbRecipe.created_by || "",
+    diet_tags: dbRecipe.diet_tags || [],
   };
 }
 
@@ -288,6 +298,87 @@ export const recipeService = {
   },
 
   /**
+   * Update an existing recipe in the database
+   */
+  async updateRecipe(
+    recipeId: string,
+    recipeData: Partial<{
+      title: string;
+      description: string;
+      ingredients: { name: string; quantity: string }[];
+      steps: any[];
+      image_url?: string;
+      images?: string[];
+      video_url?: string;
+      preview_video_start_time?: number;
+      preview_video_end_time?: number;
+      cook_time: number;
+      prep_time?: number;
+      servings: number;
+      difficulty: string;
+      cuisine_type: string;
+      dish_category?: string;
+      diet_tags?: string[];
+      spice_level?: number;
+      kitchen_essentials?: string[];
+    }>,
+  ) {
+    const { data, error } = await supabase
+      .from("recipes")
+      .update({
+        ...recipeData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", recipeId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Log user recipe interaction (view, cook)
+   */
+  async logInteraction(
+    userId: string,
+    recipeId: string,
+    interactionType: "view" | "cook",
+  ) {
+    const { error } = await supabase
+      .from("recipe_interactions")
+      .insert([
+        {
+          user_id: userId,
+          recipe_id: recipeId,
+          interaction_type: interactionType,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+    if (error) {
+      console.warn(`Failed to log interaction (${interactionType}):`, error);
+    }
+  },
+
+  /**
+   * Get analytics for a recipe (views and cooks counts)
+   */
+  async getRecipeAnalytics(recipeId: string) {
+    const { data, error } = await supabase
+      .from("recipe_interactions")
+      .select("interaction_type")
+      .eq("recipe_id", recipeId);
+
+    if (error) throw error;
+
+    const views = data.filter((i) => i.interaction_type === "view").length;
+    const cooks = data.filter((i) => i.interaction_type === "cook").length;
+
+    return { views, cooks };
+  },
+
+  /**
    * Fetch recipes created by the current user
    */
   async getUserRecipes(userId: string) {
@@ -299,6 +390,44 @@ export const recipeService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Fetch recipes created by the current user, including their views and cooks counts
+   */
+  async getUserRecipesWithAnalytics(userId: string) {
+    const { data, error } = await supabase
+      .from("recipes")
+      .select(`
+        id,
+        title,
+        dish_category,
+        image_url,
+        created_at,
+        recipe_interactions (
+          interaction_type
+        )
+      `)
+      .eq("created_by", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((recipe: any) => {
+      const interactions = recipe.recipe_interactions || [];
+      const views = interactions.filter((i: any) => i.interaction_type === "view").length;
+      const cooks = interactions.filter((i: any) => i.interaction_type === "cook").length;
+
+      return {
+        id: recipe.id,
+        title: recipe.title,
+        category: recipe.dish_category || "Dinner",
+        image: recipe.image_url || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
+        createdAt: recipe.created_at,
+        views,
+        cooks,
+      };
+    });
   },
 
   /**

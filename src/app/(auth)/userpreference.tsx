@@ -33,8 +33,10 @@ export default function UserPreferenceScreen() {
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
   const [selectedDislikes, setSelectedDislikes] = useState<string[]>([]);
   const [spiceLevel, setSpiceLevel] = useState<number>(3); // Defaults to medium (3)
-  
-  const [step3Tab, setStep3Tab] = useState<"Allergies" | "Dislikes">("Allergies");
+
+  const [step3Tab, setStep3Tab] = useState<"Allergies" | "Dislikes">(
+    "Allergies",
+  );
 
   // Load initial preferences if they exist in the store
   useEffect(() => {
@@ -301,24 +303,26 @@ export default function UserPreferenceScreen() {
 
           {/* Step 1: Countries */}
           {step === 1 && (
-            <BrickWallCarousel
-              data={countries}
-              isFlag={true}
-              selectedItems={selectedCountries}
-              toggleSelection={toggleSelection}
-              setSelectedItems={setSelectedCountries}
-            />
+            <View className="flex-1 justify-center my-auto">
+              <BrickWallCarousel
+                data={countries}
+                isFlag={true}
+                selectedItems={selectedCountries}
+                toggleSelection={toggleSelection}
+                setSelectedItems={setSelectedCountries}
+              />
+            </View>
           )}
 
           {/* Step 2: Cuisines filtered by selected countries + search */}
           {step === 2 && (
-            <View className="flex-1">
+            <View className="flex-1 justify-center my-auto">
               <Input
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search cuisines..."
                 leftIcon={<Feather name="search" size={20} color="#8B7D6F" />}
-                containerClassName="mx-6 mb-4"
+                containerClassName="mx-6 mb-6"
                 fieldClassName="bg-white border border-[#F5E3D8]/50 rounded-full px-4 flex-row items-center h-14"
                 inputClassName="font-jakarta-medium text-sm text-[#3B3328] flex-1"
               />
@@ -365,20 +369,26 @@ export default function UserPreferenceScreen() {
 
           {/* Step 3: Allergies and Dislikes + search */}
           {step === 3 && (
-            <View className="flex-1">
+            <View className="flex-1 justify-center my-auto">
               {/* Tab Switcher */}
-              <View className="flex-row mx-6 mb-6 bg-[#F5E3D8]/30 rounded-full p-1 border border-[#F5E3D8]/40">
+              <View className="flex-row mx-4 mb-4 bg-[#F5E3D8]/30 rounded-full p-1 border border-[#F5E3D8]/40">
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => {
                     setStep3Tab("Allergies");
                     setSearchQuery("");
                   }}
-                  className={`flex-1 py-2.5 rounded-full items-center justify-center ${
-                    step3Tab === "Allergies"
-                      ? "bg-[#FBA82E] shadow-sm"
-                      : "bg-transparent"
-                  }`}
+                  className="flex-1 py-2.5 rounded-full items-center justify-center"
+                  style={{
+                    backgroundColor:
+                      step3Tab === "Allergies" ? "#FBA82E" : "transparent",
+                    shadowColor:
+                      step3Tab === "Allergies" ? "#FBA82E" : "transparent",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: step3Tab === "Allergies" ? 0.2 : 0,
+                    shadowRadius: 3,
+                    elevation: step3Tab === "Allergies" ? 2 : 0,
+                  }}
                 >
                   <Text
                     className={`font-jakarta-semibold text-sm ${
@@ -394,11 +404,17 @@ export default function UserPreferenceScreen() {
                     setStep3Tab("Dislikes");
                     setSearchQuery("");
                   }}
-                  className={`flex-1 py-2.5 rounded-full items-center justify-center ${
-                    step3Tab === "Dislikes"
-                      ? "bg-[#FBA82E] shadow-sm"
-                      : "bg-transparent"
-                  }`}
+                  className="flex-1 py-2.5 rounded-full items-center justify-center"
+                  style={{
+                    backgroundColor:
+                      step3Tab === "Dislikes" ? "#FBA82E" : "transparent",
+                    shadowColor:
+                      step3Tab === "Dislikes" ? "#FBA82E" : "transparent",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: step3Tab === "Dislikes" ? 0.2 : 0,
+                    shadowRadius: 3,
+                    elevation: step3Tab === "Dislikes" ? 2 : 0,
+                  }}
                 >
                   <Text
                     className={`font-jakarta-semibold text-sm ${
@@ -415,11 +431,11 @@ export default function UserPreferenceScreen() {
                 onChangeText={setSearchQuery}
                 placeholder={`Search ${step3Tab.toLowerCase()}...`}
                 leftIcon={<Feather name="search" size={20} color="#8B7D6F" />}
-                containerClassName="mx-6 mb-4"
+                containerClassName="mx-6 mb-2"
                 fieldClassName="bg-white border border-[#F5E3D8]/50 rounded-full px-4 flex-row items-center h-14"
                 inputClassName="font-jakarta-medium text-sm text-[#3B3328] flex-1"
               />
-              
+
               {step3Tab === "Allergies" ? (
                 // Allergies Grid
                 searchQuery.trim().length > 0 ? (
@@ -461,51 +477,72 @@ export default function UserPreferenceScreen() {
                     setSelectedItems={setSelectedAllergies}
                   />
                 )
-              ) : (
-                // Dislikes Grid
-                searchQuery.trim().length > 0 ? (
-                  <ScrollView
-                    key="dislikes-scroll"
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    className="mt-6 pb-12"
-                    contentContainerStyle={{ paddingHorizontal: 16 }}
-                  >
-                    <View className="flex-row items-center">
-                      {searchedDislikes.map((item) => (
-                        <View key={`dislike-${item.id}-${item.category || ''}`} className="mr-4">
-                          <DiamondChip
-                            label={item.name || ""}
-                            isFlag={false}
-                            isSelected={(selectedDislikes || []).includes(
+              ) : // Dislikes Grid
+              searchQuery.trim().length > 0 ? (
+                <ScrollView
+                  key="dislikes-scroll"
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="mt-6 pb-12"
+                  contentContainerStyle={{ paddingHorizontal: 16 }}
+                >
+                  <View className="flex-row items-center">
+                    {searchedDislikes.map((item) => (
+                      <View
+                        key={`dislike-${item.id}-${item.category || ""}`}
+                        className="mr-4"
+                      >
+                        <DiamondChip
+                          label={item.name || ""}
+                          isFlag={false}
+                          isSelected={(selectedDislikes || []).includes(
+                            item.name || "",
+                          )}
+                          onPress={() =>
+                            toggleSelection(
                               item.name || "",
-                            )}
-                            onPress={() =>
-                              toggleSelection(
-                                item.name || "",
-                                selectedDislikes || [],
-                                setSelectedDislikes,
-                              )
-                            }
-                            imageUrl={item.icon_url}
-                          />
-                        </View>
-                      ))}
-                    </View>
-                  </ScrollView>
-                ) : (
-                  <View className="flex-1 items-center justify-center">
-                    <Text className="text-lg">Dislikes Carousel Placeholder</Text>
+                              selectedDislikes || [],
+                              setSelectedDislikes,
+                            )
+                          }
+                          imageUrl={item.icon_url}
+                        />
+                      </View>
+                    ))}
                   </View>
-                )
+                </ScrollView>
+              ) : (
+                <BrickWallCarousel
+                  key="dislikes-carousel"
+                  data={searchedDislikes}
+                  isFlag={false}
+                  selectedItems={selectedDislikes || []}
+                  toggleSelection={toggleSelection}
+                  setSelectedItems={setSelectedDislikes}
+                />
               )}
             </View>
           )}
 
           {/* Step 4: Spice level with custom icons */}
           {step === 4 && (
-            <View className="flex-1 justify-center my-6">
+            <View className="flex-1 justify-center my-auto">
               <SpiceSelector value={spiceLevel} onChange={setSpiceLevel} />
+            </View>
+          )}
+
+          {/* Step 5: Setup completed illustration */}
+          {step === 5 && (
+            <View className="flex-1 justify-center items-center my-auto py-12">
+              <View className="w-24 h-24 rounded-full bg-[#FBA82E]/10 items-center justify-center mb-6">
+                <Feather name="check" size={48} color="#FBA82E" />
+              </View>
+              <Text className="text-xl font-jakarta-bold text-[#3B3328] text-center px-6">
+                Your Culinary Profile is Ready!
+              </Text>
+              <Text className="text-sm font-inter-medium text-[#8B7D6F] text-center mt-2 px-8">
+                We've curated custom recipes matching your preferences, spice level, and dietary requirements.
+              </Text>
             </View>
           )}
 

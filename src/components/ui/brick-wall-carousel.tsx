@@ -1,5 +1,4 @@
 import { DiamondChip, getFlagEmoji } from "@/components/ui/diamond-chip";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import { Dimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -29,8 +28,11 @@ const MarqueeRow = ({
 }: any) => {
   // Dynamically calculate how many times to duplicate based on list width
   const baseListWidth = items.length * TOTAL_ITEM_WIDTH;
-  const duplicateCount = baseListWidth > 0 ? Math.max(2, Math.ceil((SCREEN_WIDTH * 2) / baseListWidth) + 1) : 4;
-  
+  const duplicateCount =
+    baseListWidth > 0
+      ? Math.max(2, Math.ceil((SCREEN_WIDTH * 2) / baseListWidth) + 1)
+      : 4;
+
   const displayItems = Array(duplicateCount).fill(items).flat();
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -166,7 +168,7 @@ export const BrickWallCarousel = ({
   return (
     <GestureDetector gesture={panGesture}>
       <View
-        className="mt-4 py-6 relative overflow-hidden justify-center bg-transparent"
+        className="mt-2 py-4 relative overflow-hidden justify-center bg-transparent"
         style={{ width: SCREEN_WIDTH, marginLeft: -20 }}
       >
         {rows.map((rowItems, idx) => (
@@ -181,22 +183,6 @@ export const BrickWallCarousel = ({
             scrollOffset={scrollOffset}
           />
         ))}
-
-        {/* Edge Fade Masks */}
-        <LinearGradient
-          colors={["#FFFDF5", "transparent"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          className="absolute left-0 top-0 bottom-0 w-12 z-10"
-          pointerEvents="none"
-        />
-        <LinearGradient
-          colors={["transparent", "#FFFDF5"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          className="absolute right-0 top-0 bottom-0 w-12 z-10"
-          pointerEvents="none"
-        />
       </View>
     </GestureDetector>
   );

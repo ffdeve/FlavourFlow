@@ -6,7 +6,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import LottieView from "lottie-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -248,7 +248,55 @@ const fuzzySearchIngredients = (query: string, items: any[]) => {
     .map((s) => s.item);
 };
 
+const parseQuantityAndUnit = (
+  qtyStr: string,
+  ingredientName: string,
+  dbIngs: any[],
+) => {
+  const cleanStr = (qtyStr || "").trim();
+  if (!cleanStr) {
+    return { quantity: "", unit: "g", category: "solid" };
+  }
+
+  const cleanName = ingredientName.trim().toLowerCase();
+  const foundIng =
+    dbIngs.find((i) => i.name.toLowerCase() === cleanName) ||
+    MASTER_INGREDIENTS.find((i) => i.name.toLowerCase() === cleanName);
+  const category = foundIng?.category || "solid";
+  const allowed =
+    ALLOWED_UNITS[category as keyof typeof ALLOWED_UNITS] || [];
+  const defaultUnit = allowed[0] || "g";
+
+  const sortedUnits = [...allowed].sort((a, b) => b.length - a.length);
+  for (const unit of sortedUnits) {
+    if (cleanStr.toLowerCase().endsWith(" " + unit.toLowerCase())) {
+      const quantity = cleanStr
+        .slice(0, cleanStr.length - unit.length - 1)
+        .trim();
+      return { quantity, unit, category };
+    }
+    if (cleanStr.toLowerCase().endsWith(unit.toLowerCase())) {
+      const quantity = cleanStr.slice(0, cleanStr.length - unit.length).trim();
+      return { quantity, unit, category };
+    }
+  }
+
+  const parts = cleanStr.split(/\s+/);
+  if (parts.length > 1) {
+    const lastPart = parts[parts.length - 1];
+    if (isNaN(Number(lastPart))) {
+      const quantity = parts.slice(0, -1).join(" ");
+      return { quantity, unit: lastPart, category };
+    }
+  }
+
+  return { quantity: cleanStr, unit: defaultUnit, category };
+};
+
 export default function CreateRecipeWizardScreen() {
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const [isPrefilling, setIsPrefilling] = useState(false);
+  const [isLoadingRecipe, setIsLoadingRecipe] = useState(false);
   const user = useAuthStore((state) => state.user);
   const insets = useSafeAreaInsets();
 
@@ -398,6 +446,8 @@ export default function CreateRecipeWizardScreen() {
 
   // Real-time URL validation with debounce
   useEffect(() => {
+    if (isPrefilling) return;
+
     // Reset video states immediately when the url changes to avoid carrying over old details
     setIsVideoVerified(false);
     setVideoDuration(0);
@@ -563,19 +613,130 @@ export default function CreateRecipeWizardScreen() {
 
   useEffect(() => {
     const fetchDbData = async () => {
+      setIsLoadingRecipe(true);
       try {
         const [ingData, appData] = await Promise.all([
           recipeService.getAllIngredients(),
           recipeService.getAllKitchenEssentials(),
         ]);
-        setDbIngredients(ingData || []);
+        const dbIngs = ingData || [];
+        setDbIngredients(dbIngs);
         setDbKitchenEssentials(appData || []);
+
+        if (editId) {
+          setIsPrefilling(true);
+          const recipe = await recipeService.getRecipeDetails(editId);
+          if (recipe) {
+            setTitle(recipe.title || "");
+            setDescription(recipe.description || "");
+            setImageUris(
+              recipe.images && recipe.images.length > 0
+                ? recipe.images
+                : recipe.image
+                ? [recipe.image]
+                : [],
+            );
+            setVideoUrl(recipe.videoUrl || "");
+
+            // Set video states if video is present
+            if (recipe.videoUrl) {
+              setIsVideoVerified(true);
+              setPreviewStartTime(recipe.previewVideoStartTime || 0);
+              const duration =
+                (recipe.previewVideoEndTime || 0) -
+                (recipe.previewVideoStartTime || 0);
+              setPreviewDuration(duration > 0 ? duration : 15);
+            }
+
+            setPrepTime(recipe.prepTime || 10);
+            setCookTime(recipe.cookingMinutes || 10);
+            setServings(recipe.servings || 2);
+
+            // Difficulty level mapping
+            if (recipe.difficulty) {
+              const diffLower = recipe.difficulty.toLowerCase();
+              if (diffLower.includes("medium")) setDifficulty("Medium");
+              else if (diffLower.includes("hard")) setDifficulty("Hard");
+              else setDifficulty("Easy");
+            }
+
+            setCuisineTag(recipe.cuisine_type || "");
+            setDishCategory(recipe.dish_category || "");
+
+            // Diet tags & Meal Types
+            const tags = recipe.diet_tags || [];
+            const mealTypes = [
+              "Breakfast",
+              "Lunch",
+              "Dinner",
+              "Midnight",
+              "Snack",
+              "Desserts",
+              "Appetizer",
+            ];
+            const dietNames = [
+              "Vegan",
+              "Gluten-Free",
+              "Dairy-Free",
+              "Low-Carb",
+              "Nut-Free",
+              "Healthy",
+              "Non-Halal",
+            ];
+
+            setSelectedMealTypes(tags.filter((t: string) => mealTypes.includes(t)));
+            setSelectedDietTags(tags.filter((t: string) => dietNames.includes(t)));
+            setSpiceLevel(recipe.spiceLevel || 3);
+            setKitchenEssentials(recipe.kitchen_essentials || []);
+
+            // Ingredients parsing
+            if (recipe.ingredients && recipe.ingredients.length > 0) {
+              const parsedIngredients = recipe.ingredients.map((item: any) => {
+                const parsed = parseQuantityAndUnit(
+                  item.quantity || "",
+                  item.name || "",
+                  dbIngs,
+                );
+                return {
+                  name: item.name || "",
+                  quantity: parsed.quantity,
+                  unit: parsed.unit,
+                  category: parsed.category,
+                };
+              });
+              setIngredients(parsedIngredients);
+            }
+
+            // Steps mapping
+            if (recipe.steps && recipe.steps.length > 0) {
+              setSteps(
+                recipe.steps.map((s: any) => ({
+                  step: s.step,
+                  instruction: s.instruction || "",
+                  action: s.action || "Mix",
+                  parallel: s.parallel || false,
+                  linkedIngredients: s.linkedIngredients || [],
+                  heatSetting: s.heatSetting || null,
+                  hasTimer: s.hasTimer || false,
+                  timerType: s.timerType || "countdown",
+                  timerHours: s.timerHours || "",
+                  timerMinutes: s.timerMinutes || "",
+                  targetTime: s.targetTime || "",
+                  leaveOvernight: s.leaveOvernight || false,
+                })),
+              );
+            }
+          }
+          setIsPrefilling(false);
+        }
       } catch (err) {
         console.error("Failed to fetch wizard master data from DB:", err);
+      } finally {
+        setIsLoadingRecipe(false);
       }
     };
     fetchDbData();
-  }, []);
+  }, [editId]);
 
   // Picker cover image method
   const handlePickImage = async () => {
@@ -836,30 +997,56 @@ export default function CreateRecipeWizardScreen() {
         }));
       const finalSteps = steps.filter((s) => s.instruction.trim());
 
-      // 2. Insert recipe row
-      const publishedRecipe = await recipeService.createRecipe({
-        title,
-        description,
-        ingredients: finalIngredients,
-        steps: finalSteps,
-        image_url: finalImageUrl,
-        images: finalImageUrls,
-        video_url: videoUrl.trim() || undefined,
-        preview_video_start_time: isVideoVerified
-          ? previewStartTime
-          : undefined,
-        preview_video_end_time: isVideoVerified ? previewEndTime : undefined,
-        cook_time: cookTime,
-        prep_time: prepTime,
-        servings: servings,
-        difficulty,
-        cuisine_type: cuisineTag,
-        dish_category: dishCategory,
-        diet_tags: [...selectedDietTags, ...selectedMealTypes],
-        spice_level: spiceLevel,
-        created_by: user.id,
-        kitchen_essentials: kitchenEssentials.filter((a) => a.trim()),
-      });
+      // 2. Insert or Update recipe row
+      let publishedRecipe;
+      if (editId) {
+        publishedRecipe = await recipeService.updateRecipe(editId, {
+          title,
+          description,
+          ingredients: finalIngredients,
+          steps: finalSteps,
+          image_url: finalImageUrl,
+          images: finalImageUrls,
+          video_url: videoUrl.trim() || undefined,
+          preview_video_start_time: isVideoVerified
+            ? previewStartTime
+            : undefined,
+          preview_video_end_time: isVideoVerified ? previewEndTime : undefined,
+          cook_time: cookTime,
+          prep_time: prepTime,
+          servings: servings,
+          difficulty,
+          cuisine_type: cuisineTag,
+          dish_category: dishCategory,
+          diet_tags: [...selectedDietTags, ...selectedMealTypes],
+          spice_level: spiceLevel,
+          kitchen_essentials: kitchenEssentials.filter((a) => a.trim()),
+        });
+      } else {
+        publishedRecipe = await recipeService.createRecipe({
+          title,
+          description,
+          ingredients: finalIngredients,
+          steps: finalSteps,
+          image_url: finalImageUrl,
+          images: finalImageUrls,
+          video_url: videoUrl.trim() || undefined,
+          preview_video_start_time: isVideoVerified
+            ? previewStartTime
+            : undefined,
+          preview_video_end_time: isVideoVerified ? previewEndTime : undefined,
+          cook_time: cookTime,
+          prep_time: prepTime,
+          servings: servings,
+          difficulty,
+          cuisine_type: cuisineTag,
+          dish_category: dishCategory,
+          diet_tags: [...selectedDietTags, ...selectedMealTypes],
+          spice_level: spiceLevel,
+          created_by: user.id,
+          kitchen_essentials: kitchenEssentials.filter((a) => a.trim()),
+        });
+      }
 
       if (publishedRecipe && publishedRecipe.id) {
         setPublishedRecipeId(publishedRecipe.id);
@@ -908,7 +1095,7 @@ export default function CreateRecipeWizardScreen() {
           </TouchableOpacity>
 
           <Text className="font-jakarta-bold text-[#3B3328] text-base">
-            Create Recipe
+            {editId ? "Edit Recipe" : "Create Recipe"}
           </Text>
 
           {/* Spacer to keep title centered */}
@@ -916,14 +1103,23 @@ export default function CreateRecipeWizardScreen() {
         </View>
 
         {/* Form Body ScrollView */}
-        <ScrollView
-          ref={scrollViewRef}
-          className="flex-1"
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          onScrollBeginDrag={() => Keyboard.dismiss()}
-          style={{ overflow: "visible" }}
-        >
+        {isLoadingRecipe ? (
+          <View className="flex-1 items-center justify-center bg-[#FFFDF5]">
+            <ActivityIndicator size="large" color="#FBA82E" />
+            <Text className="mt-4 font-jakarta-medium text-[#8B7D6F] text-sm">
+              Loading recipe details...
+            </Text>
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              ref={scrollViewRef}
+              className="flex-1"
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              onScrollBeginDrag={() => Keyboard.dismiss()}
+              style={{ overflow: "visible" }}
+            >
           {/* STEP 1: Basic Info & Details */}
           {currentStep === 1 && (
             <View className="pb-24 relative">
@@ -2830,7 +3026,7 @@ export default function CreateRecipeWizardScreen() {
               className="flex-1 h-14 bg-[#FBA82E] rounded-full items-center justify-center shadow flex-row gap-2"
             >
               <Text className="font-jakarta-bold text-white text-base">
-                {currentStep < 5 ? "Next" : "Publish Recipe"}
+                {currentStep < 5 ? "Next" : editId ? "Save Changes" : "Publish Recipe"}
               </Text>
               {currentStep < 5 && (
                 <Feather name="arrow-right" size={18} color="#FFFFFF" />
@@ -2838,7 +3034,9 @@ export default function CreateRecipeWizardScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </>
+    )}
+  </KeyboardAvoidingView>
 
       {/* Full-screen Loading Overlay for publication */}
       {isSubmitting && (
@@ -2846,10 +3044,10 @@ export default function CreateRecipeWizardScreen() {
           <View className="bg-white p-6 rounded-3xl items-center shadow-lg">
             <ActivityIndicator size="large" color="#FBA82E" />
             <Text className="font-jakarta-bold text-[#3B3328] text-base mt-4">
-              Uploading Images...
+              {editId ? "Saving Changes..." : "Uploading Images..."}
             </Text>
             <Text className="font-inter-regular text-text-secondary text-xs mt-1">
-              Please wait while we publish your recipe.
+              {editId ? "Please wait while we update your recipe." : "Please wait while we publish your recipe."}
             </Text>
           </View>
         </View>
@@ -3309,12 +3507,11 @@ export default function CreateRecipeWizardScreen() {
               </View>
 
               <Text className="font-jakarta-bold text-[#3B3328] text-2xl mb-2 text-center">
-                Recipe Published!
+                {editId ? "Recipe Updated!" : "Recipe Published!"}
               </Text>
 
               <Text className="font-inter-regular text-[#8B7D6F] text-sm mb-8 text-center leading-5 px-2">
-                Your Culinary Zen masterpiece is now live. The community is
-                going to love this!
+                {editId ? "Your edits have been saved successfully." : "Your Culinary Zen masterpiece is now live. The community is going to love this!"}
               </Text>
 
               {/* Actions */}
@@ -3323,10 +3520,11 @@ export default function CreateRecipeWizardScreen() {
                   activeOpacity={0.8}
                   onPress={() => {
                     setShowSuccessModal(false);
-                    if (publishedRecipeId) {
+                    const targetId = publishedRecipeId || editId;
+                    if (targetId) {
                       router.replace({
                         pathname: "/recipe-detail",
-                        params: { id: publishedRecipeId },
+                        params: { id: targetId },
                       });
                     } else {
                       router.replace("/(tabs)");

@@ -29,6 +29,7 @@ import { RecommendationCard } from "@/components/ui/recommendation-card";
 
 // Service & Types
 import { Recipe, recipeService } from "@/services/recipe.service";
+import { recommendationService } from "@/services/recommendation.service";
 
 // Dummy Data
 import { categories } from "@/lib/dummy-data";
@@ -169,13 +170,32 @@ export default function HomeScreen() {
     const loadRecommendations = async () => {
       try {
         setRecLoading(true);
-        const recommended = await recipeService.getRecommendedRecipes(
-          selectedCategory,
-          10,
-        );
+        let recommended: Recipe[] = [];
+        if (user?.id) {
+          recommended = await recommendationService.getDailyRecommendations(
+            user.id,
+            selectedCategory,
+            10
+          );
+        } else {
+          recommended = await recipeService.getRecommendedRecipes(
+            selectedCategory,
+            10
+          );
+        }
         if (active) setRecommendedRecipes(recommended);
       } catch (err) {
         console.error("Failed to load category recommendations:", err);
+        // Fallback
+        try {
+          const recommended = await recipeService.getRecommendedRecipes(
+            selectedCategory,
+            10
+          );
+          if (active) setRecommendedRecipes(recommended);
+        } catch (fallbackErr) {
+          console.error("Fallback recommendations failed too:", fallbackErr);
+        }
       } finally {
         if (active) setRecLoading(false);
       }
@@ -184,7 +204,7 @@ export default function HomeScreen() {
     return () => {
       active = false;
     };
-  }, [selectedCategory]);
+  }, [selectedCategory, user?.id]);
 
   // Load liked recipe IDs
   useEffect(() => {

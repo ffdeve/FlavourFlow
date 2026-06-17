@@ -21,6 +21,7 @@ import YoutubePlayer from "react-native-youtube-iframe";
 
 import { recipeService, Recipe } from "@/services/recipe.service";
 import { supabase } from "@/services/supabase";
+import { useAuth } from "@/hooks/use-auth";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -97,6 +98,7 @@ function ConfettiEffect() {
 
 export default function CookingModeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
   const [recipe, setRecipe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -344,6 +346,9 @@ export default function CookingModeScreen() {
       // Reached the end! Start completion screen
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setIsCompleted(true);
+      if (user?.id && id) {
+        recipeService.logInteraction(user.id, id, "cook");
+      }
     }
   };
 

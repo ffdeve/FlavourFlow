@@ -1,11 +1,13 @@
 import { HeartButton } from "@/components/ui/heart-button";
 import { cn } from "@/utils";
+import { useAuth } from "@/hooks/use-auth";
 import { Feather, FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Dimensions,
   FlatList,
   ScrollView,
@@ -108,6 +110,7 @@ const TABS = ["Overview", "Ingredients", "Steps"] as const;
 type TabType = (typeof TABS)[number];
 
 export default function RecipeDetailScreen() {
+  const { preferences, user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [recipe, setRecipe] = useState<Recipe | null>(null);
@@ -121,6 +124,10 @@ export default function RecipeDetailScreen() {
           setDbLoading(true);
           const data = await recipeService.getRecipeDetails(id);
           setRecipe(data);
+          
+          if (user?.id) {
+            recipeService.logInteraction(user.id, id, "view");
+          }
         } catch (err) {
           console.error("Error fetching recipe details:", err);
         } finally {
@@ -129,7 +136,7 @@ export default function RecipeDetailScreen() {
       };
       fetchRecipe();
     }
-  }, [id]);
+  }, [id, user?.id]);
 
   useEffect(() => {
     const fetchKitchenEssentials = async () => {
@@ -159,6 +166,39 @@ export default function RecipeDetailScreen() {
     setActiveImageIndex(index);
   };
   const [activeVideo, setActiveVideo] = useState(false);
+  const handleDeleteRecipe = () => {
+    Alert.alert(
+      "Delete Recipe 🍳",
+      "Are you sure you want to permanently delete this recipe? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (recipe) {
+                setDbLoading(true);
+                await recipeService.deleteRecipe(recipe.id);
+                Alert.alert("Success", "Recipe deleted successfully.", [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      router.replace("/(tabs)");
+                    },
+                  },
+                ]);
+              }
+            } catch (err: any) {
+              console.error("Failed to delete recipe:", err);
+              Alert.alert("Error", err.message || "Failed to delete recipe.");
+              setDbLoading(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   if (dbLoading || !recipe) {
     return (
@@ -231,6 +271,33 @@ export default function RecipeDetailScreen() {
     ? recipe.ingredients || []
     : (recipe.ingredients || []).slice(0, 6);
 
+  const allergies = preferences?.allergies || [];
+  const dislikes = preferences?.dislikes || [];
+
+  const matchedAllergy = recipe?.ingredients?.find((ing: any) =>
+    allergies.some((allergyName) =>
+      ing.name.toLowerCase().includes(allergyName.toLowerCase())
+    )
+  );
+  const hasAllergy = !!matchedAllergy;
+  const allergyName = matchedAllergy?.name || "";
+
+  const matchedDislikedIngredient = recipe?.ingredients?.find((ing: any) =>
+    dislikes.some((dislikeName) =>
+      ing.name.toLowerCase().includes(dislikeName.toLowerCase())
+    )
+  );
+  const isDislikedCuisine = dislikes.some((dislikeName) =>
+    recipe?.cuisine_type?.toLowerCase() === dislikeName.toLowerCase()
+  );
+
+  const hasDislike = !!matchedDislikedIngredient || isDislikedCuisine;
+  const dislikeName = matchedDislikedIngredient
+    ? matchedDislikedIngredient.name
+    : isDislikedCuisine
+    ? recipe?.cuisine_type || ""
+    : "";
+
   return (
     <View className="flex-1 bg-[#FAF5EF]">
       <StatusBar barStyle="light-content" />
@@ -250,6 +317,25 @@ export default function RecipeDetailScreen() {
 
         {/* Right icons */}
         <View className="flex-row items-center">
+          {recipe.created_by === user?.id && (
+            <>
+              {/* Edit Recipe */}
+              <TouchableOpacity
+                onPress={() => router.push(`/create-recipe?editId=${recipe.id}`)}
+                className="w-11 h-11 bg-black/30 rounded-full items-center justify-center mr-2"
+              >
+                <Feather name="edit-3" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {/* Delete Recipe */}
+              <TouchableOpacity
+                onPress={handleDeleteRecipe}
+                className="w-11 h-11 bg-red-600/40 border border-red-500/20 rounded-full items-center justify-center mr-2"
+              >
+                <Feather name="trash-2" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </>
+          )}
           <HeartButton
             isLiked={isSaved}
             onToggle={() => setIsSaved(!isSaved)}
@@ -445,6 +531,35 @@ export default function RecipeDetailScreen() {
           className="bg-[#FAF5EF] -mt-4 rounded-t-[32px] px-6 pt-10 pb-32"
           style={{ minHeight: SCREEN_HEIGHT * 0.6 }}
         >
+          {/* Warning Banner */}
+          {hasAllergy && (
+            <View className="bg-red-50 border border-red-200 rounded-2xl p-3 mb-5 flex-row items-center">
+              <Ionicons name="alert-circle" size={20} color="#EF4444" style={{ marginRight: 10 }} />
+              <View className="flex-1">
+                <Text className="text-red-800 font-jakarta-bold text-xs">
+                  Allergy Warning
+                </Text>
+                <Text className="text-red-700 font-inter-regular text-[10px] mt-0.5">
+                  This recipe contains <Text className="font-jakarta-bold">{allergyName}</Text> which is in your allergy list.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {!hasAllergy && hasDislike && (
+            <View className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-5 flex-row items-center">
+              <Ionicons name="warning" size={20} color="#F59E0B" style={{ marginRight: 10 }} />
+              <View className="flex-1">
+                <Text className="text-amber-800 font-jakarta-bold text-xs">
+                  Dislike Alert
+                </Text>
+                <Text className="text-amber-700 font-inter-regular text-[10px] mt-0.5">
+                  Contains <Text className="font-jakarta-bold">{dislikeName}</Text> which is in your dislike preferences.
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Recipe Title & Rating Row */}
           <View className="flex-row justify-between items-start mb-3">
             <Text className="font-jakarta-bold text-primary-dark text-2xl leading-8 flex-1 mr-4">

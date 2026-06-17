@@ -23,6 +23,8 @@ interface Recipe {
   categoryTag: string;
   ingredientsCount: number;
   authorAvatar: string;
+  matchScore?: number;
+  matchReason?: string;
 }
 
 interface RecommendationCardProps {
@@ -91,10 +93,21 @@ export const RecommendationCard = ({
           size={22}
           className="absolute top-2.5 right-2.5 z-10 bg-black/30 rounded-full items-center justify-center"
         />
+
       </View>
 
       {/* Details Area with padding */}
-      <View className="px-4 pt-1.5 pb-4">
+      <View className="px-4 pt-2 pb-4">
+        {/* Match Reason */}
+        {recipe.matchReason && (
+          <Text
+            className="font-jakarta-bold text-primary text-[9px] uppercase mb-1"
+            numberOfLines={1}
+          >
+            ✨ {recipe.matchReason}
+          </Text>
+        )}
+
         {/* Title */}
         <Text
           className="font-jakarta-bold text-primary-dark text-base mb-2 leading-5"

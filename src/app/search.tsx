@@ -17,6 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { recipeService, Recipe } from "@/services/recipe.service";
 import { cn } from "@/utils";
 import * as Haptics from "expo-haptics";
+import { useAuth } from "@/hooks/use-auth";
 
 // Spice level asset images
 const SPICE_IMAGES: Record<number, any> = {
@@ -42,9 +43,14 @@ interface UnifiedRecipe {
   authorAvatar: string;
   categoryTag: string;
   ingredientsCount: number;
+  ingredients: { name: string; quantity: string }[];
+  cuisineType?: string | null;
 }
 
 export default function SearchScreen() {
+  const { preferences } = useAuth();
+  const allergies = preferences?.allergies || [];
+  const dislikes = preferences?.dislikes || [];
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
     recipeService.getCategories().then(setCategories).catch(console.error);
@@ -95,6 +101,8 @@ export default function SearchScreen() {
       authorAvatar: recipe.authorAvatar,
       categoryTag: recipe.categoryTag,
       ingredientsCount: recipe.ingredientsCount || 0,
+      ingredients: recipe.ingredients || [],
+      cuisineType: recipe.cuisine_type || "",
     }));
   }, [recipes]);
 
@@ -312,17 +320,47 @@ export default function SearchScreen() {
 
         {filteredRecipes.length > 0 ? (
           <View className="flex-row flex-wrap justify-between">
-            {filteredRecipes.map((recipe) => (
-              <View key={recipe.id} className="w-[48%]">
-                <SearchRecipeCard
-                  recipe={recipe}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                    router.push(`/recipe-detail?id=${recipe.id}`);
-                  }}
-                />
-              </View>
-            ))}
+            {filteredRecipes.map((recipe) => {
+              const matchedAllergy = recipe.ingredients.find((ing) =>
+                allergies.some((allergyName) =>
+                  ing.name.toLowerCase().includes(allergyName.toLowerCase())
+                )
+              );
+              const hasAllergy = !!matchedAllergy;
+              const allergyName = matchedAllergy?.name || "";
+
+              const matchedDislikedIngredient = recipe.ingredients.find((ing) =>
+                dislikes.some((dislikeName) =>
+                  ing.name.toLowerCase().includes(dislikeName.toLowerCase())
+                )
+              );
+              const isDislikedCuisine = dislikes.some((dislikeName) =>
+                recipe.cuisineType?.toLowerCase() === dislikeName.toLowerCase()
+              );
+
+              const hasDislike = !!matchedDislikedIngredient || isDislikedCuisine;
+              const dislikeName = matchedDislikedIngredient
+                ? matchedDislikedIngredient.name
+                : isDislikedCuisine
+                ? recipe.cuisineType || ""
+                : "";
+
+              return (
+                <View key={recipe.id} className="w-[48%]">
+                  <SearchRecipeCard
+                    recipe={recipe}
+                    hasAllergy={hasAllergy}
+                    allergyName={allergyName}
+                    hasDislike={hasDislike}
+                    dislikeName={dislikeName}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                      router.push(`/recipe-detail?id=${recipe.id}`);
+                    }}
+                  />
+                </View>
+              );
+            })}
           </View>
         ) : (
           /* Empty / No Results State */
@@ -355,12 +393,26 @@ export default function SearchScreen() {
 }
 
 // Compact Search Result Recipe Card
-function SearchRecipeCard({ recipe, onPress }: { recipe: UnifiedRecipe; onPress: () => void }) {
+function SearchRecipeCard({
+  recipe,
+  onPress,
+  hasAllergy,
+  allergyName,
+  hasDislike,
+  dislikeName,
+}: {
+  recipe: UnifiedRecipe;
+  onPress: () => void;
+  hasAllergy: boolean;
+  allergyName: string;
+  hasDislike: boolean;
+  dislikeName: string;
+}) {
   return (
     <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
-      className="bg-white rounded-2xl overflow-hidden mb-4"
+      activeOpacity={hasAllergy || hasDislike ? 1.0 : 0.9}
+      onPress={hasAllergy || hasDislike ? undefined : onPress}
+      className="bg-white rounded-2xl overflow-hidden mb-4 relative"
       style={{
         shadowColor: "#3B3328",
         shadowOffset: { width: 0, height: 4 },
@@ -435,6 +487,38 @@ function SearchRecipeCard({ recipe, onPress }: { recipe: UnifiedRecipe; onPress:
           </View>
         </View>
       </View>
+
+      {/* Warning Overlay */}
+      {(hasAllergy || hasDislike) && (
+        <View
+          className={cn(
+            "absolute inset-0 z-30 justify-center items-center p-3 rounded-2xl",
+            hasAllergy ? "bg-red-500/95" : "bg-neutral-800/95"
+          )}
+        >
+          <Ionicons
+            name={hasAllergy ? "alert-circle-outline" : "warning-outline"}
+            size={26}
+            color="#FFFFFF"
+            style={{ marginBottom: 4 }}
+          />
+          <Text className="text-white font-jakarta-bold text-center text-[11px] leading-4 mb-0.5">
+            {hasAllergy ? "Contains Allergen!" : "Contains Dislike"}
+          </Text>
+          <Text className="text-white/80 font-inter-regular text-center text-[9px] leading-3 mb-3 px-1">
+            {hasAllergy ? `This recipe contains ${allergyName}.` : `Contains disliked ${dislikeName}.`}
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={onPress}
+            className="bg-white/20 border border-white/40 px-3 py-1.5 rounded-full"
+          >
+            <Text className="text-white font-jakarta-semibold text-[9px]">
+              View Recipe Anyway
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }

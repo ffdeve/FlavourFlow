@@ -88,6 +88,8 @@ export interface Recipe {
   kitchen_essentials?: string[];
   preview_video_start_time?: number | null;
   preview_video_end_time?: number | null;
+  matchScore?: number;
+  matchReason?: string;
 }
 
 export interface RecipeIngredient {
