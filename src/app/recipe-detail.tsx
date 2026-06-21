@@ -178,7 +178,8 @@ export default function RecipeDetailScreen() {
         const metadata = {
           engagement: {
             duration_seconds,
-            scroll_depth: Number(scroll_depth.toFixed(2))
+            scroll_depth: Number(scroll_depth.toFixed(2)),
+            is_quick_exit: duration_seconds < 10
           }
         };
 

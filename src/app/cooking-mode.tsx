@@ -362,7 +362,7 @@ export default function CookingModeScreen() {
                   step_times_seconds: stepTimes.current
                 }
               };
-              recipeService.logInteraction(user.id, id, "COOK_COMPLETE", metadata).catch(err => 
+              recipeService.logInteraction(user.id, id, "COOK_ABANDONED", metadata).catch(err => 
                 console.error("Failed to log early quit:", err)
               );
             }

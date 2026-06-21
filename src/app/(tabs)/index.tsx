@@ -391,11 +391,11 @@ export default function HomeScreen() {
             elevation: 4,
           }}
         >
-          {/* ── Today's Recommendation Section ── */}
+          {/* ── Core AI Section (Meals to Cook Today) ── */}
           <View>
             <View className="px-6 pt-6 flex-row justify-between items-end mb-4">
               <Text className="font-inter-semibold text-primary-dark text-xl">
-                Today's Recommendation
+                {recSections.find(s => s.id === "meals_to_cook_today")?.title || "Meals to Cook Today"}
               </Text>
             </View>
 
