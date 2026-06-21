@@ -61,4 +61,7 @@ skills-lock.json
 # PDF text extraction dependencies
 pdf_deps/
 
+# Recent chat logs/contexts
+recent_chat
+
 

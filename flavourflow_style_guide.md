@@ -147,3 +147,31 @@ To ensure multi-step forms and wizards feel interactive, premium, and native:
   - **Selected tag**: `bg-[#FBA82E] border-transparent text-white` with a matching white icon.
   - **Unselected tag**: `bg-white border-[#F5E3D8]/50 text-[#3B3328]` with a secondary grey icon.
   - **Configuration**: Include tags like `"Vegetarian"`, `"Vegan"`, `"Gluten-Free"`, `"Dairy-Free"`, `"Keto"`, `"Non-Halal"` (instead of Halal), `"Low-Carb"`, and `"Nut-Free"`. Mark the section header clearly with an `(Optional)` label.
+
+AI And Hybrid Core Functionaly Map:
+
+Phase 1:
+Recommendation Engine (core)
+
+Phase 2:
+Netflix-style home feed
+
+Phase 3:
+Behavior tracking system
+
+Phase 4:
+Hybrid AI model
+
+Phase 5:
+Chat AI assistant (optional advanced feature)
+
+Note: To use Ai icons or images make 3D Claymorphic (often referred to as Claymorphism or Soft 3D) design style. For this style use the following keywords: 3d render, claymorphic style,Rich, dimensional icons with realistic textures and depth. Modern 3D style with subtle shadows and highlights that give icons a premium, professional appearance, soft 3d, rounded shapes, organic forms, soft shadows, bright matte colors, pastel color palette, simple shapes, adorable, kawaii, friendly, approachable,
+
+Core Visual Characteristics
+Matte Textures & Clay-Like Finish: There are zero harsh reflections, metallic glints, or glossy finishes. Every surface looks like it is sculpted out of smooth, high-quality matte plastic or clean modeling clay.
+
+The "Squircle" & Rounded Geometry: Almost every single sharp corner is completely smoothed out. The base shapes rely heavily on "squircles" (a mathematical blend of a square and a circle) and pill-shaped capsules, giving the assets a friendly, approachable, and organic feel.
+
+Soft, Diffuse Lighting: The lighting setup mimics a professional studio softbox. The highlights are incredibly broad and gentle, while the shadows are soft and ambient rather than crisp. This prevents the 3D depth from feeling too aggressive or overwhelming.
+
+Faux Depth (Chunky Dimensions): The objects have an exaggerated thickness. For instance, the sheet of paper and the checklist are deep, chunky blocks rather than paper-thin planes. This thickness emphasizes the "toy-like" and touchable nature of the design.

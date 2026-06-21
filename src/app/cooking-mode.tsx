@@ -347,7 +347,9 @@ export default function CookingModeScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setIsCompleted(true);
       if (user?.id && id) {
-        recipeService.logInteraction(user.id, id, "cook");
+        recipeService.logInteraction(user.id, id, "COOK_START").catch((err) =>
+          console.error("Failed to log cook start interaction:", err),
+        );
       }
     }
   };

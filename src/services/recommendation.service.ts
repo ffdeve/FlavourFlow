@@ -1,267 +1,534 @@
 import { supabase } from "@/services/supabase";
 import { mapDbRecipeToUiRecipe, Recipe } from "@/services/recipe.service";
-import type { UserPreferences } from "@/types";
+import { detectUserCountry } from "@/services/geolocation.service";
+import type { UserPreferences, RecommendationSection } from "@/types";
 
 // Mapping country codes to cuisine types
 const COUNTRY_CODE_TO_CUISINE: Record<string, string> = {
-  PK: "Pakistani",
-  IN: "Indian",
-  IT: "Italian",
-  MX: "Mexican",
-  CN: "Chinese",
-  US: "American",
-  FR: "French",
-  JP: "Japanese",
-  TR: "Turkish",
-  ES: "Spanish",
-  YE: "Yemeni",
+  PK: "Pakistani", IN: "Indian", IT: "Italian", MX: "Mexican",
+  CN: "Chinese", US: "American", FR: "French", JP: "Japanese",
+  TR: "Turkish", ES: "Spanish", YE: "Yemeni", SA: "Saudi",
+  AE: "Emirati", BD: "Bangladeshi", TH: "Thai", KR: "Korean",
+  PS: "Palestinian", GR: "Greek", DE: "German", GB: "British",
+  IR: "Iranian", LB: "Lebanese", EG: "Egyptian", SY: "Syrian",
+  IQ: "Iraqi", JO: "Jordanian", MA: "Moroccan", NG: "Nigerian",
+  BR: "Brazilian", AR: "Argentinian", RU: "Russian", VN: "Vietnamese",
+  ID: "Indonesian", MY: "Malaysian", PH: "Filipino",
 };
 
+// Signal weights for interaction history scoring
+const SIGNAL_WEIGHTS = {
+  COOK_COMPLETE: 5,
+  COOK_START: 4,
+  FAVORITE: 3,
+  SAVE: 2,
+  SEARCH_CLICK: 1.5,
+  VIEW: 1,
+  SHARE: 2,
+};
+
+// Helper to determine overlap of ingredients (useful for content-based similarity)
+function ingredientOverlap(a: any[], b: any[]): number {
+  if (!a?.length || !b?.length) return 0;
+  const setA = new Set(a.map((i: any) => i.name?.toLowerCase()).filter(Boolean));
+  let matches = 0;
+  for (const ing of b) {
+    if (ing.name && setA.has(ing.name.toLowerCase())) matches++;
+  }
+  return matches;
+}
+
 export class RecommendationService {
-  async getDailyRecommendations(
-    userId: string,
-    category?: string,
-    limit = 5
-  ): Promise<Recipe[]> {
-    // 1. Fetch user preferences
-    const { data: prefData, error: prefError } = await supabase
+  // Fetch and normalize onboarding user preferences
+  private async getUserPreferences(userId: string) {
+    const { data: prefData } = await supabase
       .from("user_preferences")
       .select("*")
       .eq("user_id", userId)
       .single();
 
-    if (prefError && prefError.code !== "PGRST116") {
-      throw prefError;
-    }
-
     const preferences: Partial<UserPreferences> = prefData || {};
-    const allergies = preferences.allergies || [];
-    const dislikes = preferences.dislikes || [];
-    const preferredSpice = preferences.spice_level !== undefined ? preferences.spice_level : 3;
-    const preferredCountry = preferences.preferred_country || [];
-    const preferredCuisines = preferences.preferred_cuisines || [];
+    return {
+      allergies: preferences.allergies || [],
+      dislikes: preferences.dislikes || [],
+      preferredSpice: preferences.spice_level ?? 3,
+      preferredCountry: preferences.preferred_country || [],
+      preferredCuisines: preferences.preferred_cuisines || [],
+    };
+  }
 
-    // 2. Fetch user's favorites to build "Favorite Dish Profile"
-    const { data: favoriteData } = await supabase
-      .from("favorites")
-      .select(`
-        recipe_id,
-        recipes:recipe_id (
-          dish_category,
-          cuisine_type
-        )
-      `)
-      .eq("user_id", userId);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MAIN: Generate Netflix-Style Feed
+  // ═══════════════════════════════════════════════════════════════════════
+  async getNetflixStyleRecommendations(userId: string): Promise<RecommendationSection[]> {
+    const sections: RecommendationSection[] = [];
+    const prefs = await this.getUserPreferences(userId);
 
-    const favoriteCategories: Record<string, number> = {};
-    const favoriteCuisines: Record<string, number> = {};
-    let topFavoriteCategory: string | null = null;
-    let topFavoriteCuisine: string | null = null;
+    // ─── 1. Parallel Data Fetch (includes IP Geolocation) ─────────────────
+    const [
+      { data: interactions },
+      { data: favorites },
+      { data: searchHistory },
+      { data: recipeData },
+      ipLocation,
+    ] = await Promise.all([
+      supabase
+        .from("recipe_interactions")
+        .select(`
+          interaction_type,
+          recipe_id,
+          recipes:recipe_id (
+            id, title, dish_category, cuisine_type, prep_time, cook_time,
+            spice_level, ingredients, average_rating, tags
+          )
+        `)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("favorites")
+        .select("recipe_id")
+        .eq("user_id", userId),
+      supabase
+        .from("search_history")
+        .select("query")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("recipes")
+        .select(`
+          *,
+          profiles:created_by (
+            full_name,
+            avatar_url
+          )
+        `)
+        .limit(200),
+      detectUserCountry(),
+    ]);
 
-    if (favoriteData && favoriteData.length > 0) {
-      favoriteData.forEach((item: any) => {
-        if (item.recipes) {
-          const cat = item.recipes.dish_category;
-          const cuis = item.recipes.cuisine_type;
-          if (cat) {
-            favoriteCategories[cat] = (favoriteCategories[cat] || 0) + 1;
-          }
-          if (cuis) {
-            favoriteCuisines[cuis] = (favoriteCuisines[cuis] || 0) + 1;
-          }
+    // ─── Pre-filter all recipes for safety (Allergens & Dislikes) ───────────
+    const allRecipes = this.filterSafeSimple(recipeData || [], prefs);
+    if (allRecipes.length === 0) return sections;
+
+    // ─── Build User Behavior Profile ─────────────────────────────────────
+    const interactedCuisines: Record<string, number> = {};
+    const interactedCategories: Record<string, number> = {};
+    const cookedRecipeIds = new Set<string>();
+    const viewedRecipeIds = new Set<string>();
+    const favoriteIds = new Set((favorites || []).map((f: any) => f.recipe_id));
+    let lastCookedRecipe: any = null;
+    let lastViewedRecipe: any = null;
+
+    if (interactions && interactions.length > 0) {
+      for (const item of interactions) {
+        if (!item.recipes) continue;
+        const recipeObj = Array.isArray(item.recipes) ? item.recipes[0] : item.recipes;
+        if (!recipeObj) continue;
+
+        const type = item.interaction_type as keyof typeof SIGNAL_WEIGHTS;
+        const weight = SIGNAL_WEIGHTS[type] || 1;
+
+        if (recipeObj.cuisine_type) {
+          interactedCuisines[recipeObj.cuisine_type] =
+            (interactedCuisines[recipeObj.cuisine_type] || 0) + weight;
         }
-      });
-
-      // Find top category
-      let maxCatCount = 0;
-      for (const [cat, count] of Object.entries(favoriteCategories)) {
-        if (count > maxCatCount) {
-          maxCatCount = count;
-          topFavoriteCategory = cat;
+        if (recipeObj.dish_category) {
+          interactedCategories[recipeObj.dish_category] =
+            (interactedCategories[recipeObj.dish_category] || 0) + weight;
         }
-      }
 
-      // Find top cuisine
-      let maxCuisCount = 0;
-      for (const [cuis, count] of Object.entries(favoriteCuisines)) {
-        if (count > maxCuisCount) {
-          maxCuisCount = count;
-          topFavoriteCuisine = cuis;
+        if (type === "COOK_START" || type === "COOK_COMPLETE") {
+          cookedRecipeIds.add(item.recipe_id);
+          if (!lastCookedRecipe) lastCookedRecipe = recipeObj;
+        }
+        if (type === "VIEW") {
+          viewedRecipeIds.add(item.recipe_id);
+          if (!lastViewedRecipe) lastViewedRecipe = recipeObj;
         }
       }
     }
 
-    // 3. Fetch recipe interactions to build cooking time profile
-    const { data: interactionData } = await supabase
-      .from("recipe_interactions")
-      .select(`
-        recipe_id,
-        recipes:recipe_id (
-          prep_time,
-          cook_time
-        )
-      `)
-      .eq("user_id", userId)
-      .in("interaction_type", ["cooked", "view", "save"]);
+    // ─── Determine Top Cuisine & Category from behavior ──────────────────
+    const topCuisine = this.getTopKey(interactedCuisines) 
+      || (prefs.preferredCuisines.length > 0 ? prefs.preferredCuisines[0] : null);
+    const topCategory = this.getTopKey(interactedCategories);
 
-    let avgCookingTime = 30; // fallback default
-    if (interactionData && interactionData.length > 0) {
-      let totalTime = 0;
-      let count = 0;
-      interactionData.forEach((item: any) => {
-        if (item.recipes) {
-          const prep = item.recipes.prep_time || 0;
-          const cook = item.recipes.cook_time || 0;
-          if (prep + cook > 0) {
-            totalTime += (prep + cook);
-            count++;
-          }
-        }
-      });
-      if (count > 0) {
-        avgCookingTime = Math.round(totalTime / count);
-      }
-    }
+    // ─── Resolve Country: IP Location + Onboarding Preferences ───────────
+    const hasRecipesForCuisine = (cuisineName: string) => {
+      return allRecipes.some(r => r.cuisine_type?.toLowerCase() === cuisineName.toLowerCase());
+    };
 
-    // 4. Fetch candidate recipes
-    let query = supabase
-      .from("recipes")
-      .select(`
-        *,
-        profiles:created_by (
-          full_name,
-          avatar_url
-        )
-      `);
+    // IP country primary location signal
+    const ipCountryCode = ipLocation?.country_code?.toUpperCase() || "PK";
+    const ipCountryName = COUNTRY_CODE_TO_CUISINE[ipCountryCode] || ipLocation?.country_name || "Pakistani";
 
-    if (category && category.toLowerCase() !== "all") {
-      query = query.ilike("dish_category", `%${category}%`);
-    }
-
-    const { data: recipeData, error: recipeError } = await query;
-    if (recipeError) throw recipeError;
-
-    const allRecipes = recipeData || [];
-    const scoredRecipes: Recipe[] = [];
-
-    // Map user's preferred country codes to cuisine types
-    const userPreferredCuisineNames = preferredCountry
+    const userCuisineNames = prefs.preferredCountry
       .map(code => COUNTRY_CODE_TO_CUISINE[code.toUpperCase()])
       .filter(Boolean);
 
-    // 5. Hard filter & score each recipe
-    for (const dbRecipe of allRecipes) {
-      const recipeIngredients = dbRecipe.ingredients || []; // array of {name, quantity}
-      
-      // A. Allergy check (strict filter)
-      const hasAllergyItem = recipeIngredients.some((ing: any) =>
-        allergies.some((allergyName: string) =>
-          ing.name.toLowerCase().includes(allergyName.toLowerCase())
-        )
-      );
-      if (hasAllergyItem) continue;
+    const allUserCuisineNames = [...new Set([ipCountryName, ...userCuisineNames])];
 
-      // B. Disliked Ingredient check (strict filter)
-      const hasDislikedIngredient = recipeIngredients.some((ing: any) =>
-        dislikes.some((dislikeName: string) =>
-          ing.name.toLowerCase().includes(dislikeName.toLowerCase())
-        )
-      );
-      if (hasDislikedIngredient) continue;
-
-      // C. Scoring
-      let favScore = 0;
-      let cuisineScore = 0;
-      let spiceScore = 0;
-      let timeScore = 0;
-      let popScore = 0;
-
-      // Favorite Dish Profile (30 pts)
-      if (
-        (topFavoriteCategory && dbRecipe.dish_category === topFavoriteCategory) ||
-        (topFavoriteCuisine && dbRecipe.cuisine_type === topFavoriteCuisine)
-      ) {
-        favScore = 30;
-      }
-
-      // Country/Cuisine Match (20 pts)
-      // First ensure the cuisine is not in dislikes
-      const isDislikedCuisine = dislikes.some((dislikeName: string) =>
-        dbRecipe.cuisine_type?.toLowerCase() === dislikeName.toLowerCase()
-      );
-
-      if (!isDislikedCuisine) {
-        const matchesCountry = userPreferredCuisineNames.some(cName =>
-          dbRecipe.cuisine_type?.toLowerCase().includes(cName.toLowerCase())
-        );
-        const matchesPrefCuisine = preferredCuisines.some((prefCuis: string) =>
-          dbRecipe.cuisine_type?.toLowerCase().includes(prefCuis.toLowerCase())
-        );
-
-        if (matchesCountry || matchesPrefCuisine) {
-          cuisineScore = 20;
-        }
-      }
-
-      // Spice Level Match (20 pts)
-      const recipeSpice = dbRecipe.spice_level || 0;
-      const spiceDiff = Math.abs(recipeSpice - preferredSpice);
-      if (spiceDiff === 0) {
-        spiceScore = 20;
-      } else if (spiceDiff === 1) {
-        spiceScore = 10;
-      } else {
-        spiceScore = 0;
-      }
-
-      // Cooking Time Match (20 pts)
-      const totalRecipeTime = (dbRecipe.prep_time || 0) + (dbRecipe.cook_time || 0);
-      const timeDiff = Math.abs(totalRecipeTime - avgCookingTime);
-      if (timeDiff <= 5) {
-        timeScore = 20;
-      } else if (timeDiff <= 15) {
-        timeScore = 15;
-      } else if (timeDiff <= 30) {
-        timeScore = 10;
-      } else {
-        timeScore = 0;
-      }
-
-      // Popularity (10 pts)
-      const avgRating = dbRecipe.average_rating ? Number(dbRecipe.average_rating) : 0;
-      popScore = Math.min(10, Math.round(avgRating * 2));
-
-      // Calculate total score out of 100
-      const totalScore = favScore + cuisineScore + spiceScore + timeScore + popScore;
-
-      // D. Generate Reason Subtitle based on the highest scoring bucket
-      let matchReason = "Hand-picked for you";
-      const maxBucket = Math.max(favScore, cuisineScore, spiceScore, timeScore, popScore);
-      if (maxBucket > 0) {
-        if (maxBucket === favScore) {
-          matchReason = "Matches your favorite dishes";
-        } else if (maxBucket === cuisineScore) {
-          matchReason = "From your preferred cuisines";
-        } else if (maxBucket === spiceScore) {
-          matchReason = "Perfect spice level for you";
-        } else if (maxBucket === timeScore) {
-          matchReason = "Fits your cooking time profile";
-        } else if (maxBucket === popScore) {
-          matchReason = "Highly rated by community";
-        }
-      }
-
-      const mappedRecipe = mapDbRecipeToUiRecipe(dbRecipe);
-      mappedRecipe.matchScore = totalScore;
-      mappedRecipe.matchReason = matchReason;
-
-      scoredRecipes.push(mappedRecipe);
+    // Primary country for location-based feeds ( Trending / Top 10 ) with fallback
+    let userCountryName = ipCountryName;
+    if (!hasRecipesForCuisine(userCountryName)) {
+      const preferredWithRecipes = userCuisineNames.find(c => hasRecipesForCuisine(c));
+      userCountryName = preferredWithRecipes || "Pakistani"; // Fallback to Pakistani (guaranteed to have recipes)
     }
 
-    // 6. Sort by descending matchScore
-    scoredRecipes.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+    // Keep track of shown recipe IDs in the primary sections to prevent duplicate recommendations on one page
+    const shownRecipeIds = new Set<string>();
 
-    return scoredRecipes.slice(0, limit);
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 1: "Meals to Cook Today" (MAIN SECTION ⭐)
+    // ═══════════════════════════════════════════════════════════════════════
+    const mealsToCook = allRecipes.map(r => {
+      let score = 0;
+
+      // Content-based preferences
+      if (prefs.preferredCuisines.some(c => r.cuisine_type?.toLowerCase().includes(c.toLowerCase()))) score += 20;
+      if (allUserCuisineNames.some(c => r.cuisine_type?.toLowerCase().includes(c.toLowerCase()))) score += 15;
+      if (Math.abs((r.spice_level || 0) - prefs.preferredSpice) <= 1) score += 15;
+
+      // Behavior history
+      if (r.cuisine_type && interactedCuisines[r.cuisine_type]) {
+        score += Math.min(20, interactedCuisines[r.cuisine_type] * 3);
+      }
+
+      // Popularity (Rating)
+      const avgRating = r.average_rating ? Number(r.average_rating) : 0;
+      score += avgRating * 4;
+
+      // Novelty bonus for new items
+      if (!viewedRecipeIds.has(r.id) && !cookedRecipeIds.has(r.id)) score += 5;
+
+      const recipe = mapDbRecipeToUiRecipe(r);
+      recipe.matchScore = score;
+      recipe.matchReason = "Recommended for you today";
+      return recipe;
+    }).sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+
+    if (mealsToCook.length > 0) {
+      sections.push({
+        id: "meals_to_cook_today",
+        title: "Meals to Cook Today",
+        subtitle: "Your personalized picks based on taste & activity",
+        recipes: mealsToCook.slice(0, 30), // 30 recipes to allow filtering by Category Pills client-side
+      });
+
+      // Track the top 10 as shown, since the user sees them on the main tab
+      mealsToCook.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 2: "Because You Like {Top Interacted Cuisine/Category}"
+    // ═══════════════════════════════════════════════════════════════════════
+    const becauseLabel = topCuisine || topCategory;
+    if (becauseLabel) {
+      const becauseRecipes = allRecipes
+        .filter(r => {
+          if (r.id === lastCookedRecipe?.id || cookedRecipeIds.has(r.id) || shownRecipeIds.has(r.id)) return false;
+          // Filter strictly based on the label to prevent cross-cuisine pollution
+          return topCuisine ? r.cuisine_type === topCuisine : r.dish_category === topCategory;
+        })
+        .sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0))
+        .map(r => {
+          const recipe = mapDbRecipeToUiRecipe(r);
+          recipe.matchReason = `Similar to dishes you love`;
+          return recipe;
+        });
+
+      if (becauseRecipes.length > 0) {
+        sections.push({
+          id: "because_you_like",
+          title: `Because You Like ${becauseLabel}`,
+          subtitle: "Explore similar flavors",
+          recipes: becauseRecipes.slice(0, 10),
+        });
+        becauseRecipes.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 3: "Top Picks for You Today"
+    // ═══════════════════════════════════════════════════════════════════════
+    const topPicks = allRecipes
+      .filter(r => !cookedRecipeIds.has(r.id) && !shownRecipeIds.has(r.id))
+      .map(r => {
+        let contentScore = 0;
+        let behaviorScore = 0;
+
+        if (prefs.preferredCuisines.some(c => r.cuisine_type?.toLowerCase().includes(c.toLowerCase()))) contentScore += 25;
+        if (Math.abs((r.spice_level || 0) - prefs.preferredSpice) === 0) contentScore += 20;
+        else if (Math.abs((r.spice_level || 0) - prefs.preferredSpice) === 1) contentScore += 10;
+
+        if (r.cuisine_type && interactedCuisines[r.cuisine_type]) {
+          behaviorScore += Math.min(25, interactedCuisines[r.cuisine_type] * 4);
+        }
+
+        const finalScore = contentScore + behaviorScore;
+        const recipe = mapDbRecipeToUiRecipe(r);
+        recipe.matchScore = finalScore;
+        recipe.matchReason = "Matches your taste profile";
+        return recipe;
+      })
+      .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+
+    if (topPicks.length > 0) {
+      sections.push({
+        id: "top_picks",
+        title: "Top Picks for You Today",
+        subtitle: "Hybrid picks from your preferences & behavior",
+        recipes: topPicks.slice(0, 10),
+      });
+      topPicks.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 4: "Trending {Country} Recipes"
+    // ═══════════════════════════════════════════════════════════════════════
+    const trendingInCountry = allRecipes
+      .filter(r => r.cuisine_type?.toLowerCase() === userCountryName.toLowerCase() && !shownRecipeIds.has(r.id))
+      .sort((a, b) => {
+        const scoreA = (a.average_rating || 0) * 2 + (favoriteIds.has(a.id) ? 1 : 0);
+        const scoreB = (b.average_rating || 0) * 2 + (favoriteIds.has(b.id) ? 1 : 0);
+        return scoreB - scoreA;
+      })
+      .map(mapDbRecipeToUiRecipe);
+
+    if (trendingInCountry.length > 0) {
+      sections.push({
+        id: "trending_country",
+        title: `Trending ${userCountryName} Recipes`,
+        subtitle: `Most popular ${userCountryName} dishes right now`,
+        recipes: trendingInCountry.slice(0, 10),
+      });
+      trendingInCountry.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 5: "Top 10 {Country} Recipes"
+    // ═══════════════════════════════════════════════════════════════════════
+    const recipeFavCounts: Record<string, number> = {};
+    const recipeCookCounts: Record<string, number> = {};
+    if (interactions) {
+      for (const item of interactions) {
+        if (item.recipe_id && (item.interaction_type === "COOK_START" || item.interaction_type === "COOK_COMPLETE")) {
+          recipeCookCounts[item.recipe_id] = (recipeCookCounts[item.recipe_id] || 0) + 1;
+        }
+      }
+    }
+    if (favorites) {
+      for (const f of favorites) {
+        recipeFavCounts[f.recipe_id] = (recipeFavCounts[f.recipe_id] || 0) + 1;
+      }
+    }
+
+    const top10 = allRecipes
+      .filter(r => r.cuisine_type?.toLowerCase() === userCountryName.toLowerCase() && !shownRecipeIds.has(r.id))
+      .map(r => {
+        const popularityScore = (r.average_rating || 0) * 0.5 + (recipeFavCounts[r.id] || 0) * 0.3 + (recipeCookCounts[r.id] || 0) * 0.2;
+        const recipe = mapDbRecipeToUiRecipe(r);
+        recipe.matchScore = Math.round(popularityScore * 10);
+        return recipe;
+      })
+      .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+
+    if (top10.length > 0) {
+      sections.push({
+        id: "top_10_country",
+        title: `Top 10 ${userCountryName} Recipes`,
+        subtitle: "The most loved recipes by the community",
+        recipes: top10.slice(0, 10),
+      });
+      top10.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 6: "Quick & Easy (Under 30 min)"
+    // ═══════════════════════════════════════════════════════════════════════
+    const quickRecipes = allRecipes
+      .filter(r => (r.prep_time || 0) + (r.cook_time || 0) <= 30 && !shownRecipeIds.has(r.id))
+      .sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0))
+      .map(mapDbRecipeToUiRecipe);
+
+    if (quickRecipes.length > 0) {
+      sections.push({
+        id: "quick_easy",
+        title: "Quick & Easy",
+        subtitle: "Ready in 30 minutes or less",
+        recipes: quickRecipes.slice(0, 10),
+      });
+      quickRecipes.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 7: "Spicy Picks for You 🌶️"
+    // ═══════════════════════════════════════════════════════════════════════
+    const spicyPicks = allRecipes
+      .filter(r => {
+        const spice = r.spice_level || 0;
+        return Math.abs(spice - prefs.preferredSpice) <= 1 && spice >= 3 && !shownRecipeIds.has(r.id);
+      })
+      .sort((a, b) => (b.spice_level || 0) - (a.spice_level || 0))
+      .map(mapDbRecipeToUiRecipe);
+
+    if (spicyPicks.length > 0 && prefs.preferredSpice >= 3) {
+      sections.push({
+        id: "spicy_picks",
+        title: "Spicy Picks for You 🌶️",
+        subtitle: `Matching your spice level ${prefs.preferredSpice}/5`,
+        recipes: spicyPicks.slice(0, 10),
+      });
+      spicyPicks.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 8: "Because You Cooked/Viewed This"
+    // ═══════════════════════════════════════════════════════════════════════
+    const referenceRecipe = lastCookedRecipe || lastViewedRecipe;
+    if (referenceRecipe) {
+      const similar = allRecipes
+        .filter(r => r.id !== referenceRecipe.id && !shownRecipeIds.has(r.id))
+        .map(r => {
+          let similarity = 0;
+          if (r.cuisine_type && r.cuisine_type === referenceRecipe.cuisine_type) similarity += 3;
+          if (r.dish_category && r.dish_category === referenceRecipe.dish_category) similarity += 2;
+          similarity += Math.min(5, ingredientOverlap(referenceRecipe.ingredients || [], r.ingredients || []));
+          return { recipe: r, similarity };
+        })
+        .filter(item => item.similarity >= 2)
+        .sort((a, b) => b.similarity - a.similarity)
+        .map(item => mapDbRecipeToUiRecipe(item.recipe));
+
+      if (similar.length > 0) {
+        const actionLabel = lastCookedRecipe ? "Cooked" : "Viewed";
+        const refTitle = referenceRecipe.title || referenceRecipe.cuisine_type || "this";
+        sections.push({
+          id: "because_you_watched",
+          title: `Because You ${actionLabel} "${refTitle.length > 20 ? refTitle.substring(0, 20) + '…' : refTitle}"`,
+          subtitle: "Similar recipes you might enjoy",
+          recipes: similar.slice(0, 10),
+        });
+        similar.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 9: "Based on Your Searches 🔍"
+    // ═══════════════════════════════════════════════════════════════════════
+    if (searchHistory && searchHistory.length > 0) {
+      const searchTerms = [...new Set(searchHistory.map((s: any) => s.query.toLowerCase()))].slice(0, 5);
+      const searchMatches = allRecipes
+        .filter(r =>
+          !shownRecipeIds.has(r.id) &&
+          searchTerms.some(term =>
+            r.title?.toLowerCase().includes(term) ||
+            r.cuisine_type?.toLowerCase().includes(term) ||
+            r.dish_category?.toLowerCase().includes(term)
+          )
+        )
+        .map(mapDbRecipeToUiRecipe);
+
+      if (searchMatches.length > 0) {
+        const termLabel = searchTerms[0].charAt(0).toUpperCase() + searchTerms[0].slice(1);
+        sections.push({
+          id: "top_searches",
+          title: "Based on Your Searches 🔍",
+          subtitle: `Recipes matching "${termLabel}" and more`,
+          recipes: searchMatches.slice(0, 10),
+        });
+        searchMatches.slice(0, 10).forEach(r => shownRecipeIds.add(r.id));
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 10: "Your Favorites ❤️"
+    // ═══════════════════════════════════════════════════════════════════════
+    if (favoriteIds.size > 0) {
+      const favRecipes = allRecipes
+        .filter(r => favoriteIds.has(r.id))
+        .map(mapDbRecipeToUiRecipe);
+
+      if (favRecipes.length > 0) {
+        sections.push({
+          id: "your_favorites",
+          title: "Your Favorites ❤️",
+          subtitle: "Recipes you've saved",
+          recipes: favRecipes.slice(0, 10),
+        });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 11: "Discover New Flavors"
+    // ═══════════════════════════════════════════════════════════════════════
+    const discoverRecipes = allRecipes
+      .filter(r =>
+        r.cuisine_type &&
+        r.cuisine_type !== topCuisine &&
+        r.cuisine_type?.toLowerCase() !== userCountryName.toLowerCase() &&
+        !interactedCuisines[r.cuisine_type] &&
+        !prefs.preferredCuisines.some(c => r.cuisine_type?.toLowerCase().includes(c.toLowerCase())) &&
+        !userCuisineNames.some(c => r.cuisine_type?.toLowerCase().includes(c.toLowerCase())) &&
+        !shownRecipeIds.has(r.id)
+      )
+      .sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0))
+      .map(r => {
+        const recipe = mapDbRecipeToUiRecipe(r);
+        recipe.matchReason = "Something different for you";
+        return recipe;
+      });
+
+    if (discoverRecipes.length > 0) {
+      sections.push({
+        id: "discover",
+        title: "Discover New Flavors",
+        subtitle: "Highly rated dishes outside your usual zone",
+        recipes: discoverRecipes.slice(0, 10),
+      });
+    }
+
+    return sections;
+  }
+
+  // Get key with highest weight from a record
+  private getTopKey(record: Record<string, number>): string | null {
+    let topKey: string | null = null;
+    let maxWeight = 0;
+    for (const [key, weight] of Object.entries(record)) {
+      if (weight > maxWeight) {
+        maxWeight = weight;
+        topKey = key;
+      }
+    }
+    return topKey;
+  }
+
+  // Simple allergen/dislike filter
+  private filterSafeSimple(recipes: any[], prefs: { allergies: string[]; dislikes: string[] }) {
+    return recipes.filter(r => {
+      const ings = r.ingredients || [];
+      const hasAllergen = ings.some((ing: any) =>
+        prefs.allergies.some((a: string) => ing.name?.toLowerCase().includes(a.toLowerCase()))
+      );
+      if (hasAllergen) return false;
+
+      const hasDisliked = ings.some((ing: any) =>
+        prefs.dislikes.some((d: string) => ing.name?.toLowerCase().includes(d.toLowerCase()))
+      );
+      return !hasDisliked;
+    });
+  }
+
+  // Legacy fallback compatibility
+  async getDailyRecommendations(userId: string, category?: string, limit = 5): Promise<Recipe[]> {
+    const sections = await this.getNetflixStyleRecommendations(userId);
+    if (sections.length > 0) {
+      return sections[0].recipes.slice(0, limit);
+    }
+    return [];
   }
 }
 

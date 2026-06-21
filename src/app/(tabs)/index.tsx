@@ -30,6 +30,7 @@ import { RecommendationCard } from "@/components/ui/recommendation-card";
 // Service & Types
 import { Recipe, recipeService } from "@/services/recipe.service";
 import { recommendationService } from "@/services/recommendation.service";
+import type { RecommendationSection } from "@/types";
 
 // Dummy Data
 import { categories } from "@/lib/dummy-data";
@@ -137,10 +138,10 @@ export default function HomeScreen() {
   const [activePromoIndex, setActivePromoIndex] = useState(0);
   const [featuredRecipes, setFeaturedRecipes] = useState<Recipe[]>([]);
   const [recommendedRecipes, setRecommendedRecipes] = useState<Recipe[]>([]);
-  const [popularRecipes, setPopularRecipes] = useState<Recipe[]>([]);
-  const [cookAgainRecipes, setCookAgainRecipes] = useState<Recipe[]>([]);
+  const [recSections, setRecSections] = useState<RecommendationSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(false);
+  const [sectionsLoading, setSectionsLoading] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
   // ─── Data Loading ───────────────────────────────────────────────────────
@@ -148,14 +149,8 @@ export default function HomeScreen() {
     const loadHomeData = async () => {
       try {
         setLoading(true);
-        const [featured, popular, trending] = await Promise.all([
-          recipeService.getFeaturedRecipes(5),
-          recipeService.getPopularRecipes(10),
-          recipeService.getTrendingRecipes(10),
-        ]);
+        const featured = await recipeService.getFeaturedRecipes(5);
         setFeaturedRecipes(featured);
-        setPopularRecipes(popular);
-        setCookAgainRecipes(trending);
       } catch (err) {
         console.error("Failed to load homepage recipes from database:", err);
       } finally {
@@ -165,46 +160,52 @@ export default function HomeScreen() {
     loadHomeData();
   }, []);
 
+  // Load Netflix-style recommendation sections
   useEffect(() => {
+    if (!user?.id) return;
     let active = true;
-    const loadRecommendations = async () => {
+    const loadSections = async () => {
       try {
-        setRecLoading(true);
-        let recommended: Recipe[] = [];
-        if (user?.id) {
-          recommended = await recommendationService.getDailyRecommendations(
-            user.id,
-            selectedCategory,
-            10
-          );
-        } else {
-          recommended = await recipeService.getRecommendedRecipes(
-            selectedCategory,
-            10
-          );
-        }
-        if (active) setRecommendedRecipes(recommended);
+        setSectionsLoading(true);
+        const sections = await recommendationService.getNetflixStyleRecommendations(user.id);
+        if (active) setRecSections(sections);
       } catch (err) {
-        console.error("Failed to load category recommendations:", err);
-        // Fallback
-        try {
-          const recommended = await recipeService.getRecommendedRecipes(
-            selectedCategory,
-            10
-          );
-          if (active) setRecommendedRecipes(recommended);
-        } catch (fallbackErr) {
-          console.error("Fallback recommendations failed too:", fallbackErr);
-        }
+        console.error("Failed to load recommendation sections:", err);
       } finally {
-        if (active) setRecLoading(false);
+        if (active) setSectionsLoading(false);
       }
     };
-    loadRecommendations();
-    return () => {
-      active = false;
-    };
-  }, [selectedCategory, user?.id]);
+    loadSections();
+    return () => { active = false; };
+  }, [user?.id]);
+
+  // Derive "Today's Recommendation" from recSections (meals_to_cook_today), filtered by category
+  useEffect(() => {
+    const mainSection = recSections.find(s => s.id === "meals_to_cook_today");
+    if (mainSection) {
+      const filtered = selectedCategory.toLowerCase() === "all"
+        ? mainSection.recipes
+        : mainSection.recipes.filter(r =>
+            r.categoryTag?.toLowerCase().includes(selectedCategory.toLowerCase())
+          );
+      setRecommendedRecipes(filtered.length > 0 ? filtered : mainSection.recipes);
+      setRecLoading(false);
+    } else if (!sectionsLoading && user?.id) {
+      // Fallback: load from recipe service if no sections
+      setRecLoading(true);
+      recipeService.getRecommendedRecipes(selectedCategory, 10)
+        .then(setRecommendedRecipes)
+        .catch(err => console.error("Fallback recommendations failed:", err))
+        .finally(() => setRecLoading(false));
+    } else if (!user?.id) {
+      // Not logged in — use generic recommendations
+      setRecLoading(true);
+      recipeService.getRecommendedRecipes(selectedCategory, 10)
+        .then(setRecommendedRecipes)
+        .catch(err => console.error("Guest recommendations failed:", err))
+        .finally(() => setRecLoading(false));
+    }
+  }, [selectedCategory, recSections, sectionsLoading, user?.id]);
 
   // Load liked recipe IDs
   useEffect(() => {
@@ -462,83 +463,75 @@ export default function HomeScreen() {
             </ScrollView>
           </View>
 
-          {/* ── Popular Recipes Section ── */}
-          <View className="mt-6">
-            <View className="px-6 flex-row justify-between items-end mb-4">
-              <Text className="font-inter-semibold text-primary-dark text-xl">
-                Popular Recipes
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.push("/category-details?type=popular")}
-              >
-                <Text className="font-jakarta-semibold text-primary text-sm">
-                  See All
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 24 }}
-            >
-              {loading
-                ? Array.from({ length: 3 }).map((_, idx) => (
-                    <PopularSkeleton key={`pop-shimmer-${idx}`} />
-                  ))
-                : popularRecipes.map((recipe) => (
-                    <PopularRecipeCard
-                      key={recipe.id}
-                      title={recipe.title}
-                      time={recipe.time}
-                      spiceLevel={recipe.spiceLevel}
-                      image={recipe.image}
-                      ingredientsCount={recipe.ingredientsCount}
-                      onPress={() =>
-                        router.push(`/recipe-detail?id=${recipe.id}`)
-                      }
-                    />
+          {/* ── Dynamic Recommendation Sections ── */}
+          {sectionsLoading ? (
+            // Show skeleton loaders while sections load
+            Array.from({ length: 2 }).map((_, sIdx) => (
+              <View key={`sec-skeleton-${sIdx}`} className="mt-6">
+                <View className="px-6 mb-4">
+                  <View className="w-40 h-5 bg-gray-200 rounded animate-pulse opacity-70" />
+                  <View className="w-56 h-3 bg-gray-100 rounded mt-2 animate-pulse opacity-50" />
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 24 }}
+                >
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <PopularSkeleton key={`sec-shimmer-${sIdx}-${idx}`} />
                   ))}
-            </ScrollView>
-          </View>
+                </ScrollView>
+              </View>
+            ))
+          ) : (
+            recSections
+              .filter(section => section.id !== "meals_to_cook_today") // main section already shown above
+              .map((section, sIdx, arr) => (
+                <View
+                  key={section.id}
+                  className={sIdx === arr.length - 1 ? "mt-6 pb-32" : "mt-6"}
+                >
+                  <View className="px-6 mb-4">
+                    <Text className="font-inter-semibold text-primary-dark text-xl">
+                      {section.title}
+                    </Text>
+                    {section.subtitle && (
+                      <Text className="font-inter-regular text-text-secondary/60 text-xs mt-1">
+                        {section.subtitle}
+                      </Text>
+                    )}
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 24 }}
+                  >
+                    {section.recipes.map((recipe) => (
+                      <PopularRecipeCard
+                        key={recipe.id}
+                        title={recipe.title}
+                        time={recipe.time}
+                        spiceLevel={recipe.spiceLevel}
+                        image={recipe.image}
+                        ingredientsCount={recipe.ingredientsCount}
+                        onPress={() =>
+                          router.push(`/recipe-detail?id=${recipe.id}`)
+                        }
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
+              ))
+          )}
 
-          {/* ── Cook Again Section ── */}
-          <View className="mt-6 pb-32">
-            <View className="px-6 flex-row justify-between items-end mb-4">
-              <Text className="font-inter-semibold text-primary-dark text-xl">
-                Cook Again
+          {/* Fallback when no sections and not loading */}
+          {!sectionsLoading && recSections.filter(s => s.id !== "meals_to_cook_today").length === 0 && (
+            <View className="mt-6 pb-32 px-6 items-center">
+              <Text className="font-inter-regular text-text-secondary/50 text-sm">
+                Interact with recipes to unlock personalized sections!
               </Text>
-              <TouchableOpacity
-                onPress={() => router.push("/category-details?type=trending")}
-              >
-                <Text className="font-jakarta-semibold text-primary text-sm">
-                  See All
-                </Text>
-              </TouchableOpacity>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 24 }}
-            >
-              {loading
-                ? Array.from({ length: 3 }).map((_, idx) => (
-                    <PopularSkeleton key={`cook-shimmer-${idx}`} />
-                  ))
-                : cookAgainRecipes.map((recipe) => (
-                    <PopularRecipeCard
-                      key={recipe.id}
-                      title={recipe.title}
-                      time={recipe.time}
-                      spiceLevel={recipe.spiceLevel}
-                      image={recipe.image}
-                      ingredientsCount={recipe.ingredientsCount}
-                      onPress={() =>
-                        router.push(`/recipe-detail?id=${recipe.id}`)
-                      }
-                    />
-                  ))}
-            </ScrollView>
-          </View>
+          )}
         </View>
       </AnimatedScrollView>
 

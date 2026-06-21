@@ -343,7 +343,7 @@ export const recipeService = {
   async logInteraction(
     userId: string,
     recipeId: string,
-    interactionType: "view" | "cook",
+    interactionType: "VIEW" | "SEARCH_CLICK" | "SAVE" | "FAVORITE" | "COOK_START" | "COOK_COMPLETE" | "SHARE",
   ) {
     const { error } = await supabase
       .from("recipe_interactions")
@@ -372,8 +372,8 @@ export const recipeService = {
 
     if (error) throw error;
 
-    const views = data.filter((i) => i.interaction_type === "view").length;
-    const cooks = data.filter((i) => i.interaction_type === "cook").length;
+    const views = data.filter((i) => i.interaction_type === "VIEW").length;
+    const cooks = data.filter((i) => i.interaction_type === "COOK_START" || i.interaction_type === "COOK_COMPLETE").length;
 
     return { views, cooks };
   },
@@ -415,8 +415,8 @@ export const recipeService = {
 
     return (data || []).map((recipe: any) => {
       const interactions = recipe.recipe_interactions || [];
-      const views = interactions.filter((i: any) => i.interaction_type === "view").length;
-      const cooks = interactions.filter((i: any) => i.interaction_type === "cook").length;
+      const views = interactions.filter((i: any) => i.interaction_type === "VIEW").length;
+      const cooks = interactions.filter((i: any) => i.interaction_type === "COOK_START" || i.interaction_type === "COOK_COMPLETE").length;
 
       return {
         id: recipe.id,

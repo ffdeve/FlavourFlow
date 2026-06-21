@@ -118,15 +118,7 @@ export interface RecipeStep {
   video_end_time?: number;
 }
 
-// ============= RATINGS & FEEDBACK =============
-export interface Rating {
-  rating_id: number;
-  user_id: string;
-  recipe_id: number;
-  stars: number; // 1-5
-  created_at: string;
-  updated_at: string;
-}
+// ============= FEEDBACK =============
 
 export interface Feedback {
   feedback_id: number;
@@ -147,7 +139,7 @@ export interface RecipeInteraction {
   id: string;
   user_id: string;
   recipe_id: string;
-  interaction_type: "view" | "like" | "save" | "cooked";
+  interaction_type: "VIEW" | "SEARCH_CLICK" | "SAVE" | "FAVORITE" | "COOK_START" | "COOK_COMPLETE" | "SHARE";
   created_at: string;
 }
 
@@ -261,6 +253,13 @@ export interface RecipeWithDetails extends Recipe {
   user_interaction?: RecipeInteraction;
   ingredients_list?: RecipeIngredientBridge[];
   steps?: RecipeStep[];
+}
+
+export interface RecommendationSection {
+  id: string;
+  title: string;
+  subtitle?: string;
+  recipes: any[];
 }
 
 // ============= UI STATE TYPES =============

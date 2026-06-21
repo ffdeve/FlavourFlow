@@ -126,7 +126,9 @@ export default function RecipeDetailScreen() {
           setRecipe(data);
           
           if (user?.id) {
-            recipeService.logInteraction(user.id, id, "view");
+            recipeService.logInteraction(user.id, String(id), "VIEW").catch((err) =>
+              console.error("Failed to log view interaction:", err),
+            );
           }
         } catch (err) {
           console.error("Error fetching recipe details:", err);

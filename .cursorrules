@@ -4,3 +4,4 @@
 2. **USE CUSTOM ICONS**: You MUST ONLY use the custom icons located in `src/assets/icons`. Do not use standard vector icons (like Ionicons, Feather) unless absolutely necessary.
 3. **ASK IF MISSING**: If you cannot find an appropriate custom icon in `src/assets/icons`, you MUST ask the user before proceeding.
 4. **STYLE GUIDE IS LAW**: You MUST read and follow `flavourflow_style_guide.md` before implementing any UI component.
+5. **3D CLAYMORPHIC STYLE**: To use Ai icons or images make 3D Claymorphic (often referred to as Claymorphism or Soft 3D) design style. For this style use the following keywords: 3d render, claymorphic style, soft 3d, rounded shapes, organic forms, soft shadows, bright matte colors, pastel color palette, simple shapes, adorable, kawaii, friendly, approachable.
