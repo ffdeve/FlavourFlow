@@ -1,4 +1,7 @@
 import { supabase } from "@/services/supabase";
+import * as Crypto from "expo-crypto";
+
+export const APP_SESSION_ID = Crypto.randomUUID();
 
 export interface Recipe {
   id: string;
@@ -244,6 +247,32 @@ export const recipeService = {
   },
 
   /**
+   * Log a search query to search_history with debounce/duplicate prevention
+   */
+  async logSearchQuery(userId: string, query: string) {
+    if (!query) return;
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery || normalizedQuery.length < 2) return;
+
+    const { error } = await supabase
+      .from("search_history")
+      .insert([
+        {
+          user_id: userId,
+          query: normalizedQuery,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+    if (error) {
+      // Postgres unique violation code is 23505
+      if (error.code !== "23505") {
+        console.warn("Failed to log search history:", error);
+      }
+    }
+  },
+
+  /**
    * Fetch a specific recipe by ID
    */
   async getRecipeDetails(recipeId: string): Promise<Recipe> {
@@ -343,8 +372,18 @@ export const recipeService = {
   async logInteraction(
     userId: string,
     recipeId: string,
-    interactionType: "VIEW" | "SEARCH_CLICK" | "SAVE" | "FAVORITE" | "COOK_START" | "COOK_COMPLETE" | "SHARE",
+    interactionType: "VIEW" | "SEARCH_CLICK" | "SAVE" | "FAVORITE" | "COOK_START" | "COOK_COMPLETE" | "SHARE" | "RECIPE_IMPRESSION",
+    metadata?: any
   ) {
+    const enrichedMetadata = {
+      ...metadata,
+      context: {
+        ...(metadata?.context || {}),
+        session_id: APP_SESSION_ID,
+        device: "mobile"
+      }
+    };
+
     const { error } = await supabase
       .from("recipe_interactions")
       .insert([
@@ -352,12 +391,40 @@ export const recipeService = {
           user_id: userId,
           recipe_id: recipeId,
           interaction_type: interactionType,
+          metadata: enrichedMetadata,
           created_at: new Date().toISOString(),
         },
       ]);
 
     if (error) {
       console.warn(`Failed to log interaction (${interactionType}):`, error);
+    }
+  },
+
+  /**
+   * Log batched recipe impressions
+   */
+  async logImpressions(userId: string, recipeIds: string[]) {
+    if (!recipeIds.length) return;
+    
+    const enrichedMetadata = {
+      context: {
+        session_id: APP_SESSION_ID,
+        device: "mobile"
+      }
+    };
+
+    const inserts = recipeIds.map(id => ({
+      user_id: userId,
+      recipe_id: id,
+      interaction_type: "RECIPE_IMPRESSION",
+      metadata: enrichedMetadata,
+      created_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase.from("recipe_interactions").insert(inserts);
+    if (error) {
+      console.warn("Failed to log impressions:", error);
     }
   },
 
@@ -542,6 +609,9 @@ export const recipeService = {
       await supabase
         .from("favorites")
         .insert([{ user_id: userId, recipe_id: recipeId }]);
+        
+      // Log behavior signal
+      await this.logInteraction(userId, recipeId, "FAVORITE");
       return true;
     }
   },

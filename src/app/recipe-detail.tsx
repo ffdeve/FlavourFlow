@@ -5,7 +5,7 @@ import { Feather, FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   Alert,
   Dimensions,
@@ -124,12 +124,6 @@ export default function RecipeDetailScreen() {
           setDbLoading(true);
           const data = await recipeService.getRecipeDetails(id);
           setRecipe(data);
-          
-          if (user?.id) {
-            recipeService.logInteraction(user.id, String(id), "VIEW").catch((err) =>
-              console.error("Failed to log view interaction:", err),
-            );
-          }
         } catch (err) {
           console.error("Error fetching recipe details:", err);
         } finally {
@@ -158,6 +152,55 @@ export default function RecipeDetailScreen() {
   }, []);
 
   const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    if (user?.id && id) {
+      recipeService.getLikedRecipeIds(user.id).then((likedIds) => {
+        setIsSaved(likedIds.has(String(id)));
+      }).catch(err => console.error("Failed to fetch saved status:", err));
+    }
+  }, [user?.id, id]);
+
+  const mountTime = useRef(Date.now());
+  const maxScrollY = useRef(0);
+  const contentHeight = useRef(1);
+
+  useEffect(() => {
+    mountTime.current = Date.now();
+    return () => {
+      if (user?.id && id) {
+        const duration_seconds = Math.floor((Date.now() - mountTime.current) / 1000);
+        let scroll_depth = 0;
+        if (contentHeight.current > 0) {
+          scroll_depth = Math.min(1, maxScrollY.current / contentHeight.current);
+        }
+        
+        const metadata = {
+          engagement: {
+            duration_seconds,
+            scroll_depth: Number(scroll_depth.toFixed(2))
+          }
+        };
+
+        recipeService.logInteraction(user.id, String(id), "VIEW", metadata).catch(err => 
+          console.error("Failed to log VIEW interaction:", err)
+        );
+      }
+    };
+  }, [user?.id, id]);
+
+  const handleScrollDepth = (event: any) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+    if (y + layoutHeight > maxScrollY.current) {
+      maxScrollY.current = y + layoutHeight;
+    }
+  };
+
+  const handleContentSizeChange = (w: number, h: number) => {
+    contentHeight.current = h;
+  };
+
   const [activeTab, setActiveTab] = useState<TabType>("Overview");
   const [showAllIngredients, setShowAllIngredients] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -340,11 +383,37 @@ export default function RecipeDetailScreen() {
           )}
           <HeartButton
             isLiked={isSaved}
-            onToggle={() => setIsSaved(!isSaved)}
+            onToggle={async () => {
+              const newState = !isSaved;
+              setIsSaved(newState);
+              if (user?.id && id) {
+                try {
+                  await recipeService.toggleLikeRecipe(user.id, String(id));
+                } catch (err) {
+                  console.error("Failed to toggle like:", err);
+                  setIsSaved(!newState); // revert
+                }
+              }
+            }}
             size={18}
             className="w-11 h-11 bg-black/30 rounded-full items-center justify-center mr-2"
           />
-          <TouchableOpacity className="w-11 h-11 bg-black/30 rounded-full items-center justify-center">
+          <TouchableOpacity 
+            className="w-11 h-11 bg-black/30 rounded-full items-center justify-center"
+            onPress={() => {
+              import("react-native").then(({ Share }) => {
+                Share.share({
+                  message: `Check out this amazing recipe for ${recipe.title} on FlavourFlow!`,
+                  title: recipe.title,
+                });
+                if (user?.id && id) {
+                  recipeService.logInteraction(user.id, String(id), "SHARE").catch(err => 
+                    console.error("Failed to log share:", err)
+                  );
+                }
+              });
+            }}
+          >
             <Feather name="share" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -354,6 +423,9 @@ export default function RecipeDetailScreen() {
         className="flex-1"
         showsVerticalScrollIndicator={false}
         bounces={false}
+        onScroll={handleScrollDepth}
+        scrollEventThrottle={16}
+        onContentSizeChange={handleContentSizeChange}
       >
         {/* Hero Area */}
         <View style={{ width: SCREEN_WIDTH, height: HERO_HEIGHT }}>

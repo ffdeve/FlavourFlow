@@ -210,6 +210,36 @@ export default function CookingModeScreen() {
   // Step card translation animation
   const slideAnim = useRef(new Animated.Value(0)).current;
 
+  // ML Tracking Signals
+  const maxStepReached = useRef(0);
+  const stepStartTime = useRef(Date.now());
+  const stepTimes = useRef<number[]>([]);
+  const skippedSteps = useRef(0);
+  const revisitSteps = useRef(0);
+  const prevStepRef = useRef(0);
+
+  useEffect(() => {
+    const now = Date.now();
+    const duration = Math.floor((now - stepStartTime.current) / 1000);
+    
+    stepTimes.current[prevStepRef.current] = (stepTimes.current[prevStepRef.current] || 0) + duration;
+    
+    if (duration < 3 && prevStepRef.current !== currentStep) {
+      skippedSteps.current += 1;
+    }
+    
+    if (currentStep < prevStepRef.current) {
+      revisitSteps.current += 1;
+    }
+    
+    if (currentStep > maxStepReached.current) {
+      maxStepReached.current = currentStep;
+    }
+    
+    prevStepRef.current = currentStep;
+    stepStartTime.current = now;
+  }, [currentStep]);
+
   // Load recipe data
   useEffect(() => {
     const loadRecipe = async () => {
@@ -217,6 +247,11 @@ export default function CookingModeScreen() {
         try {
           const data = await recipeService.getRecipeDetails(id);
           setRecipe(data);
+          if (user?.id) {
+            recipeService.logInteraction(user.id, id, "COOK_START").catch((err) =>
+              console.error("Failed to log cook start interaction:", err)
+            );
+          }
         } catch (err) {
           console.error("Error loading recipe for cooking mode:", err);
         } finally {
@@ -225,7 +260,7 @@ export default function CookingModeScreen() {
       }
     };
     loadRecipe();
-  }, [id]);
+  }, [id, user?.id]);
 
   // Helper to parse duration
   const parseDuration = (step: any) => {
@@ -303,15 +338,34 @@ export default function CookingModeScreen() {
 
   const handleQuit = () => {
     Alert.alert(
-      "Stop Cooking? 🍳",
-      "Are you sure you want to exit cooking mode? Your current step progress will be lost.",
+      "Quit Cooking?",
+      "Are you sure you want to exit cooking mode?",
       [
-        { text: "Keep Cooking", style: "cancel" },
+        { text: "Cancel", style: "cancel" },
         { 
-          text: "Exit", 
+          text: "Quit", 
           style: "destructive", 
           onPress: () => {
-            Speech.stop();
+            if (user?.id && id) {
+              const finalDuration = Math.floor((Date.now() - stepStartTime.current) / 1000);
+              stepTimes.current[currentStep] = (stepTimes.current[currentStep] || 0) + finalDuration;
+              
+              const ratio = totalSteps > 0 ? Number((maxStepReached.current / totalSteps).toFixed(2)) : 0;
+              const metadata = {
+                engagement: {
+                  steps_completed: maxStepReached.current,
+                  total_steps: totalSteps,
+                  completion_ratio: ratio,
+                  exit_reason: "manual_quit",
+                  skipped_steps: skippedSteps.current,
+                  revisit_steps: revisitSteps.current,
+                  step_times_seconds: stepTimes.current
+                }
+              };
+              recipeService.logInteraction(user.id, id, "COOK_COMPLETE", metadata).catch(err => 
+                console.error("Failed to log early quit:", err)
+              );
+            }
             router.back();
           } 
         }
@@ -344,11 +398,25 @@ export default function CookingModeScreen() {
       });
     } else {
       // Reached the end! Start completion screen
+      const finalDuration = Math.floor((Date.now() - stepStartTime.current) / 1000);
+      stepTimes.current[currentStep] = (stepTimes.current[currentStep] || 0) + finalDuration;
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setIsCompleted(true);
       if (user?.id && id) {
-        recipeService.logInteraction(user.id, id, "COOK_START").catch((err) =>
-          console.error("Failed to log cook start interaction:", err),
+        const metadata = {
+          engagement: {
+            steps_completed: totalSteps,
+            total_steps: totalSteps,
+            completion_ratio: 1.0,
+            exit_reason: "completed",
+            skipped_steps: skippedSteps.current,
+            revisit_steps: revisitSteps.current,
+            step_times_seconds: stepTimes.current
+          }
+        };
+        recipeService.logInteraction(user.id, id, "COOK_COMPLETE", metadata).catch((err) =>
+          console.error("Failed to log cook complete interaction:", err),
         );
       }
     }

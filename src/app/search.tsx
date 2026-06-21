@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   StatusBar,
   Keyboard,
   Animated,
+  ViewToken,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -48,7 +50,7 @@ interface UnifiedRecipe {
 }
 
 export default function SearchScreen() {
-  const { preferences } = useAuth();
+  const { preferences, user } = useAuth();
   const allergies = preferences?.allergies || [];
   const dislikes = preferences?.dislikes || [];
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
@@ -68,6 +70,26 @@ export default function SearchScreen() {
 
   // Collapsible animation ref
   const filterAnim = useRef(new Animated.Value(0)).current;
+
+  // Impression tracking
+  const impressedIds = useRef(new Set<string>());
+  
+  const handleViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (!user?.id) return;
+    const newImpressions: string[] = [];
+    viewableItems.forEach(({ item }) => {
+      const recipe = item as Recipe;
+      if (!impressedIds.current.has(recipe.id)) {
+        impressedIds.current.add(recipe.id);
+        newImpressions.push(recipe.id);
+      }
+    });
+    if (newImpressions.length > 0) {
+      recipeService.logImpressions(user.id, newImpressions).catch(err => 
+        console.error("Failed to log impressions:", err)
+      );
+    }
+  }, [user?.id]);
 
   // Fetch recipes from DB on mount
   useEffect(() => {
@@ -189,7 +211,14 @@ export default function SearchScreen() {
             autoFocus
             clearButtonMode="while-editing"
             returnKeyType="search"
-            onSubmitEditing={() => Keyboard.dismiss()}
+            onSubmitEditing={() => {
+              Keyboard.dismiss();
+              if (user?.id && searchQuery) {
+                recipeService.logSearchQuery(user.id, searchQuery).catch(err => 
+                  console.error("Failed to log search query:", err)
+                );
+              }
+            }}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery("")} className="p-1">
@@ -305,65 +334,25 @@ export default function SearchScreen() {
       </Animated.View>
 
       {/* Results Container */}
-      <ScrollView
+      <FlatList
         className="flex-1"
+        data={filteredRecipes}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 16 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-      >
-        {/* Search Results Summary Header */}
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="font-jakarta-semibold text-sm text-[#8B7D6F]">
-            {filteredRecipes.length} {filteredRecipes.length === 1 ? "recipe" : "recipes"} found
-          </Text>
-        </View>
-
-        {filteredRecipes.length > 0 ? (
-          <View className="flex-row flex-wrap justify-between">
-            {filteredRecipes.map((recipe) => {
-              const matchedAllergy = recipe.ingredients.find((ing) =>
-                allergies.some((allergyName) =>
-                  ing.name.toLowerCase().includes(allergyName.toLowerCase())
-                )
-              );
-              const hasAllergy = !!matchedAllergy;
-              const allergyName = matchedAllergy?.name || "";
-
-              const matchedDislikedIngredient = recipe.ingredients.find((ing) =>
-                dislikes.some((dislikeName) =>
-                  ing.name.toLowerCase().includes(dislikeName.toLowerCase())
-                )
-              );
-              const isDislikedCuisine = dislikes.some((dislikeName) =>
-                recipe.cuisineType?.toLowerCase() === dislikeName.toLowerCase()
-              );
-
-              const hasDislike = !!matchedDislikedIngredient || isDislikedCuisine;
-              const dislikeName = matchedDislikedIngredient
-                ? matchedDislikedIngredient.name
-                : isDislikedCuisine
-                ? recipe.cuisineType || ""
-                : "";
-
-              return (
-                <View key={recipe.id} className="w-[48%]">
-                  <SearchRecipeCard
-                    recipe={recipe}
-                    hasAllergy={hasAllergy}
-                    allergyName={allergyName}
-                    hasDislike={hasDislike}
-                    dislikeName={dislikeName}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                      router.push(`/recipe-detail?id=${recipe.id}`);
-                    }}
-                  />
-                </View>
-              );
-            })}
+        onViewableItemsChanged={handleViewableItemsChanged}
+        viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+        ListHeaderComponent={
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="font-jakarta-semibold text-sm text-[#8B7D6F]">
+              {filteredRecipes.length} {filteredRecipes.length === 1 ? "recipe" : "recipes"} found
+            </Text>
           </View>
-        ) : (
-          /* Empty / No Results State */
+        }
+        ListEmptyComponent={
           <View className="items-center justify-center py-20 px-4">
             <View className="w-20 h-20 rounded-full bg-[#F5E3D8]/30 items-center justify-center mb-4">
               <Ionicons name="search-outline" size={40} color="#FBA82E" />
@@ -386,8 +375,54 @@ export default function SearchScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
+        }
+        renderItem={({ item: recipe }) => {
+          const matchedAllergy = recipe.ingredients.find((ing) =>
+            allergies.some((allergyName) =>
+              ing.name.toLowerCase().includes(allergyName.toLowerCase())
+            )
+          );
+          const hasAllergy = !!matchedAllergy;
+          const allergyName = matchedAllergy?.name || "";
+
+          const matchedDislikedIngredient = recipe.ingredients.find((ing) =>
+            dislikes.some((dislikeName) =>
+              ing.name.toLowerCase().includes(dislikeName.toLowerCase())
+            )
+          );
+          const isDislikedCuisine = dislikes.some((dislikeName) =>
+            recipe.cuisineType?.toLowerCase() === dislikeName.toLowerCase()
+          );
+
+          const hasDislike = !!matchedDislikedIngredient || isDislikedCuisine;
+          const dislikeName = matchedDislikedIngredient
+            ? matchedDislikedIngredient.name
+            : isDislikedCuisine
+            ? recipe.cuisineType || ""
+            : "";
+
+          return (
+            <View className="w-[48%]">
+              <SearchRecipeCard
+                recipe={recipe}
+                hasAllergy={hasAllergy}
+                allergyName={allergyName}
+                hasDislike={hasDislike}
+                dislikeName={dislikeName}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                  if (user?.id) {
+                    recipeService.logInteraction(user.id, recipe.id, "SEARCH_CLICK").catch(err => 
+                      console.error("Failed to log search click:", err)
+                    );
+                  }
+                  router.push(`/recipe-detail?id=${recipe.id}`);
+                }}
+              />
+            </View>
+          );
+        }}
+      />
     </View>
   );
 }
