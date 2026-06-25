@@ -109,7 +109,7 @@ export class RecommendationService {
           .from("user_preferences")
           .select("preferred_cuisines, spice_level")
           .eq("user_id", userId)
-          .single();
+          .maybeSingle();
 
         let query = supabase
           .from("recipes")
