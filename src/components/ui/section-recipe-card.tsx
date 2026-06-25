@@ -13,16 +13,6 @@ const SPICE_IMAGES: Record<number, any> = {
   5: require("@/assets/icons/spice_5.png"),
 };
 
-const SECTION_META: Record<string, { emoji: string; color: string }> = {
-  jump_back_in:     { emoji: "🔥", color: "#E05252" },
-  cook_it_again:    { emoji: "🍳", color: "#3BB17A" },
-  trending_now:     { emoji: "📈", color: "#4F5CD8" },
-  because_you_liked:{ emoji: "❤️", color: "#E05252" },
-  trending_global:  { emoji: "🌍", color: "#FBA82E" },
-  quick_easy:       { emoji: "⚡", color: "#FBA82E" },
-  new_recipes:      { emoji: "✨", color: "#4F5CD8" },
-};
-
 interface SectionRecipeCardProps {
   recipe: {
     id: string;
@@ -47,8 +37,6 @@ export const SectionRecipeCard = ({
   onToggleFavorite,
   onPress,
 }: SectionRecipeCardProps) => {
-  const meta = SECTION_META[sectionType] || { emoji: "🍽️", color: "#FBA82E" };
-
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -72,7 +60,7 @@ export const SectionRecipeCard = ({
           contentFit="cover"
         />
 
-        {/* Spice Badge */}
+        {/* Spice Badge (Top Left) */}
         {recipe.spiceLevel > 0 && SPICE_IMAGES[recipe.spiceLevel] && (
           <View className="absolute top-2.5 -left-1 z-10">
             <Image
@@ -83,24 +71,12 @@ export const SectionRecipeCard = ({
           </View>
         )}
 
-        {/* Section Emoji Badge */}
-        <View
-          className="absolute top-2.5 right-2.5 z-10 rounded-full items-center justify-center"
-          style={{
-            width: 30,
-            height: 30,
-            backgroundColor: "rgba(0,0,0,0.35)",
-          }}
-        >
-          <Text style={{ fontSize: 14 }}>{meta.emoji}</Text>
-        </View>
-
-        {/* Heart Favorite Toggle */}
+        {/* Heart Favorite Toggle (Top Right) */}
         <HeartButton
           isLiked={isLiked}
           onToggle={onToggleFavorite || (() => {})}
           size={18}
-          className="absolute bottom-2.5 right-2.5 z-10 bg-black/30 rounded-full items-center justify-center"
+          className="absolute top-2.5 right-2.5 z-10 bg-black/30 rounded-full items-center justify-center"
         />
 
         {/* Gradient fade into content */}

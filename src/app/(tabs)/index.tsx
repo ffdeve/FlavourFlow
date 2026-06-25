@@ -370,6 +370,8 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         bounces={false}
+        snapToOffsets={[0, SPACER_HEIGHT]}
+        decelerationRate="fast"
         style={{ flex: 1, zIndex: 1 }}
       >
         {/* Transparent spacer — matches total header height.

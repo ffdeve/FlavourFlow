@@ -141,8 +141,9 @@ export class RecommendationService {
         }
       }
 
-      // If no Trending section, always build one from recent high-rated recipes
+      // If no Trending section, always build one from recent recipes
       if (!hasTrending) {
+        const shownIds = new Set(sections.flatMap(s => s.recipes.map((r: any) => r.id)));
         const { data: trendingData } = await supabase
           .from("recipes")
           .select(`
@@ -151,20 +152,26 @@ export class RecommendationService {
             profiles (full_name, avatar_url)
           `)
           .order("created_at", { ascending: false })
-          .limit(10);
+          .limit(15);
 
         if (trendingData && trendingData.length > 0) {
-          sections.push({
-            id: "trending_now",
-            title: "Trending Now",
-            subtitle: "Fresh recipes gaining popularity",
-            recipes: trendingData.map(mapDbRecipeToUiRecipe),
-          });
+          const unique = trendingData
+            .map(mapDbRecipeToUiRecipe)
+            .filter(r => !shownIds.has(r.id));
+          if (unique.length > 0) {
+            sections.push({
+              id: "trending_now",
+              title: "Trending Now",
+              subtitle: "Fresh recipes gaining popularity",
+              recipes: unique.slice(0, 10),
+            });
+          }
         }
       }
 
-      // Always add a "Quick & Easy" section if not enough sections exist
-      if (sections.length < 3) {
+      // Always add Quick & Easy — every user benefits from this
+      if (!sections.some(s => s.id === "quick_easy")) {
+        const shownIds = new Set(sections.flatMap(s => s.recipes.map((r: any) => r.id)));
         const { data: quickData } = await supabase
           .from("recipes")
           .select(`
@@ -174,20 +181,26 @@ export class RecommendationService {
           `)
           .lte("cook_time", 30)
           .order("average_rating", { ascending: false })
-          .limit(10);
+          .limit(15);
 
         if (quickData && quickData.length > 0) {
-          sections.push({
-            id: "quick_easy",
-            title: "Quick & Easy",
-            subtitle: "Ready in 30 minutes or less",
-            recipes: quickData.map(mapDbRecipeToUiRecipe),
-          });
+          const unique = quickData
+            .map(mapDbRecipeToUiRecipe)
+            .filter(r => !shownIds.has(r.id));
+          if (unique.length > 0) {
+            sections.push({
+              id: "quick_easy",
+              title: "Quick & Easy",
+              subtitle: "Ready in 30 minutes or less",
+              recipes: unique.slice(0, 10),
+            });
+          }
         }
       }
 
-      // Always add a "New Recipes" section if we still have room
-      if (sections.length < 4) {
+      // Always add Just Added — shows community is alive
+      if (!sections.some(s => s.id === "new_recipes")) {
+        const shownIds = new Set(sections.flatMap(s => s.recipes.map((r: any) => r.id)));
         const { data: newData } = await supabase
           .from("recipes")
           .select(`
@@ -196,15 +209,12 @@ export class RecommendationService {
             profiles (full_name, avatar_url)
           `)
           .order("created_at", { ascending: false })
-          .limit(10);
+          .limit(15);
 
         if (newData && newData.length > 0) {
-          // Deduplicate against already-shown recipes
-          const shownIds = new Set(sections.flatMap(s => s.recipes.map((r: any) => r.id)));
           const unique = newData
             .map(mapDbRecipeToUiRecipe)
             .filter(r => !shownIds.has(r.id));
-
           if (unique.length > 0) {
             sections.push({
               id: "new_recipes",
