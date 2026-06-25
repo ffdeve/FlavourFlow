@@ -6,9 +6,9 @@ import type { Post, Comment } from "@/types";
 
 export class CommunityService {
   /**
-   * Fetch all posts or filtered by category
+   * Fetch all posts or filtered by category/following
    */
-  async getPosts(category: string = "All Feed", limit: number = 30): Promise<Post[]> {
+  async getPosts(category: string = "All Feed", limit: number = 30, currentUserId?: string): Promise<Post[]> {
     let query = supabase
       .from("posts")
       .select(`
@@ -28,7 +28,27 @@ export class CommunityService {
       `);
 
     // Category filtering
-    if (category === "Recipe Tips") {
+    if (category === "Following") {
+      if (!currentUserId) {
+        return [];
+      }
+      // First fetch the users the current user is following
+      const { data: follows, error: followError } = await supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", currentUserId);
+
+      if (followError) throw followError;
+
+      const followingIds = (follows || []).map(f => f.following_id);
+
+      // If not following anyone, return empty array immediately
+      if (followingIds.length === 0) {
+        return [];
+      }
+
+      query = query.in("user_id", followingIds);
+    } else if (category === "Recipe Tips") {
       query = query.eq("category", "recipe_tip");
     } else if (category === "Q&A") {
       query = query.eq("category", "qa");
@@ -291,19 +311,68 @@ export class CommunityService {
   }
 
   /**
-   * Delete a post
+   * Delete a community post
    */
   async deletePost(postId: string, userId: string): Promise<void> {
     const { error } = await supabase
       .from("posts")
       .delete()
-      .eq("id", postId)
-      .eq("user_id", userId);
+      .match({ id: postId, user_id: userId }); // ensure only owner can delete
 
     if (error) {
-      console.error("Error deleting post:", error);
+      console.error("Failed to delete post:", error);
       throw error;
     }
+  }
+
+  // ─── Following System ──────────────────────────────────────────────────
+
+  /**
+   * Follow a user
+   */
+  async followUser(followerId: string, followingId: string): Promise<void> {
+    const { error } = await supabase
+      .from("follows")
+      .insert({ follower_id: followerId, following_id: followingId });
+
+    // Ignore duplicate key errors if already following
+    if (error && error.code !== '23505') {
+      console.error("Failed to follow user:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unfollow a user
+   */
+  async unfollowUser(followerId: string, followingId: string): Promise<void> {
+    const { error } = await supabase
+      .from("follows")
+      .delete()
+      .match({ follower_id: followerId, following_id: followingId });
+
+    if (error) {
+      console.error("Failed to unfollow user:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if user is following another user
+   */
+  async checkIsFollowing(followerId: string, followingId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from("follows")
+      .select("id")
+      .match({ follower_id: followerId, following_id: followingId })
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to check follow status:", error);
+      return false;
+    }
+
+    return !!data;
   }
 
   /**
