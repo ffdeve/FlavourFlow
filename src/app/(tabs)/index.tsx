@@ -26,6 +26,7 @@ import { CategoryPill } from "@/components/ui/category-pill";
 import { PopularRecipeCard } from "@/components/ui/popular-recipe-card";
 import { PromotionCarousel } from "@/components/ui/promotion-carousel";
 import { RecommendationCard } from "@/components/ui/recommendation-card";
+import { SectionRecipeCard } from "@/components/ui/section-recipe-card";
 
 // Service & Types
 import { Recipe, recipeService } from "@/services/recipe.service";
@@ -507,13 +508,12 @@ export default function HomeScreen() {
                     contentContainerStyle={{ paddingHorizontal: 24 }}
                   >
                     {section.recipes.map((recipe) => (
-                      <PopularRecipeCard
+                      <SectionRecipeCard
                         key={recipe.id}
-                        title={recipe.title}
-                        time={recipe.time}
-                        spiceLevel={recipe.spiceLevel}
-                        image={recipe.image}
-                        ingredientsCount={recipe.ingredientsCount}
+                        recipe={recipe}
+                        sectionType={section.id}
+                        isLiked={likedIds.has(recipe.id)}
+                        onToggleFavorite={() => handleToggleFavorite(recipe.id)}
                         onPress={() =>
                           router.push(`/recipe-detail?id=${recipe.id}`)
                         }
@@ -524,13 +524,9 @@ export default function HomeScreen() {
               ))
           )}
 
-          {/* Fallback when no sections and not loading */}
+          {/* Bottom padding when no additional sections beyond Core */}
           {!sectionsLoading && recSections.filter(s => s.id !== "meals_to_cook_today").length === 0 && (
-            <View className="mt-6 pb-32 px-6 items-center">
-              <Text className="font-inter-regular text-text-secondary/50 text-sm">
-                Interact with recipes to unlock personalized sections!
-              </Text>
-            </View>
+            <View className="pb-32" />
           )}
         </View>
       </AnimatedScrollView>

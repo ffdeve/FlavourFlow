@@ -372,9 +372,9 @@ export const recipeService = {
   async logInteraction(
     userId: string,
     recipeId: string,
-    interactionType: "VIEW" | "SEARCH_CLICK" | "SAVE" | "FAVORITE" | "COOK_START" | "COOK_COMPLETE" | "SHARE" | "RECIPE_IMPRESSION",
-    metadata?: any
-  ) {
+    interactionType: "VIEW" | "SEARCH_CLICK" | "SAVE" | "FAVORITE" | "COOK_START" | "COOK_COMPLETE" | "COOK_ABANDONED" | "SHARE" | "RECIPE_IMPRESSION",
+    metadata?: Record<string, any>
+  ): Promise<void> {
     const enrichedMetadata = {
       ...metadata,
       context: {

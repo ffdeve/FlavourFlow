@@ -139,7 +139,7 @@ export interface RecipeInteraction {
   id: string;
   user_id: string;
   recipe_id: string;
-  interaction_type: "VIEW" | "SEARCH_CLICK" | "SAVE" | "FAVORITE" | "COOK_START" | "COOK_COMPLETE" | "SHARE";
+  interaction_type: "VIEW" | "SEARCH_CLICK" | "SAVE" | "FAVORITE" | "COOK_START" | "COOK_COMPLETE" | "COOK_ABANDONED" | "SHARE" | "RECIPE_IMPRESSION";
   created_at: string;
 }
 

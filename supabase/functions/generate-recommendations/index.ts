@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
@@ -33,15 +34,18 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    // 1. Fetch Users who were active recently
-    const { data: users, error: usersErr } = await supabaseClient
-      .from("recipe_interactions")
-      .select("user_id")
-      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-    
-    if (usersErr) throw usersErr;
-    
-    const uniqueUserIds = [...new Set(users.map((u) => u.user_id))];
+    // 1. Claim Batch of Queue Events Atomically
+    const { data: queueEvents, error: queueErr } = await supabaseClient.rpc('claim_recommendation_events', { batch_size: 500 });
+    if (queueErr) throw queueErr;
+
+    if (!queueEvents || queueEvents.length === 0) {
+      return new Response(JSON.stringify({ success: true, message: "No pending events to process" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const uniqueUserIds = [...new Set(queueEvents.map((e: any) => e.user_id))];
+    const eventIds = queueEvents.map((e: any) => e.id);
 
     // 2. Fetch All Recipes
     const { data: recipes, error: recipesErr } = await supabaseClient
@@ -89,9 +93,6 @@ serve(async (req) => {
       trendingScores[r.id] = trendScore;
     }
 
-    // Batch clear old recommendations
-    await supabaseClient.from("recipe_recommendations").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-
     const newRecommendations: any[] = [];
     const now = new Date();
     const hour = now.getHours();
@@ -114,6 +115,9 @@ serve(async (req) => {
       let lastCooked: any = null;
 
       if (userInteractions) {
+        // ==========================================
+        // 🔵 PHASE A: Feature Builder
+        // ==========================================
         for (const ix of userInteractions) {
           const rId = ix.recipe_id;
           if (!recipeFeatures[rId]) {
@@ -139,7 +143,6 @@ serve(async (req) => {
           }
           if (ix.interaction_type === "COOK_ABANDONED") {
             feats.abandonment_count += 1;
-            // Record the latest abandonment for Jump Back In
             if (!feats.is_abandoned) {
               feats.is_abandoned = true;
               feats.abandon_duration = ix.metadata?.engagement?.duration_seconds || 0;
@@ -148,7 +151,7 @@ serve(async (req) => {
           }
           if (ix.interaction_type === "COOK_COMPLETE") {
             feats.repeat_score += 1;
-            if (!lastCooked) lastCooked = recipes.find(r => r.id === rId);
+            if (!lastCooked) lastCooked = recipes.find((r:any) => r.id === rId);
           }
 
           const weight = SIGNAL_WEIGHTS[ix.interaction_type] || 0;
@@ -156,6 +159,9 @@ serve(async (req) => {
         }
       }
 
+      // ==========================================
+      // 🔵 PHASE B: Ranking Engine
+      // ==========================================
       for (const recipe of recipes) {
         // Safe Check
         const hasAllergen = recipe.ingredients?.some((ing: any) =>
@@ -173,11 +179,9 @@ serve(async (req) => {
           0
         );
 
-        // Content Match Score
         let contentScore = 0;
         if (Math.abs((recipe.spice_level || 3) - (prefs.spice_level || 3)) <= 1) contentScore += 2;
         
-        // Context Boosting
         let contextBoost = 0;
         const lowerCat = recipe.dish_category?.toLowerCase() || "";
         if (isMorning && lowerCat.includes("breakfast")) contextBoost += 3;
@@ -186,7 +190,6 @@ serve(async (req) => {
 
         const trendScore = trendingScores[recipe.id] || 0;
 
-        // 1. CORE SECTION (Meals to Cook Today)
         const finalCoreScore = (contentScore + feats.behavior_score + trendScore) - Math.abs(penalty) + contextBoost;
         if (finalCoreScore > 0) {
           newRecommendations.push({
@@ -201,18 +204,16 @@ serve(async (req) => {
           });
         }
 
-        // 2. JUMP BACK IN
         if (feats.is_abandoned && feats.abandon_duration > 30) {
           newRecommendations.push({
             user_id: userId,
             recipe_id: recipe.id,
             section_type: "JUMP_BACK_IN",
-            score: 1.0, // Fixed high score to show up, ordering done by DB
+            score: 1.0,
             created_at: feats.abandon_date
           });
         }
 
-        // 3. COOK IT AGAIN
         if (feats.repeat_score >= 1) {
           newRecommendations.push({
             user_id: userId,
@@ -222,7 +223,6 @@ serve(async (req) => {
           });
         }
 
-        // 4. TRENDING NOW
         if (trendScore > 0.5) {
           newRecommendations.push({
             user_id: userId,
@@ -232,7 +232,6 @@ serve(async (req) => {
           });
         }
 
-        // 5. BECAUSE YOU LIKED THIS (Similarity)
         if (lastCooked && recipe.id !== lastCooked.id) {
           let similarity = 0;
           if (recipe.cuisine_type === lastCooked.cuisine_type) similarity += 3;
@@ -254,13 +253,22 @@ serve(async (req) => {
       }
     }
 
+    // Replace old recommendations for ONLY these users
+    await supabaseClient.from("recipe_recommendations").delete().in("user_id", uniqueUserIds);
+
     // Insert all in chunks
     const chunkSize = 500;
     for (let i = 0; i < newRecommendations.length; i += chunkSize) {
       await supabaseClient.from("recipe_recommendations").insert(newRecommendations.slice(i, i + chunkSize));
     }
 
-    return new Response(JSON.stringify({ success: true, generated: newRecommendations.length }), {
+    // Mark Queue Events as Completed
+    await supabaseClient
+      .from("recommendation_events_queue")
+      .update({ status: 'completed', processed_at: new Date().toISOString() })
+      .in('id', eventIds);
+
+    return new Response(JSON.stringify({ success: true, processedUsers: uniqueUserIds.length, generated: newRecommendations.length }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err: any) {
