@@ -35,7 +35,7 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 
-const FILTER_TABS = ["All Feed", "Recipe Tips", "Q&A"];
+const FILTER_TABS = ["All Feed", "Following", "Recipe Tips", "Q&A"];
 
 export default function CommunityScreen() {
   const { user, profile } = useAuth();
@@ -69,7 +69,7 @@ export default function CommunityScreen() {
   // Initial load
   useEffect(() => {
     loadPosts();
-  }, [activeFilter]);
+  }, [activeFilter, user?.id]);
 
   // Auto-refresh timer (Silent background fetch)
   useEffect(() => {
@@ -78,19 +78,19 @@ export default function CommunityScreen() {
     const interval = setInterval(() => {
       if (AppState.currentState !== "active") return;
 
-      communityService.getPosts(activeFilter).then((data) => {
+      communityService.getPosts(activeFilter, 30, user?.id).then((data) => {
         setPosts(data);
       }).catch((err) => {
         console.error("Auto-refresh background fetch error:", err);
       });
     }, 60000); // 1 minute
     return () => clearInterval(interval);
-  }, [activeFilter, isFocused]);
+  }, [activeFilter, isFocused, user?.id]);
 
   const loadPosts = async () => {
     setLoading(true);
     try {
-      const data = await communityService.getPosts(activeFilter);
+      const data = await communityService.getPosts(activeFilter, 30, user?.id);
       setPosts(data);
     } catch (err) {
       console.error("Failed to load community posts:", err);
@@ -104,7 +104,7 @@ export default function CommunityScreen() {
     try {
       // Enforce a minimum 1.5s delay so the native 'hold' and animation can actually be seen!
       const minWait = new Promise((resolve) => setTimeout(resolve, 1500));
-      const fetchPosts = communityService.getPosts(activeFilter);
+      const fetchPosts = communityService.getPosts(activeFilter, 30, user?.id);
       
       // Wait for both the minimum time AND the actual fetch to complete
       const [data] = await Promise.all([fetchPosts, minWait]);
@@ -114,7 +114,7 @@ export default function CommunityScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [activeFilter]);
+  }, [activeFilter, user?.id]);
 
   const handleCommentPress = (postId: string) => {
     setCommentsPostId(postId);
@@ -404,11 +404,12 @@ export default function CommunityScreen() {
         />
       )}
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button — zIndex must beat the FlatList's z-10 or it's hidden */}
       <TouchableOpacity
         onPress={() => setCreatePostVisible(true)}
         className="absolute bottom-28 right-6 w-14 h-14 bg-[#FBA82E] rounded-full items-center justify-center"
         style={{
+          zIndex: 50,
           shadowColor: "#FBA82E",
           shadowOffset: { width: 0, height: 6 },
           shadowOpacity: 0.4,

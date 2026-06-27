@@ -1,28 +1,32 @@
-import { supabase } from "@/services/supabase";
 import { mapDbRecipeToUiRecipe, Recipe } from "@/services/recipe.service";
+import { supabase } from "@/services/supabase";
 import type { RecommendationSection } from "@/types";
 
 export class RecommendationService {
   /**
    * Fetches the pre-computed Netflix-style recommendations from the backend edge function/cron job.
-   * Mobile app MUST NOT perform heavy scoring or similarity matching. 
+   * Mobile app MUST NOT perform heavy scoring or similarity matching.
    */
-  async getNetflixStyleRecommendations(userId: string): Promise<RecommendationSection[]> {
+  async getNetflixStyleRecommendations(
+    userId: string,
+  ): Promise<RecommendationSection[]> {
     const sections: RecommendationSection[] = [];
 
     try {
       const { data, error } = await supabase
         .from("recipe_recommendations")
-        .select(`
+        .select(
+          `
           section_type,
           score,
           recipe_id,
           recipes (
             id, title, dish_category, cuisine_type, prep_time, cook_time,
-            spice_level, ingredients, average_rating, tags, image, created_by,
+            spice_level, ingredients, average_rating, tags, image_url, created_by,
             profiles (full_name, avatar_url)
           )
-        `)
+        `,
+        )
         .eq("user_id", userId)
         .order("score", { ascending: false });
 
@@ -35,7 +39,9 @@ export class RecommendationService {
         const grouped: Record<string, any[]> = {};
         data.forEach((row) => {
           if (!row.recipes) return;
-          const recipeObj = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
+          const recipeObj = Array.isArray(row.recipes)
+            ? row.recipes[0]
+            : row.recipes;
           if (!recipeObj) return;
 
           const uiRecipe = mapDbRecipeToUiRecipe(recipeObj);
@@ -99,8 +105,8 @@ export class RecommendationService {
       // with global signals so the app feels alive from day 1.
       // ==========================================
 
-      const hasCore = sections.some(s => s.id === "meals_to_cook_today");
-      const hasTrending = sections.some(s => s.id === "trending_now");
+      const hasCore = sections.some((s) => s.id === "meals_to_cook_today");
+      const hasTrending = sections.some((s) => s.id === "trending_now");
 
       // If no Core section, build one from top-rated recipes
       if (!hasCore) {
@@ -113,11 +119,13 @@ export class RecommendationService {
 
         let query = supabase
           .from("recipes")
-          .select(`
+          .select(
+            `
             id, title, dish_category, cuisine_type, prep_time, cook_time,
-            spice_level, ingredients, average_rating, tags, image, created_by,
+            spice_level, ingredients, average_rating, tags, image_url, created_by,
             profiles (full_name, avatar_url)
-          `)
+          `,
+          )
           .order("average_rating", { ascending: false })
           .limit(20);
 
@@ -143,21 +151,25 @@ export class RecommendationService {
 
       // If no Trending section, always build one from recent recipes
       if (!hasTrending) {
-        const shownIds = new Set(sections.flatMap(s => s.recipes.map((r: any) => r.id)));
+        const shownIds = new Set(
+          sections.flatMap((s) => s.recipes.map((r: any) => r.id)),
+        );
         const { data: trendingData } = await supabase
           .from("recipes")
-          .select(`
+          .select(
+            `
             id, title, dish_category, cuisine_type, prep_time, cook_time,
-            spice_level, ingredients, average_rating, tags, image, created_by,
+            spice_level, ingredients, average_rating, tags, image_url, created_by,
             profiles (full_name, avatar_url)
-          `)
+          `,
+          )
           .order("created_at", { ascending: false })
           .limit(15);
 
         if (trendingData && trendingData.length > 0) {
           const unique = trendingData
             .map(mapDbRecipeToUiRecipe)
-            .filter(r => !shownIds.has(r.id));
+            .filter((r) => !shownIds.has(r.id));
           if (unique.length > 0) {
             sections.push({
               id: "trending_now",
@@ -170,28 +182,46 @@ export class RecommendationService {
       }
 
       // Always add Quick & Easy — every user benefits from this
-      if (!sections.some(s => s.id === "quick_easy")) {
-        const shownIds = new Set(sections.flatMap(s => s.recipes.map((r: any) => r.id)));
+      if (!sections.some((s) => s.id === "quick_easy")) {
+        const shownIds = new Set(
+          sections.flatMap((s) => s.recipes.map((r: any) => r.id)),
+        );
         const { data: quickData } = await supabase
           .from("recipes")
-          .select(`
+          .select(
+            `
             id, title, dish_category, cuisine_type, prep_time, cook_time,
-            spice_level, ingredients, average_rating, tags, image, created_by,
+            spice_level, ingredients, average_rating, tags, image_url, created_by,
+            steps,
             profiles (full_name, avatar_url)
-          `)
+          `,
+          )
           .lte("cook_time", 30)
-          .order("average_rating", { ascending: false })
-          .limit(15);
+          .order("cook_time", { ascending: true })
+          .limit(20);
 
         if (quickData && quickData.length > 0) {
-          const unique = quickData
+          // Sort in JS to combine cook_time + prep_time + steps length (minimum effort)
+          const sortedQuick = quickData.sort((a, b) => {
+            const aEffort =
+              (a.cook_time || 0) +
+              (a.prep_time || 0) +
+              ((a.steps as any[])?.length || 0);
+            const bEffort =
+              (b.cook_time || 0) +
+              (b.prep_time || 0) +
+              ((b.steps as any[])?.length || 0);
+            return aEffort - bEffort;
+          });
+
+          const unique = sortedQuick
             .map(mapDbRecipeToUiRecipe)
-            .filter(r => !shownIds.has(r.id));
+            .filter((r) => !shownIds.has(r.id));
           if (unique.length > 0) {
             sections.push({
               id: "quick_easy",
               title: "Quick & Easy",
-              subtitle: "Ready in 30 minutes or less",
+              subtitle: "Ready fast with minimal steps",
               recipes: unique.slice(0, 10),
             });
           }
@@ -199,22 +229,26 @@ export class RecommendationService {
       }
 
       // Always add Just Added — shows community is alive
-      if (!sections.some(s => s.id === "new_recipes")) {
-        const shownIds = new Set(sections.flatMap(s => s.recipes.map((r: any) => r.id)));
+      if (!sections.some((s) => s.id === "new_recipes")) {
+        const shownIds = new Set(
+          sections.flatMap((s) => s.recipes.map((r: any) => r.id)),
+        );
         const { data: newData } = await supabase
           .from("recipes")
-          .select(`
+          .select(
+            `
             id, title, dish_category, cuisine_type, prep_time, cook_time,
-            spice_level, ingredients, average_rating, tags, image, created_by,
+            spice_level, ingredients, average_rating, tags, image_url, created_by,
             profiles (full_name, avatar_url)
-          `)
+          `,
+          )
           .order("created_at", { ascending: false })
           .limit(15);
 
         if (newData && newData.length > 0) {
           const unique = newData
             .map(mapDbRecipeToUiRecipe)
-            .filter(r => !shownIds.has(r.id));
+            .filter((r) => !shownIds.has(r.id));
           if (unique.length > 0) {
             sections.push({
               id: "new_recipes",
@@ -226,6 +260,37 @@ export class RecommendationService {
         }
       }
 
+      // Add a 5th section specifically for new users to flesh out the feed
+      if (sections.length < 5) {
+        const shownIds = new Set(
+          sections.flatMap((s) => s.recipes.map((r: any) => r.id)),
+        );
+        const { data: favoritesData } = await supabase
+          .from("recipes")
+          .select(
+            `
+            id, title, dish_category, cuisine_type, prep_time, cook_time,
+            spice_level, ingredients, average_rating, tags, image_url, created_by,
+            profiles (full_name, avatar_url)
+          `,
+          )
+          .order("average_rating", { ascending: false })
+          .limit(15);
+
+        if (favoritesData && favoritesData.length > 0) {
+          const unique = favoritesData
+            .map(mapDbRecipeToUiRecipe)
+            .filter((r) => !shownIds.has(r.id));
+          if (unique.length > 0) {
+            sections.push({
+              id: "community_favorites",
+              title: "Community Favorites",
+              subtitle: "Top-rated recipes loved by everyone",
+              recipes: unique.slice(0, 10),
+            });
+          }
+        }
+      }
     } catch (err) {
       console.error("Error formatting recommendation sections:", err);
     }
@@ -234,7 +299,11 @@ export class RecommendationService {
   }
 
   // Legacy fallback compatibility
-  async getDailyRecommendations(userId: string, category?: string, limit = 5): Promise<Recipe[]> {
+  async getDailyRecommendations(
+    userId: string,
+    category?: string,
+    limit = 5,
+  ): Promise<Recipe[]> {
     const sections = await this.getNetflixStyleRecommendations(userId);
     if (sections.length > 0) {
       return sections[0].recipes.slice(0, limit);

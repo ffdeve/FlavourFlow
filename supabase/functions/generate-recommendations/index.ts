@@ -53,11 +53,11 @@ serve(async (req) => {
       .select("*");
     if (recipesErr) throw recipesErr;
 
-    // 3. Compute Global Trending (72h window)
+    // 3. Compute Global Trending (7-day window)
     const { data: recentInteractions } = await supabaseClient
       .from("recipe_interactions")
       .select("recipe_id, interaction_type, created_at, metadata")
-      .gte("created_at", new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString());
+      .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
     const globalStats: Record<string, any> = {};
     for (const r of recipes) {

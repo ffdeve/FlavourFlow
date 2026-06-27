@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { useIsFocused } from "@react-navigation/native";
@@ -31,10 +31,11 @@ export default function CreateTabScreen() {
     if (!user) return;
     if (!silent) setIsLoading(true);
     try {
-      const data = await recipeService.getUserRecipes(user.id);
+      // Use the analytics endpoint to get views and cooks
+      const data = await recipeService.getUserRecipesWithAnalytics(user.id);
       setRecipes(data || []);
     } catch (error: any) {
-      console.error("Failed to load user recipes:", error);
+      console.error("Failed to load user recipes with analytics:", error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -74,6 +75,9 @@ export default function CreateTabScreen() {
     );
   };
 
+  const totalViews = recipes.reduce((sum, r) => sum + (r.views || 0), 0);
+  const totalCooks = recipes.reduce((sum, r) => sum + (r.cooks || 0), 0);
+
   return (
     <SafeAreaView className="flex-1 bg-[#FFFDF5]" edges={["top"]}>
       <ScrollView
@@ -88,7 +92,7 @@ export default function CreateTabScreen() {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => router.push("/create-recipe")}
-          className="bg-[#FBA82E] rounded-[32px] relative overflow-hidden mb-8 mt-2 shadow-sm flex-row min-h-[140px]"
+          className="bg-[#FBA82E] rounded-[32px] relative overflow-hidden mb-6 mt-2 shadow-sm flex-row min-h-[140px]"
         >
           {/* Left Side: 70% Text */}
           <View className="w-[70%] p-7 justify-center z-10">
@@ -109,6 +113,38 @@ export default function CreateTabScreen() {
             />
           </View>
         </TouchableOpacity>
+
+        {/* ── Dashboard Overview ── */}
+        <Text className="text-lg font-jakarta-bold text-[#3B3328] mb-3 px-1">
+          Dashboard Overview
+        </Text>
+        <View className="flex-row justify-between gap-3 mb-8">
+          {/* Card 1: Views */}
+          <View className="flex-1 bg-white p-4 rounded-2xl border border-[#F5E3D8]/30 items-center" style={{ elevation: 1 }}>
+            <View className="w-8 h-8 rounded-full bg-[#FAF5EF] items-center justify-center mb-2">
+              <Feather name="eye" size={16} color="#FBA82E" />
+            </View>
+            <Text className="text-xl font-jakarta-bold text-[#3B3328]">
+              {isLoading ? "..." : totalViews}
+            </Text>
+            <Text className="text-[11px] font-inter-medium text-[#8B7D6F] mt-1 text-center">
+              Total Views
+            </Text>
+          </View>
+
+          {/* Card 2: Cooks */}
+          <View className="flex-1 bg-white p-4 rounded-2xl border border-[#F5E3D8]/30 items-center" style={{ elevation: 1 }}>
+            <View className="w-8 h-8 rounded-full bg-[#FAF5EF] items-center justify-center mb-2">
+              <Feather name="check-circle" size={16} color="#FBA82E" />
+            </View>
+            <Text className="text-xl font-jakarta-bold text-[#3B3328]">
+              {isLoading ? "..." : totalCooks}
+            </Text>
+            <Text className="text-[11px] font-inter-medium text-[#8B7D6F] mt-1 text-center">
+              Times Cooked
+            </Text>
+          </View>
+        </View>
 
         {/* Your Recipes Section Header */}
         <View className="flex-row justify-between items-end mb-5 px-1">
@@ -139,14 +175,14 @@ export default function CreateTabScreen() {
           </View>
         ) : (
           /* Empty State */
-          <View className="items-center justify-center py-16 px-4">
+          <View className="items-center justify-center py-12 px-4">
             <View className="w-20 h-20 rounded-full bg-[#F5E3D8]/30 items-center justify-center mb-4">
               <Ionicons name="receipt-outline" size={36} color="#FBA82E" />
             </View>
             <Text className="font-jakarta-bold text-lg text-[#3B3328] text-center mb-1">
               No Recipes Created Yet
             </Text>
-            <Text className="font-inter-regular text-text-secondary text-sm text-center mb-6 leading-5">
+            <Text className="font-inter-regular text-[#8B7D6F] text-sm text-center leading-5">
               Start building your personal cookbook! Tap the banner above to create your first custom recipe.
             </Text>
           </View>
@@ -156,7 +192,7 @@ export default function CreateTabScreen() {
   );
 }
 
-// User Recipe Card component
+// User Recipe Card component with Analytics
 function UserRecipeCard({
   recipe,
   index,
@@ -222,7 +258,7 @@ function UserRecipeCard({
       </View>
 
       {/* Details Row */}
-      <View className="px-6 py-5">
+      <View className="px-6 pt-5 pb-4">
         <View className="flex-row items-center justify-between mb-3">
           {/* Title */}
           <Text
@@ -245,12 +281,29 @@ function UserRecipeCard({
           </TouchableOpacity>
         </View>
 
-        {/* Time Badge (Bottom Left) */}
-        <View className="flex-row items-center bg-[#F0EDEB]/60 self-start px-3 py-1.5 rounded-full">
-          <Feather name="clock" size={13} color="#8B7D6F" />
-          <Text className="text-[#8B7D6F] text-[11px] font-inter-medium ml-1.5">
-            {recipe.cook_time || 0} Mins
-          </Text>
+        {/* Bottom Metadata & Analytics */}
+        <View className="flex-row items-center justify-between mt-1 border-t border-[#F5E3D8]/40 pt-3">
+          <View className="flex-row items-center bg-[#F0EDEB]/60 px-3 py-1.5 rounded-full">
+            <Feather name="clock" size={12} color="#8B7D6F" />
+            <Text className="text-[#8B7D6F] text-[11px] font-inter-medium ml-1.5">
+              {recipe.cook_time || 0} Mins
+            </Text>
+          </View>
+          
+          <View className="flex-row items-center gap-x-4">
+            <View className="flex-row items-center">
+              <Feather name="eye" size={13} color="#C4B8AC" />
+              <Text className="text-[#8B7D6F] text-[12px] font-inter-medium ml-1">
+                {recipe.views || 0}
+              </Text>
+            </View>
+            <View className="flex-row items-center">
+              <Feather name="check-circle" size={13} color="#C4B8AC" />
+              <Text className="text-[#8B7D6F] text-[12px] font-inter-medium ml-1">
+                {recipe.cooks || 0}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
     </TouchableOpacity>

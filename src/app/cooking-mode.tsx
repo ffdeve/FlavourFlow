@@ -9,6 +9,8 @@ import {
   StatusBar,
   Dimensions,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -20,6 +22,7 @@ import * as Haptics from "expo-haptics";
 import YoutubePlayer from "react-native-youtube-iframe";
 
 import { recipeService, Recipe } from "@/services/recipe.service";
+import { communityService } from "@/services/community.service";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -97,7 +100,7 @@ function ConfettiEffect() {
 }
 
 export default function CookingModeScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, aiRecipeId } = useLocalSearchParams<{ id: string; aiRecipeId: string }>();
   const { user } = useAuth();
   const [recipe, setRecipe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -206,6 +209,11 @@ export default function CookingModeScreen() {
 
   // Rating state (for completion screen)
   const [rating, setRating] = useState(0);
+  // Share-to-community flow (from the cooking-complete screen)
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareText, setShareText] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
+  const [shared, setShared] = useState(false);
 
   // Step card translation animation
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -257,10 +265,37 @@ export default function CookingModeScreen() {
         } finally {
           setLoading(false);
         }
+      } else if (aiRecipeId) {
+        // AI-generated recipe: load from ai_generated_recipes, adapt to cooking-mode shape.
+        try {
+          const { data, error } = await supabase
+            .from("ai_generated_recipes")
+            .select("title, image_url, ingredients, steps")
+            .eq("id", aiRecipeId)
+            .maybeSingle();
+          if (error) throw error;
+          if (data) {
+            const rawSteps: any[] = Array.isArray(data.steps) ? data.steps : [];
+            setRecipe({
+              title: data.title,
+              image_url: data.image_url,
+              ingredients: data.ingredients ?? [],
+              // map plain string steps → the step object shape cooking-mode renders
+              steps: rawSteps.map((s: any) =>
+                typeof s === "string" ? { instruction: s } : s,
+              ),
+              videoUrl: null,
+            });
+          }
+        } catch (err) {
+          console.error("Error loading AI recipe for cooking mode:", err);
+        } finally {
+          setLoading(false);
+        }
       }
     };
     loadRecipe();
-  }, [id, user?.id]);
+  }, [id, aiRecipeId, user?.id]);
 
   // Helper to parse duration
   const parseDuration = (step: any) => {
@@ -488,6 +523,24 @@ export default function CookingModeScreen() {
 
 
   // ------------------ COMPLETION STATE VIEW ------------------
+  const handleShareToCommunity = async () => {
+    if (!user?.id || isSharing) return;
+    setIsSharing(true);
+    try {
+      const caption = shareText.trim() || `Just cooked ${recipe?.title}! 🍳`;
+      // Link the DB recipe when available (AI recipes have no recipes-table id)
+      const recipeId = id || null;
+      await communityService.createPost(user.id, caption, "general", [], recipeId);
+      setShared(true);
+      setShareModalVisible(false);
+    } catch (err) {
+      console.error("Share to community failed:", err);
+      Alert.alert("Couldn't share", "Something went wrong sharing to the community. Please try again.");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   if (isCompleted) {
     const elapsedMinutes = Math.max(1, Math.round((Date.now() - startTime) / 60000));
     
@@ -504,22 +557,26 @@ export default function CookingModeScreen() {
           {/* Hero Section with recipe picture */}
           <View className="relative w-full h-[320px] rounded-b-[36px] overflow-hidden shadow-lg bg-[#FAF5EF]">
             {recipe.image || recipe.image_url ? (
-              <Image 
-                source={{ uri: recipe.image || recipe.image_url }} 
-                className="w-full h-full object-cover" 
+              <Image
+                source={{ uri: recipe.image || recipe.image_url }}
+                style={{ width: "100%", height: "100%" }}
+                contentFit="cover"
+                transition={250}
               />
             ) : (
               <View className="w-full h-full bg-primary/20 items-center justify-center">
                 <Ionicons name="restaurant" size={80} color="#FBA82E" />
               </View>
             )}
-            
+
+            {/* Caption scrim — only the bottom third, so the dish stays visible */}
             <LinearGradient
-              colors={["transparent", "rgba(255, 248, 240, 0.95)"]}
-              className="absolute inset-0 justify-end p-6"
+              colors={["transparent", "rgba(255, 248, 240, 0.6)", "#fff8f0"]}
+              locations={[0, 0.55, 1]}
+              style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 170, justifyContent: "flex-end", padding: 24 }}
             >
-              <MaterialIcons name="workspace-premium" size={38} color="#FBA82E" className="mb-2" />
-              <Text className="font-poppins-bold text-3xl text-text leading-tight">
+              <MaterialIcons name="workspace-premium" size={34} color="#FBA82E" />
+              <Text className="font-poppins-bold text-3xl text-text leading-tight mt-1">
                 Cooking Complete!
               </Text>
               <Text className="font-jakarta-semibold text-lg text-text-secondary mt-1">
@@ -606,23 +663,29 @@ export default function CookingModeScreen() {
                 ))}
               </View>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                  Alert.alert(
-                    "Shared! 🚀", 
-                    "You shared your cook history with the community feed.", 
-                    [{ text: "Awesome!" }]
-                  );
-                }}
-                className="flex-row items-center gap-2 bg-[#fff8f0] border border-primary/20 px-5 py-3 rounded-full shadow-sm"
-              >
-                <Feather name="share-2" size={16} color="#FBA82E" />
-                <Text className="font-jakarta-bold text-sm text-text">
-                  Share with Community
-                </Text>
-              </TouchableOpacity>
+              {shared ? (
+                <View className="flex-row items-center gap-2 bg-green-50 border border-green-200 px-5 py-3 rounded-full">
+                  <Feather name="check-circle" size={16} color="#10B981" />
+                  <Text className="font-jakarta-bold text-sm text-green-700">
+                    Shared with Community
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    setShareText(`Just cooked ${recipe.title}! 🍳`);
+                    setShareModalVisible(true);
+                  }}
+                  className="flex-row items-center gap-2 bg-[#fff8f0] border border-primary/20 px-5 py-3 rounded-full shadow-sm"
+                >
+                  <Feather name="share-2" size={16} color="#FBA82E" />
+                  <Text className="font-jakarta-bold text-sm text-text">
+                    Share with Community
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -643,6 +706,50 @@ export default function CookingModeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Share-to-Community modal */}
+        <Modal visible={shareModalVisible} transparent animationType="fade" onRequestClose={() => setShareModalVisible(false)}>
+          <View className="flex-1 bg-black/40 justify-end">
+            <View className="bg-[#FFFDF5] rounded-t-[28px] px-5 pt-4 pb-8">
+              <View className="items-center pb-2">
+                <View className="w-10 h-1.5 rounded-full bg-[#E5D9CC]" />
+              </View>
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-[18px] font-jakarta-bold text-[#3B3328]">Share with Community</Text>
+                <TouchableOpacity onPress={() => setShareModalVisible(false)} className="w-8 h-8 items-center justify-center rounded-full bg-[#FAF5EF]">
+                  <Feather name="x" size={18} color="#3B3328" />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-[13px] font-inter-medium text-[#8B7D6F] mb-3">
+                Tell everyone how your {recipe.title} turned out.
+              </Text>
+              <TextInput
+                value={shareText}
+                onChangeText={setShareText}
+                placeholder="Write something…"
+                placeholderTextColor="#C4B8AC"
+                multiline
+                className="bg-white border border-[#F5E3D8] rounded-2xl px-4 py-3 text-[14px] font-inter-medium text-[#3B3328] min-h-[90px]"
+                style={{ textAlignVertical: "top" }}
+              />
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleShareToCommunity}
+                disabled={isSharing}
+                className="mt-4 h-13 bg-[#FBA82E] rounded-[18px] items-center justify-center flex-row py-4"
+              >
+                {isSharing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Feather name="send" size={16} color="#FFFFFF" />
+                    <Text className="ml-2 text-[15px] font-jakarta-semibold text-white">Post to Community</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     );
   }

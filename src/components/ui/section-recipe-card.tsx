@@ -37,6 +37,8 @@ export const SectionRecipeCard = ({
   onToggleFavorite,
   onPress,
 }: SectionRecipeCardProps) => {
+  const [imageUri, setImageUri] = React.useState(recipe.image);
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -53,11 +55,17 @@ export const SectionRecipeCard = ({
       }}
     >
       {/* Image Area */}
-      <View className="relative w-full h-40 overflow-hidden rounded-t-[24px]">
+      <View className="relative w-full h-40 bg-gray-100 overflow-hidden rounded-t-[24px]">
         <Image
-          source={{ uri: recipe.image }}
+          source={imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri }}
           style={{ width: "100%", height: "100%" }}
           contentFit="cover"
+          transition={300}
+          onError={() => {
+            if (imageUri !== "fallback") {
+              setImageUri("fallback");
+            }
+          }}
         />
 
         {/* Spice Badge (Top Left) */}

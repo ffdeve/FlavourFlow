@@ -56,7 +56,8 @@ export interface Ingredient {
   name: string;
   name_urdu?: string | null;
   category?: string | null;
-  created_at: string;
+  icon_url?: string | null;
+  created_at?: string;
 }
 
 export interface RecipeIngredientBridge {

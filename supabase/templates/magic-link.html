@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background-color:#FFFDF5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FFFDF5;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#ffffff;border:1px solid #F5E3D8;border-radius:24px;overflow:hidden;">
+            <tr>
+              <td align="center" style="background-color:#FBA82E;padding:28px 24px;">
+                <div style="font-size:30px;line-height:1;margin-bottom:6px;">👻🍳</div>
+                <div style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:0.3px;">FlavourFlow</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px 28px 8px 28px;">
+                <h1 style="margin:0 0 8px 0;color:#3B3328;font-size:22px;font-weight:800;">Your magic link</h1>
+                <p style="margin:0 0 24px 0;color:#8B7D6F;font-size:14px;line-height:22px;">
+                  Tap the button to sign in to FlavourFlow — no password needed.
+                </p>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="center">
+                      <a href="{{ .ConfirmationURL }}" style="display:inline-block;background-color:#FBA82E;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:999px;">
+                        Sign in to FlavourFlow
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin:24px 0 8px 0;color:#8B7D6F;font-size:13px;line-height:20px;text-align:center;">
+                  Or enter this code in the app:
+                </p>
+                <div style="background-color:#FAF5EF;border:1px solid #F5E3D8;border-radius:16px;padding:14px;text-align:center;">
+                  <div style="color:#3B3328;font-size:30px;font-weight:800;letter-spacing:10px;">{{ .Token }}</div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 28px 28px 28px;">
+                <p style="margin:0;color:#C4B8AC;font-size:12px;line-height:18px;text-align:center;">
+                  This link expires in 1 hour. If you didn't request it, you can ignore this email.
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="color:#C4B8AC;font-size:11px;margin-top:18px;">© FlavourFlow · Your AI culinary companion</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

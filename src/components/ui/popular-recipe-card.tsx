@@ -29,6 +29,8 @@ export const PopularRecipeCard = ({
   ingredientsCount,
   onPress,
 }: PopularRecipeCardProps) => {
+  const [imageUri, setImageUri] = React.useState(image);
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -45,12 +47,18 @@ export const PopularRecipeCard = ({
       }}
     >
       {/* Image Area with overlays */}
-      <View className="relative w-full h-44 overflow-hidden">
+      <View className="relative w-full h-44 bg-gray-100 overflow-hidden">
         <Image 
-          source={{ uri: image }} 
+          source={imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri }} 
           className="w-full h-full" 
           style={{ width: "100%", height: "100%" }}
           contentFit="cover" 
+          transition={300}
+          onError={() => {
+            if (imageUri !== "fallback") {
+              setImageUri("fallback");
+            }
+          }}
         />
 
         {/* Spice Level Badge (Top Left) */}

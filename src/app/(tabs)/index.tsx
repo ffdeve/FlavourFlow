@@ -17,6 +17,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,6 +28,8 @@ import { PopularRecipeCard } from "@/components/ui/popular-recipe-card";
 import { PromotionCarousel } from "@/components/ui/promotion-carousel";
 import { RecommendationCard } from "@/components/ui/recommendation-card";
 import { SectionRecipeCard } from "@/components/ui/section-recipe-card";
+import { FullWidthRecipeCard } from "@/components/ui/full-width-recipe-card";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 
 // Service & Types
 import { Recipe, recipeService } from "@/services/recipe.service";
@@ -145,6 +148,12 @@ export default function HomeScreen() {
   const [sectionsLoading, setSectionsLoading] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
+  // Infinite Feed State
+  const [feedRecipes, setFeedRecipes] = useState<Recipe[]>([]);
+  const [feedPage, setFeedPage] = useState(1);
+  const [isFeedLoading, setIsFeedLoading] = useState(false);
+  const [hasMoreFeed, setHasMoreFeed] = useState(true);
+
   // ─── Data Loading ───────────────────────────────────────────────────────
   useEffect(() => {
     const loadHomeData = async () => {
@@ -220,34 +229,105 @@ export default function HomeScreen() {
     }
   }, [user?.id]);
 
-  // Handle toggling favorite on home screen
+  // Handle toggling favorite on home screen (Optimistic Update)
   const handleToggleFavorite = async (recipeId: string) => {
     if (!user?.id) return;
+    
+    const wasLiked = likedIds.has(recipeId);
+
+    // Optimistically update the UI immediately
+    setLikedIds((prev) => {
+      const next = new Set(prev);
+      if (wasLiked) {
+        next.delete(recipeId);
+      } else {
+        next.add(recipeId);
+      }
+      return next;
+    });
+
     try {
+      // Perform the actual network request in the background
       const isNowLiked = await recipeService.toggleLikeRecipe(
         user.id,
         recipeId,
       );
-      setLikedIds((prev) => {
-        const next = new Set(prev);
-        if (isNowLiked) {
-          next.add(recipeId);
-        } else {
-          next.delete(recipeId);
-        }
-        return next;
-      });
+      
+      // If the backend state somehow differs from our optimistic state, reconcile it
+      if (isNowLiked === wasLiked) {
+        setLikedIds((prev) => {
+          const next = new Set(prev);
+          if (isNowLiked) next.add(recipeId);
+          else next.delete(recipeId);
+          return next;
+        });
+      }
     } catch (err) {
       console.error("Failed to toggle like on home screen:", err);
+      // Revert the optimistic update on failure
+      setLikedIds((prev) => {
+        const next = new Set(prev);
+        if (wasLiked) next.add(recipeId);
+        else next.delete(recipeId);
+        return next;
+      });
     }
   };
+
+  // ─── Infinite Feed Logic ────────────────────────────────────────────────
+  const isFeedLoadingRef = React.useRef(false);
+  const hasMoreFeedRef = React.useRef(true);
+  const feedPageRef = React.useRef(1);
+
+  const loadMoreFeed = async () => {
+    if (isFeedLoadingRef.current || !hasMoreFeedRef.current) return;
+    try {
+      console.log(`[Infinite Scroll] Fetching page ${feedPageRef.current}...`);
+      isFeedLoadingRef.current = true;
+      setIsFeedLoading(true);
+      const newRecipes = await recipeService.getFeedRecipes(feedPageRef.current, 6, user?.id);
+      console.log(`[Infinite Scroll] Fetched ${newRecipes.length} recipes.`);
+      if (newRecipes.length > 0) {
+        setFeedRecipes((prev) => {
+          const existingIds = new Set(prev.map(r => r.id));
+          const uniqueNew = newRecipes.filter(r => !existingIds.has(r.id));
+          return [...prev, ...uniqueNew];
+        });
+        feedPageRef.current += 1;
+        setFeedPage(feedPageRef.current);
+      }
+      if (newRecipes.length < 6) {
+        hasMoreFeedRef.current = false;
+        setHasMoreFeed(false);
+      }
+    } catch (err) {
+      console.error("Failed to load more feed recipes:", err);
+    } finally {
+      isFeedLoadingRef.current = false;
+      setIsFeedLoading(false);
+    }
+  };
+
+  // Initial feed load
+  useEffect(() => {
+    loadMoreFeed();
+  }, []);
 
   // ─── Scroll Handler ─────────────────────────────────────────────────────
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
+
+      // Trigger infinite scroll when within 400px of bottom
+      const isCloseToBottom =
+        event.layoutMeasurement.height + event.contentOffset.y >=
+        event.contentSize.height - 800;
+
+      if (isCloseToBottom) {
+        runOnJS(loadMoreFeed)();
+      }
     },
-  });
+  }, []);
 
   // ─── Animated Styles ────────────────────────────────────────────────────
 
@@ -371,6 +451,8 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
         snapToOffsets={[0, SPACER_HEIGHT]}
+        snapToAlignment="start"
+        snapToEnd={false}
         decelerationRate="fast"
         style={{ flex: 1, zIndex: 1 }}
       >
@@ -492,7 +574,7 @@ export default function HomeScreen() {
               .map((section, sIdx, arr) => (
                 <View
                   key={section.id}
-                  className={sIdx === arr.length - 1 ? "mt-6 pb-32" : "mt-6"}
+                  className="mt-6"
                 >
                   <View className="px-6 mb-4">
                     <Text className="font-inter-semibold text-primary-dark text-xl">
@@ -526,10 +608,39 @@ export default function HomeScreen() {
               ))
           )}
 
+          {/* ─── Infinite Feed ─── */}
+          <View className="px-6 mt-6">
+            <Text className="font-jakarta-bold text-[18px] text-[#3B3328] mb-4">
+              More to Explore
+            </Text>
+            {feedRecipes.map((recipe) => (
+              <FullWidthRecipeCard
+                key={recipe.id}
+                title={recipe.title}
+                time={recipe.time}
+                spiceLevel={recipe.spiceLevel}
+                image={recipe.image}
+                ingredientsCount={recipe.ingredientsCount}
+                rating={recipe.rating}
+                onPress={() => router.push(`/recipe-detail?id=${recipe.id}`)}
+                isFavorite={likedIds.has(recipe.id)}
+                onToggleFavorite={() => handleToggleFavorite(recipe.id)}
+              />
+            ))}
+
+            {isFeedLoading && (
+              <View className="py-6 items-center justify-center">
+                <CookingLoader scale={0.8} />
+              </View>
+            )}
+          </View>
+
           {/* Bottom padding when no additional sections beyond Core */}
-          {!sectionsLoading && recSections.filter(s => s.id !== "meals_to_cook_today").length === 0 && (
+          {!sectionsLoading && recSections.filter(s => s.id !== "meals_to_cook_today").length === 0 && !hasMoreFeed && (
             <View className="pb-32" />
           )}
+          
+          <View className="pb-24" />
         </View>
       </AnimatedScrollView>
 
@@ -591,7 +702,10 @@ export default function HomeScreen() {
                       contentFit="contain"
                     />
                   </TouchableOpacity>
-                  <TouchableOpacity className="items-center justify-center">
+                  <TouchableOpacity
+                    className="items-center justify-center"
+                    onPress={() => router.push("/ai-chat")}
+                  >
                     <Image
                       source={require("@/assets/icons/fridge.webp")}
                       style={{ width: 44, height: 42 }}

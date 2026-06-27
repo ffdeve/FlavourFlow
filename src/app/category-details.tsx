@@ -329,6 +329,8 @@ function CatalogRecipeCard({
   onToggleFavorite: () => void;
   onPress: () => void;
 }) {
+  const [imageUri, setImageUri] = React.useState(recipe.image);
+
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -345,10 +347,15 @@ function CatalogRecipeCard({
       {/* Image Container */}
       <View className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
         <Image
-          source={{ uri: recipe.image }}
-          className="w-full h-full"
+          source={imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri }}
+          style={{ width: "100%", height: "100%" }}
           contentFit="cover"
           transition={300}
+          onError={() => {
+            if (imageUri !== "fallback") {
+              setImageUri("fallback");
+            }
+          }}
         />
 
         {/* Spice Level (Top Left) */}

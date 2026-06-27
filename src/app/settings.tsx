@@ -1,9 +1,10 @@
-import React from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { Alert, ScrollView, Text, TouchableOpacity, View, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ─── Settings Row ────────────────────────────────────────────
 export function SettingsRow({
@@ -60,6 +61,50 @@ export function SettingsRow({
   );
 }
 
+// ─── Settings Toggle Row ─────────────────────────────────────
+export function SettingsToggleRow({
+  icon,
+  iconPack = "feather",
+  label,
+  value,
+  onToggle,
+  showDivider = true,
+}: {
+  icon: string;
+  iconPack?: "feather" | "ionicons" | "mci";
+  label: string;
+  value: boolean;
+  onToggle: (val: boolean) => void;
+  showDivider?: boolean;
+}) {
+  const IconComponent =
+    iconPack === "ionicons"
+      ? Ionicons
+      : iconPack === "mci"
+      ? MaterialCommunityIcons
+      : Feather;
+
+  return (
+    <View className="flex-row items-center py-4 px-5">
+      <View className="w-10 h-10 rounded-full bg-[#FAF5EF] items-center justify-center mr-4">
+        <IconComponent name={icon as any} size={19} color="#3B3328" />
+      </View>
+      <Text className="flex-1 text-[15px] font-inter-medium text-[#3B3328]">
+        {label}
+      </Text>
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: "#EAE2D8", true: "#FBA82E" }}
+        thumbColor="#FFFFFF"
+      />
+      {showDivider && (
+        <View className="absolute bottom-0 left-[72px] right-5 h-px bg-[#F5E3D8]/40" />
+      )}
+    </View>
+  );
+}
+
 // ─── Section Header ──────────────────────────────────────────
 export function SectionHeader({ title }: { title: string }) {
   return (
@@ -75,6 +120,54 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
   const displayLanguage = profile?.language === "ur" ? "Urdu" : "English";
+
+  // Notification toggles state
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [emailEnabled, setEmailEnabled] = useState(false);
+
+  // Filter toggles state
+  const [strictAllergy, setStrictAllergy] = useState(false);
+  const [strictDietary, setStrictDietary] = useState(false);
+
+  useEffect(() => {
+    const loadPrefs = async () => {
+      try {
+        const [allergyVal, dietVal, pushVal, emailVal] = await Promise.all([
+          AsyncStorage.getItem("strictAllergyFilter"),
+          AsyncStorage.getItem("strictDietaryFilter"),
+          AsyncStorage.getItem("pushNotificationsEnabled"),
+          AsyncStorage.getItem("emailNewsletterEnabled"),
+        ]);
+        if (allergyVal !== null) setStrictAllergy(allergyVal === "true");
+        if (dietVal !== null) setStrictDietary(dietVal === "true");
+        if (pushVal !== null) setPushEnabled(pushVal === "true");
+        if (emailVal !== null) setEmailEnabled(emailVal === "true");
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadPrefs();
+  }, []);
+
+  const toggleAllergyFilter = async (val: boolean) => {
+    setStrictAllergy(val);
+    await AsyncStorage.setItem("strictAllergyFilter", val.toString());
+  };
+
+  const toggleDietaryFilter = async (val: boolean) => {
+    setStrictDietary(val);
+    await AsyncStorage.setItem("strictDietaryFilter", val.toString());
+  };
+
+  const togglePushEnabled = async (val: boolean) => {
+    setPushEnabled(val);
+    await AsyncStorage.setItem("pushNotificationsEnabled", val.toString());
+  };
+
+  const toggleEmailEnabled = async (val: boolean) => {
+    setEmailEnabled(val);
+    await AsyncStorage.setItem("emailNewsletterEnabled", val.toString());
+  };
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -123,12 +216,7 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="lock"
             label="Password & Security"
-            onPress={() => Alert.alert("Password & Security", "Change your password settings.")}
-          />
-          <SettingsRow
-            icon="bell"
-            label="Notifications"
-            onPress={() => Alert.alert("Notifications", "Notification preferences.")}
+            onPress={() => router.push("/security")}
           />
           <SettingsRow
             icon="globe"
@@ -136,6 +224,33 @@ export default function SettingsScreen() {
             value={displayLanguage}
             showDivider={false}
             onPress={() => Alert.alert("Language", "Switch between English and Urdu.")}
+          />
+        </View>
+
+        {/* ────── NOTIFICATIONS SECTION ────── */}
+        <SectionHeader title="Notifications" />
+        <View
+          className="mx-5 bg-white rounded-[20px] border border-[#F5E3D8]/40 overflow-hidden"
+          style={{
+            shadowColor: "#3B3328",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 8,
+            elevation: 2,
+          }}
+        >
+          <SettingsToggleRow
+            icon="bell"
+            label="Push Notifications"
+            value={pushEnabled}
+            onToggle={togglePushEnabled}
+          />
+          <SettingsToggleRow
+            icon="mail"
+            label="Email Newsletter"
+            value={emailEnabled}
+            onToggle={toggleEmailEnabled}
+            showDivider={false}
           />
         </View>
 
@@ -157,11 +272,17 @@ export default function SettingsScreen() {
             label="Dietary Preferences"
             onPress={() => router.push("/(auth)/userpreference")}
           />
-          <SettingsRow
-            icon="sun"
-            label="Theme"
-            value="Light"
-            onPress={() => Alert.alert("Theme", "Dark mode coming soon!")}
+          <SettingsToggleRow
+            icon="alert-circle"
+            label="Strict Allergy Filter"
+            value={strictAllergy}
+            onToggle={toggleAllergyFilter}
+          />
+          <SettingsToggleRow
+            icon="leaf"
+            label="Strict Dietary Filter"
+            value={strictDietary}
+            onToggle={toggleDietaryFilter}
           />
           <SettingsRow
             icon="information-circle-outline"

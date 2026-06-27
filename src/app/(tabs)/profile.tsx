@@ -4,7 +4,7 @@ import { communityService } from "@/services/community.service";
 import { profileService } from "@/services/profile.service";
 import { recipeService } from "@/services/recipe.service";
 import type { Post } from "@/types";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -19,8 +19,9 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { FullWidthRecipeCard } from "@/components/ui/full-width-recipe-card";
 
-type ProfileTab = "Posts" | "Recipes Dashboard";
+type ProfileTab = "Posts" | "Cooked History";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -39,8 +40,8 @@ export default function ProfileScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
 
-  const [analytics, setAnalytics] = useState<any[]>([]);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [cookedHistory, setCookedHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // ── Load Stats & Posts ──
   useEffect(() => {
@@ -75,19 +76,19 @@ export default function ProfileScreen() {
     })();
   }, [user?.id]);
 
-  // ── Load Analytics ──
+  // ── Load Cooked History ──
   useEffect(() => {
-    if (activeTab !== "Recipes Dashboard" || !user?.id) return;
+    if (activeTab !== "Cooked History" || !user?.id) return;
 
     (async () => {
-      setAnalyticsLoading(true);
+      setHistoryLoading(true);
       try {
-        const data = await recipeService.getUserRecipesWithAnalytics(user.id);
-        setAnalytics(data);
+        const data = await recipeService.getCookedHistory(user.id);
+        setCookedHistory(data);
       } catch (e) {
-        console.error("Failed to load recipe analytics:", e);
+        console.error("Failed to load cooked history:", e);
       } finally {
-        setAnalyticsLoading(false);
+        setHistoryLoading(false);
       }
     })();
   }, [activeTab, user?.id]);
@@ -127,7 +128,6 @@ export default function ProfileScreen() {
 
   // ── Grid Item Render ──
   const renderPostItem = ({ item }: { item: Post }) => {
-    // Determine the thumbnail image
     const thumbnail =
       item.image_url ||
       (item.images && item.images.length > 0 ? item.images[0] : null);
@@ -172,120 +172,8 @@ export default function ProfileScreen() {
     );
   };
 
-  // ── Recipes Dashboard UI Components ──
-  const renderDashboardOverview = () => {
-    const totalViews = analytics.reduce((sum, r) => sum + (r.views || 0), 0);
-    const totalCooks = analytics.reduce((sum, r) => sum + (r.cooks || 0), 0);
-
-    return (
-      <View className="px-5 mt-5">
-        <Text className="text-lg font-jakarta-bold text-[#3B3328] mb-3">
-          Dashboard Overview
-        </Text>
-        
-        {/* Analytics stats row */}
-        <View className="flex-row justify-between gap-3">
-          {/* Card 1: Views */}
-          <View className="flex-1 bg-white p-4 rounded-2xl border border-[#F5E3D8]/30 items-center" style={{ elevation: 1 }}>
-            <View className="w-8 h-8 rounded-full bg-[#FAF5EF] items-center justify-center mb-2">
-              <Feather name="eye" size={16} color="#FBA82E" />
-            </View>
-            <Text className="text-xl font-jakarta-bold text-[#3B3328]">
-              {analyticsLoading ? "..." : totalViews}
-            </Text>
-            <Text className="text-[11px] font-inter-medium text-[#8B7D6F] mt-1 text-center">
-              Total Views
-            </Text>
-          </View>
-
-          {/* Card 2: Cooks */}
-          <View className="flex-1 bg-white p-4 rounded-2xl border border-[#F5E3D8]/30 items-center" style={{ elevation: 1 }}>
-            <View className="w-8 h-8 rounded-full bg-[#FAF5EF] items-center justify-center mb-2">
-              <Feather name="check-circle" size={16} color="#FBA82E" />
-            </View>
-            <Text className="text-xl font-jakarta-bold text-[#3B3328]">
-              {analyticsLoading ? "..." : totalCooks}
-            </Text>
-            <Text className="text-[11px] font-inter-medium text-[#8B7D6F] mt-1 text-center">
-              Times Cooked
-            </Text>
-          </View>
-        </View>
-
-        {analytics.length > 0 && (
-          <Text className="text-lg font-jakarta-bold text-[#3B3328] mt-6 mb-2">
-            Recipe Analytics ({analytics.length})
-          </Text>
-        )}
-      </View>
-    );
-  };
-
-  const renderAnalyticsItem = ({ item }: { item: any }) => {
-    return (
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={() => router.push(`/recipe-detail?id=${item.id}`)}
-        className="mx-5 my-2 bg-white p-4 rounded-2xl border border-[#F5E3D8]/30 flex-row"
-        style={{
-          shadowColor: "#3B3328",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.02,
-          shadowRadius: 8,
-          elevation: 2,
-        }}
-      >
-        <Image
-          source={{ uri: item.image }}
-          className="w-20 h-20 rounded-xl bg-[#EAE2D8]"
-        />
-        <View className="flex-1 ml-4 justify-between">
-          <View>
-            <View className="flex-row items-center justify-between">
-              <Text
-                className="text-xs font-inter-semibold text-[#8B7D6F] uppercase tracking-wider text-[10px]"
-              >
-                {item.category}
-              </Text>
-              <Text className="text-[10px] text-[#C4B8AC] font-inter-regular">
-                {new Date(item.createdAt).toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </Text>
-            </View>
-            <Text
-              className="text-base font-jakarta-bold text-[#3B3328] mt-0.5"
-              numberOfLines={1}
-            >
-              {item.title}
-            </Text>
-          </View>
-
-          {/* Views & Cooks Counter Row */}
-          <View className="mt-2 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3">
-              <View className="flex-row items-center">
-                <Feather name="eye" size={13} color="#8B7D6F" />
-                <Text className="text-xs font-inter-medium text-[#8B7D6F] ml-1">
-                  {item.views}
-                </Text>
-              </View>
-              <View className="flex-row items-center">
-                <Feather name="check" size={13} color="#8B7D6F" />
-                <Text className="text-xs font-inter-medium text-[#8B7D6F] ml-1">
-                  {item.cooks}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderDashboardEmpty = () => {
-    if (analyticsLoading) {
+  const renderHistoryEmpty = () => {
+    if (historyLoading) {
       return (
         <View className="py-20 items-center justify-center">
           <ActivityIndicator size="small" color="#FBA82E" />
@@ -296,17 +184,17 @@ export default function ProfileScreen() {
     return (
       <View className="mx-5 mt-4 p-8 bg-white rounded-3xl border border-[#F5E3D8]/30 items-center justify-center">
         <View className="w-16 h-16 rounded-full bg-[#FAF5EF] items-center justify-center mb-4">
-          <Feather name="plus-circle" size={28} color="#FBA82E" />
+          <MaterialCommunityIcons name="chef-hat" size={28} color="#FBA82E" />
         </View>
         <Text className="text-lg font-jakarta-bold text-[#3B3328] text-center mb-2">
-          No Custom Recipes Yet
+          No Cooking History Yet
         </Text>
         <Text className="text-[13px] font-inter-medium text-[#8B7D6F] text-center leading-5 mb-5 px-4">
-          Share your culinary secrets with FlavourFlow! Publish your first recipe to see view counts, cooking analytics, and audience engagement.
+          When you finish cooking a recipe, it will appear here so you can keep track of all your culinary achievements.
         </Text>
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => router.push("/create-recipe")}
+          onPress={() => router.push("/search")}
           className="bg-[#FBA82E] px-6 py-3 rounded-full flex-row items-center justify-center"
           style={{
             shadowColor: "#FBA82E",
@@ -316,9 +204,9 @@ export default function ProfileScreen() {
             elevation: 3,
           }}
         >
-          <Feather name="plus" size={16} color="white" style={{ marginRight: 6 }} />
+          <Feather name="search" size={16} color="white" style={{ marginRight: 6 }} />
           <Text className="text-white font-jakarta-bold text-sm">
-            Create First Recipe
+            Find Recipes
           </Text>
         </TouchableOpacity>
       </View>
@@ -425,7 +313,7 @@ export default function ProfileScreen() {
       </View>
 
       {/* ── Content Tabs ── */}
-      <View className="flex-row mt-6 border-b border-[#F5E3D8]/50">
+      <View className="flex-row mt-6 border-b border-[#F5E3D8]/50 mb-4">
         <TouchableOpacity
           className="flex-1 py-4 items-center justify-center"
           onPress={() => setActiveTab("Posts")}
@@ -441,28 +329,26 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           className="flex-1 py-4 items-center justify-center"
-          onPress={() => setActiveTab("Recipes Dashboard")}
+          onPress={() => setActiveTab("Cooked History")}
         >
           <Feather
-            name="pie-chart"
+            name="book-open"
             size={22}
-            color={activeTab === "Recipes Dashboard" ? "#FBA82E" : "#C4B8AC"}
+            color={activeTab === "Cooked History" ? "#FBA82E" : "#C4B8AC"}
           />
-          {activeTab === "Recipes Dashboard" && (
+          {activeTab === "Cooked History" && (
             <View className="absolute bottom-0 w-16 h-[3px] bg-[#FBA82E] rounded-t-full" />
           )}
         </TouchableOpacity>
       </View>
-      {activeTab === "Recipes Dashboard" && renderDashboardOverview()}
     </View>
   );
 
   return (
     <SafeAreaView className="flex-1 bg-[#FFFDF5]" edges={["top"]}>
       <FlatList
-        // key forces a fresh remount when switching between grid/list layouts
         key={activeTab === "Posts" ? "3-cols" : "1-col"}
-        data={activeTab === "Posts" ? posts : analytics}
+        data={activeTab === "Posts" ? posts : cookedHistory}
         keyExtractor={(item) => item.id}
         numColumns={activeTab === "Posts" ? 3 : 1}
         ListHeaderComponent={renderHeader}
@@ -481,13 +367,27 @@ export default function ProfileScreen() {
                 )}
               </View>
             ) : (
-              renderDashboardEmpty()
+              renderHistoryEmpty()
             )}
           </View>
         )}
         renderItem={({ item }) => {
-          if (activeTab === "Recipes Dashboard") {
-            return renderAnalyticsItem({ item });
+          if (activeTab === "Cooked History") {
+            return (
+              <View className="px-5 mb-4">
+                <FullWidthRecipeCard
+                  title={item.title}
+                  time={item.time}
+                  spiceLevel={item.spiceLevel}
+                  image={item.image}
+                  ingredientsCount={item.ingredientsCount}
+                  rating={item.rating}
+                  onPress={() => router.push(`/recipe-detail?id=${item.id}`)}
+                  isFavorite={false}
+                  onToggleFavorite={() => {}}
+                />
+              </View>
+            );
           }
           return renderPostItem({ item });
         }}

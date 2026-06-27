@@ -47,7 +47,18 @@
       ],
       "expo-font",
       "expo-sqlite",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow FlavourFlow to use the microphone to talk to ChefBoo.",
+          "speechRecognitionPermission": "Allow FlavourFlow to use speech recognition to understand your cooking questions.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

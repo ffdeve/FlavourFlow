@@ -40,6 +40,8 @@ export const RecommendationCard = ({
   onToggleFavorite,
   onPress 
 }: RecommendationCardProps) => {
+  const [imageUri, setImageUri] = React.useState(recipe.image);
+
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -56,10 +58,15 @@ export const RecommendationCard = ({
       {/* Top Image Area with rounded corners and merging gradient at bottom */}
       <View className="relative w-full h-52 bg-gray-100 overflow-hidden rounded-t-[24px]">
         <Image
-          source={{ uri: recipe.image }}
-          className="w-full h-full"
+          source={imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri }}
           style={{ width: "100%", height: "100%" }}
           contentFit="cover"
+          transition={300}
+          onError={() => {
+            if (imageUri !== "fallback") {
+              setImageUri("fallback");
+            }
+          }}
         />
 
         {/* Spice Level Badge (Top Left) */}

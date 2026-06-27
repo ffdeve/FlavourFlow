@@ -1,4 +1,3 @@
-import { HeartButton } from "@/components/ui/heart-button";
 import { cn } from "@/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { Feather, FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -11,6 +10,7 @@ import {
   Dimensions,
   FlatList,
   ScrollView,
+  Share,
   StatusBar,
   Text,
   TouchableOpacity,
@@ -36,6 +36,23 @@ import YoutubePlayer from "react-native-youtube-iframe";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HERO_HEIGHT = SCREEN_HEIGHT * 0.42;
+
+function CarouselImage({ uri }: { uri: string }) {
+  const [imageUri, setImageUri] = useState(uri);
+  return (
+    <View style={{ width: SCREEN_WIDTH, height: HERO_HEIGHT, backgroundColor: "#f3f4f6" }}>
+      <Image
+        source={imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri }}
+        style={{ width: "100%", height: "100%" }}
+        contentFit="cover"
+        transition={300}
+        onError={() => {
+          if (imageUri !== "fallback") setImageUri("fallback");
+        }}
+      />
+    </View>
+  );
+}
 
 // Spice level asset images
 const SPICE_IMAGES: Record<number, any> = {
@@ -344,6 +361,16 @@ export default function RecipeDetailScreen() {
     ? recipe?.cuisine_type || ""
     : "";
 
+  // Dietary preference conflict (distinct from allergy/dislike), e.g. user is
+  // Vegetarian/Halal/Vegan but the recipe isn't tagged for it.
+  const dietType: string | null = preferences?.diet_type || null;
+  const recipeDietTags = (recipe?.diet_tags || []).map((t: string) => t.toLowerCase());
+  const hasDietConflict =
+    !!dietType &&
+    dietType.toLowerCase() !== "none" &&
+    recipeDietTags.length > 0 &&
+    !recipeDietTags.includes(dietType.toLowerCase());
+
   return (
     <View className="flex-1 bg-[#FAF5EF]">
       <StatusBar barStyle="light-content" />
@@ -382,11 +409,14 @@ export default function RecipeDetailScreen() {
               </TouchableOpacity>
             </>
           )}
-          <HeartButton
-            isLiked={isSaved}
-            onToggle={async () => {
+          {/* Favorite — same 44px button as Share for visual parity */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            className="w-11 h-11 bg-black/30 rounded-full items-center justify-center mr-2"
+            onPress={async () => {
               const newState = !isSaved;
               setIsSaved(newState);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
               if (user?.id && id) {
                 try {
                   await recipeService.toggleLikeRecipe(user.id, String(id));
@@ -396,23 +426,34 @@ export default function RecipeDetailScreen() {
                 }
               }
             }}
-            size={18}
-            className="w-11 h-11 bg-black/30 rounded-full items-center justify-center mr-2"
-          />
-          <TouchableOpacity 
+          >
+            <Image
+              source={
+                isSaved
+                  ? require("@/assets/icons/heart_filled.webp")
+                  : require("@/assets/icons/heart_empty.webp")
+              }
+              style={{ width: 18, height: 18 }}
+              contentFit="contain"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
             className="w-11 h-11 bg-black/30 rounded-full items-center justify-center"
-            onPress={() => {
-              import("react-native").then(({ Share }) => {
-                Share.share({
+            onPress={async () => {
+              try {
+                await Share.share({
                   message: `Check out this amazing recipe for ${recipe.title} on FlavourFlow!`,
                   title: recipe.title,
                 });
                 if (user?.id && id) {
-                  recipeService.logInteraction(user.id, String(id), "SHARE").catch(err => 
-                    console.error("Failed to log share:", err)
+                  recipeService.logInteraction(user.id, String(id), "SHARE").catch((err) =>
+                    console.error("Failed to log share:", err),
                   );
                 }
-              });
+              } catch (err) {
+                console.warn("Share cancelled/failed:", err);
+              }
             }}
           >
             <Feather name="share" size={18} color="#FFFFFF" />
@@ -516,15 +557,7 @@ export default function RecipeDetailScreen() {
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
                 style={{ width: "100%", height: "100%" }}
-                renderItem={({ item }) => (
-                  <View style={{ width: SCREEN_WIDTH, height: HERO_HEIGHT }}>
-                    <Image
-                      source={{ uri: item }}
-                      style={{ width: "100%", height: "100%" }}
-                      contentFit="cover"
-                    />
-                  </View>
-                )}
+                renderItem={({ item }) => <CarouselImage uri={item} />}
               />
 
               {/* Swiper dots indicator for multiple pictures */}
@@ -562,19 +595,6 @@ export default function RecipeDetailScreen() {
               )}
             </View>
           )}
-
-          {/* Bottom fade gradient */}
-          <LinearGradient
-            colors={["transparent", "rgba(255,253,245,0.5)", "#FAF5EF"]}
-            locations={[0.3, 0.7, 1]}
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 120,
-            }}
-          />
 
           {/* Time Overlay - Right Side Bottom */}
           <View className="absolute bottom-6 right-5 bg-black/40 rounded-full py-1.5 px-3.5 flex-row items-center border border-white/20">
@@ -630,6 +650,21 @@ export default function RecipeDetailScreen() {
                 </Text>
                 <Text className="text-amber-700 font-inter-regular text-[10px] mt-0.5">
                   Contains <Text className="font-jakarta-bold">{dislikeName}</Text> which is in your dislike preferences.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Dietary preference notice (distinct from allergy/dislike) */}
+          {!hasAllergy && hasDietConflict && (
+            <View className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 mb-5 flex-row items-center">
+              <Ionicons name="leaf" size={20} color="#10B981" style={{ marginRight: 10 }} />
+              <View className="flex-1">
+                <Text className="text-emerald-800 font-jakarta-bold text-xs">
+                  Dietary Note
+                </Text>
+                <Text className="text-emerald-700 font-inter-regular text-[10px] mt-0.5">
+                  This recipe may not match your <Text className="font-jakarta-bold">{dietType}</Text> preference.
                 </Text>
               </View>
             </View>

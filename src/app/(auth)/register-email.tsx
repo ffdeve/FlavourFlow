@@ -205,6 +205,9 @@ export default function SignupDetailsScreen() {
                     withFilter: true,
                     withFlag: true,
                     withCountryNameButton: true,
+                    // Use bundled image flags instead of emoji (emoji flags render
+                    // as "?" on devices/fonts without flag-emoji support).
+                    withEmoji: false,
                   }}
                   theme={{
                     containerStyle: {

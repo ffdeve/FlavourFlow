@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/services/supabase";
 import * as Crypto from "expo-crypto";
 
@@ -104,6 +105,62 @@ export function mapDbRecipeToUiRecipe(dbRecipe: any): Recipe {
   };
 }
 
+// ─── Allergy / Dietary Filter Helpers ─────────────────────────────────────
+
+/**
+ * Reads strict filter flags and user preferences from storage/DB,
+ * then returns a filter function to apply to a Recipe array.
+ */
+export async function buildUserFilter(userId?: string): Promise<(r: Recipe) => boolean> {
+  const [allergyFlag, dietaryFlag] = await Promise.all([
+    AsyncStorage.getItem("strictAllergyFilter"),
+    AsyncStorage.getItem("strictDietaryFilter"),
+  ]);
+
+  const strictAllergy = allergyFlag === "true";
+  const strictDietary = dietaryFlag === "true";
+
+  if (!strictAllergy && !strictDietary) return () => true;
+  if (!userId) return () => true;
+
+  const { data: prefs } = await supabase
+    .from("user_preferences")
+    .select("allergies, dislikes, diet_type")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const allergies: string[] = prefs?.allergies ?? [];
+  const dislikes: string[] = prefs?.dislikes ?? [];
+  const dietType: string | null = prefs?.diet_type ?? null;
+
+  return (recipe: Recipe) => {
+    const ingredientNames = recipe.ingredients.map((i) => i.name.toLowerCase());
+
+    if (strictAllergy && allergies.length > 0) {
+      const hasAllergen = allergies.some((a) =>
+        ingredientNames.some((name) => name.includes(a.toLowerCase()))
+      );
+      if (hasAllergen) return false;
+    }
+
+    if (strictDietary && dislikes.length > 0) {
+      const hasDisliked = dislikes.some((d) =>
+        ingredientNames.some((name) => name.includes(d.toLowerCase()))
+      );
+      if (hasDisliked) return false;
+    }
+
+    if (strictDietary && dietType) {
+      const tags = recipe.diet_tags ?? [];
+      if (tags.length > 0 && !tags.map((t) => t.toLowerCase()).includes(dietType.toLowerCase())) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+}
+
 export const recipeService = {
   /**
    * Fetch trending or highest rated recipes
@@ -146,6 +203,40 @@ export const recipeService = {
   },
 
   /**
+   * Fetch paginated recipes for infinite scrolling feed.
+   * Applies strict allergy/dietary filters from user settings if enabled.
+   * Fetches extra rows to account for filtered-out results.
+   * @param page 1-indexed page number
+   * @param limit target items per page after filtering
+   * @param userId optional — needed for allergy/diet filtering
+   */
+  async getFeedRecipes(page = 1, limit = 10, userId?: string): Promise<Recipe[]> {
+    const filterFn = await buildUserFilter(userId);
+    // Fetch 3x to survive heavy filtering; we'll slice to `limit` after
+    const fetchLimit = limit * 3;
+    const from = (page - 1) * fetchLimit;
+    const to = from + fetchLimit - 1;
+
+    const { data, error } = await supabase
+      .from("recipes")
+      .select(`
+        *,
+        profiles:created_by (
+          full_name,
+          avatar_url
+        )
+      `)
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    return (data || [])
+      .map(mapDbRecipeToUiRecipe)
+      .filter(filterFn)
+      .slice(0, limit);
+  },
+
+  /**
    * Fetch all distinct dish categories
    */
   async getCategories(): Promise<{ id: string; name: string }[]> {
@@ -153,6 +244,24 @@ export const recipeService = {
     if (error) throw error;
     // Map to the expected UI format { id: string, name: string }
     return (data || []).map((row: any, index: number) => ({ id: String(index + 1), name: row.category_name }));
+  },
+
+  /**
+   * Fetch the master ingredient list (with icons) for the "What's in your fridge" selector
+   */
+  async getIngredients(): Promise<
+    { ingredient_id: number; name: string; name_urdu: string | null; category: string | null; icon_url: string | null }[]
+  > {
+    const { data, error } = await supabase
+      .from("ingredients")
+      .select("ingredient_id, name, name_urdu, category, icon_url")
+      .not("icon_url", "is", null)
+      .order("name", { ascending: true });
+    if (error) {
+      console.warn("Failed to load ingredients:", error);
+      return [];
+    }
+    return data || [];
   },
 
   /**
@@ -575,15 +684,59 @@ export const recipeService = {
           )
         )
       `)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
-    if (!data) return [];
-
-    return data
-      .filter((row: any) => row.recipes)
-      .map((row: any) => mapDbRecipeToUiRecipe(row.recipes));
+    
+    // Extract and map the recipes from the join
+    return (data || [])
+      .map((item: any) => {
+        const dbRecipe = item.recipes;
+        if (!dbRecipe) return null;
+        return mapDbRecipeToUiRecipe(dbRecipe);
+      })
+      .filter(Boolean) as Recipe[];
   },
+
+  /**
+   * Fetch history of recipes cooked by the current user
+   */
+  async getCookedHistory(userId: string): Promise<Recipe[]> {
+    const { data, error } = await supabase
+      .from("recipe_interactions")
+      .select(`
+        recipe_id,
+        created_at,
+        recipes:recipe_id (
+          *,
+          profiles:created_by (
+            full_name,
+            avatar_url
+          )
+        )
+      `)
+      .eq("user_id", userId)
+      .eq("interaction_type", "COOK_COMPLETE")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // Filter out duplicates (if user cooked the same recipe multiple times, only show the latest)
+    const seenRecipeIds = new Set<string>();
+    const uniqueRecipes: Recipe[] = [];
+
+    for (const item of (data || [])) {
+      if (!item.recipes || seenRecipeIds.has(item.recipe_id)) continue;
+      
+      seenRecipeIds.add(item.recipe_id);
+      const dbRecipe = item.recipes as any;
+      uniqueRecipes.push(mapDbRecipeToUiRecipe(dbRecipe));
+    }
+
+    return uniqueRecipes;
+  },
+
 
   /**
    * Toggle like status for a recipe. Returns true if now liked, false if unliked.
