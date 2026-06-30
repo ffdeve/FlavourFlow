@@ -6,6 +6,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
 import LottieView from "lottie-react-native";
 import React, { useEffect, useRef, useState } from "react";
@@ -26,6 +27,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import DraggableFlatList, {
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
@@ -293,6 +295,9 @@ const parseQuantityAndUnit = (
   return { quantity: cleanStr, unit: defaultUnit, category };
 };
 
+// Actions that involve a flame/heat source — only these show the heat selector.
+const HEAT_ACTIONS = ["Bake", "Cook", "Fry", "Boil"];
+
 export default function CreateRecipeWizardScreen() {
   const { editId } = useLocalSearchParams<{ editId?: string }>();
   const [isPrefilling, setIsPrefilling] = useState(false);
@@ -306,6 +311,10 @@ export default function CreateRecipeWizardScreen() {
 
   // Form inputs state
   const [imageUris, setImageUris] = useState<string[]>([]);
+  // URIs currently being compressed/converted — multiple can process at once so
+  // the user can keep adding images and move to the next section meanwhile.
+  const [processingUris, setProcessingUris] = useState<string[]>([]);
+  const isProcessingImage = processingUris.length > 0;
   const [videoUrl, setVideoUrl] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -333,6 +342,41 @@ export default function CreateRecipeWizardScreen() {
   const previewEndTime = previewStartTime + previewDuration;
   const playerRef = useRef<YoutubeIframeRef>(null);
   const durationIntervalRef = useRef<any>(null);
+  const [reviewActiveImageIndex, setReviewActiveImageIndex] = useState(0);
+  const [reviewCarouselWidth, setReviewCarouselWidth] = useState(Dimensions.get("window").width - 50);
+
+  // Fading submit overlay states
+  const [submitMessageIndex, setSubmitMessageIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const SUBMIT_MESSAGES = editId
+    ? ["Saving Changes...", "Cooking...", "Setting up...", "Updating databases..."]
+    : ["Uploading images...", "Cooking...", "Setting up...", "Publishing recipe..."];
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setSubmitMessageIndex(0);
+      fadeAnim.setValue(1);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setSubmitMessageIndex((prev) => (prev + 1) % SUBMIT_MESSAGES.length);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isSubmitting, editId]);
 
   // Live Preview Modal States & Refs
   const [isLivePreviewModalVisible, setIsLivePreviewModalVisible] =
@@ -756,15 +800,39 @@ export default function CreateRecipeWizardScreen() {
         allowsEditing: true,
         allowsMultipleSelection: false,
         aspect: [16, 9],
-        quality: 0.8,
+        quality: 1, // Request full quality from picker, we'll compress ourselves
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const newUris = result.assets.map((asset) => asset.uri);
-        setImageUris((prev) => {
-          const combined = [...prev, ...newUris];
-          return combined.slice(0, 6);
-        });
+        const pickedUri = result.assets[0].uri;
+
+        // Respect the 6-image cap, accounting for any already queued.
+        if (imageUris.length >= 6) return;
+
+        // Add immediately so the preview renders, and queue it for processing.
+        setImageUris((prev) => [...prev, pickedUri].slice(0, 6));
+        setProcessingUris((prev) => [...prev, pickedUri]);
+
+        // Compress + convert in the BACKGROUND — don't block the UI, so the user
+        // can add more images or move to the next section while this runs.
+        (async () => {
+          try {
+            const manipResult = await ImageManipulator.manipulateAsync(
+              pickedUri,
+              [{ resize: { width: 1200 } }],
+              { compress: 0.75, format: ImageManipulator.SaveFormat.WEBP },
+            );
+            setImageUris((prev) =>
+              prev.map((uri) => (uri === pickedUri ? manipResult.uri : uri)),
+            );
+          } catch (manipErr) {
+            console.error("Image processing error:", manipErr);
+            Alert.alert("Error", "Failed to process and compress that image.");
+            setImageUris((prev) => prev.filter((uri) => uri !== pickedUri));
+          } finally {
+            setProcessingUris((prev) => prev.filter((uri) => uri !== pickedUri));
+          }
+        })();
       }
     } catch (err: any) {
       console.error("Image picker error:", err);
@@ -927,16 +995,35 @@ export default function CreateRecipeWizardScreen() {
     } else if (currentStep === 2) {
       // Step 2: Information Section (Prep Time, Cook Time, Servings, Spice, Diet Tags) - always valid
     } else if (currentStep === 3) {
-      // Find the first ingredient row that is missing a name, quantity, or hasn't been selected from the dropdown (missing icon_url)
+      // Find the first ingredient row that is missing a name, quantity, is 0, or hasn't been selected from the dropdown (missing icon_url)
       const firstBadIndex = ingredients.findIndex(
-        (i) => !i.name.trim() || !i.quantity.trim() || !i.icon_url,
+        (i) =>
+          !i.name.trim() ||
+          !i.quantity.trim() ||
+          parseFloat(i.quantity.trim()) === 0 ||
+          !i.icon_url,
       );
       if (firstBadIndex !== -1) {
         // 1. Haptic feedback
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        // 2. Shake the bad row
+
+        // 2. Alert explanation
+        const badIng = ingredients[firstBadIndex];
+        let errorMsg = "Please complete all ingredient fields.";
+        if (!badIng.name.trim()) {
+          errorMsg = "Please enter an ingredient name.";
+        } else if (!badIng.quantity.trim()) {
+          errorMsg = `Please enter a quantity for "${badIng.name}".`;
+        } else if (parseFloat(badIng.quantity.trim()) === 0) {
+          errorMsg = `Quantity cannot be 0 for "${badIng.name}".`;
+        } else if (!badIng.icon_url) {
+          errorMsg = `Please select "${badIng.name}" from the suggestions dropdown to link its icon.`;
+        }
+        Alert.alert("Validation Error", errorMsg);
+
+        // 3. Shake the bad row
         triggerShake(firstBadIndex);
-        // 3. Scroll to the bad row using stored onLayout Y offset
+        // 4. Scroll to the bad row using stored onLayout Y offset
         const rowY = ingredientRowYs.current[firstBadIndex] ?? 0;
         scrollViewRef.current?.scrollTo({
           y: Math.max(0, rowY - 100),
@@ -945,11 +1032,25 @@ export default function CreateRecipeWizardScreen() {
         return;
       }
     } else if (currentStep === 4) {
-      const validSteps = steps.filter((s) => s.instruction.trim());
-      if (validSteps.length === 0) {
+      const MIN_INSTRUCTION = 15;
+      const nonEmpty = steps.filter((s) => s.instruction.trim());
+      if (nonEmpty.length === 0) {
         Alert.alert(
           "Validation Error",
           "Please add at least one instruction step.",
+        );
+        return;
+      }
+      // Reject too-short instructions (e.g. a couple of letters).
+      const tooShortIndex = steps.findIndex(
+        (s) =>
+          s.instruction.trim().length > 0 &&
+          s.instruction.trim().length < MIN_INSTRUCTION,
+      );
+      if (tooShortIndex !== -1) {
+        Alert.alert(
+          "Add more detail",
+          `Step ${tooShortIndex + 1}'s instruction is too short. Describe what to do in a short sentence (at least ${MIN_INSTRUCTION} characters).`,
         );
         return;
       }
@@ -968,6 +1069,14 @@ export default function CreateRecipeWizardScreen() {
   const handlePublish = async () => {
     if (!user) {
       Alert.alert("Error", "You must be logged in to publish a recipe.");
+      return;
+    }
+
+    if (processingUris.length > 0) {
+      Alert.alert(
+        "Images still processing",
+        "Hang on a moment while your images finish compressing, then try again.",
+      );
       return;
     }
 
@@ -990,12 +1099,21 @@ export default function CreateRecipeWizardScreen() {
 
       // Filter empty inputs and map structured units to database string formats
       const finalIngredients = ingredients
-        .filter((i) => i.name.trim() && i.quantity.trim())
+        .filter((i) => i.name.trim() && i.quantity.trim() && parseFloat(i.quantity.trim()) !== 0)
         .map((i) => ({
           name: i.name.trim(),
           quantity: `${i.quantity.trim()} ${i.unit}`,
         }));
       const finalSteps = steps.filter((s) => s.instruction.trim());
+
+      // Ingredients and kitchen essentials are mutually exclusive — a measured
+      // ingredient must not also be saved as a pantry essential.
+      const ingredientNames = new Set(
+        finalIngredients.map((i) => i.name.trim().toLowerCase()),
+      );
+      const finalEssentials = kitchenEssentials
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0 && !ingredientNames.has(a.toLowerCase()));
 
       // 2. Insert or Update recipe row
       let publishedRecipe;
@@ -1020,7 +1138,7 @@ export default function CreateRecipeWizardScreen() {
           dish_category: dishCategory,
           diet_tags: [...selectedDietTags, ...selectedMealTypes],
           spice_level: spiceLevel,
-          kitchen_essentials: kitchenEssentials.filter((a) => a.trim()),
+          kitchen_essentials: finalEssentials,
         });
       } else {
         publishedRecipe = await recipeService.createRecipe({
@@ -1044,7 +1162,7 @@ export default function CreateRecipeWizardScreen() {
           diet_tags: [...selectedDietTags, ...selectedMealTypes],
           spice_level: spiceLevel,
           created_by: user.id,
-          kitchen_essentials: kitchenEssentials.filter((a) => a.trim()),
+          kitchen_essentials: finalEssentials,
         });
       }
 
@@ -1105,7 +1223,7 @@ export default function CreateRecipeWizardScreen() {
         {/* Form Body ScrollView */}
         {isLoadingRecipe ? (
           <View className="flex-1 items-center justify-center bg-[#FFFDF5]">
-            <ActivityIndicator size="large" color="#FBA82E" />
+            <CookingLoader scale={0.8} />
             <Text className="mt-4 font-jakarta-medium text-[#8B7D6F] text-sm">
               Loading recipe details...
             </Text>
@@ -1268,7 +1386,13 @@ export default function CreateRecipeWizardScreen() {
                                   borderRadius: 24,
                                 }}
                                 contentFit="cover"
+                                blurRadius={processingUris.includes(item) ? 15 : 0}
                               />
+                              {processingUris.includes(item) && (
+                                <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(250, 245, 239, 0.6)", justifyContent: "center", alignItems: "center", borderRadius: 24, overflow: "hidden" }}>
+                                  <CookingLoader scale={0.4} />
+                                </View>
+                              )}
                               {isFeatured && (
                                 <View
                                   style={{
@@ -2305,10 +2429,21 @@ export default function CreateRecipeWizardScreen() {
                                 ? dbKitchenEssentials
                                 : MASTER_KITCHEN_ESSENTIALS;
                             const query = kitchenEssentialSearch.toLowerCase().trim();
+                            // Don't suggest an essential that's already a measured
+                            // ingredient — the two lists must stay distinct.
+                            const ingredientNamesLower = new Set(
+                              ingredients
+                                .map((i) => i.name.trim().toLowerCase())
+                                .filter(Boolean),
+                            );
                             const suggestions = fuzzySearchIngredients(
                               query,
                               sourceList,
-                            ).slice(0, 6);
+                            )
+                              .filter(
+                                (s: any) => !ingredientNamesLower.has(s.name.toLowerCase()),
+                              )
+                              .slice(0, 6);
 
                             return suggestions.length > 0 ? (
                               <View className="flex-row flex-wrap gap-x-2.5 gap-y-3.5 justify-center mt-2 p-2">
@@ -2406,9 +2541,15 @@ export default function CreateRecipeWizardScreen() {
               </View>
 
               {(() => {
-                const validIngredients = ingredients
-                  .map((ing) => ing.name.trim())
-                  .filter((name) => name.length > 0);
+                // Dedupe by name — linking is by name, so duplicate ingredient
+                // names (e.g. two "Chicken" rows) must not produce duplicate keys.
+                const validIngredients = Array.from(
+                  new Set(
+                    ingredients
+                      .map((ing) => ing.name.trim())
+                      .filter((name) => name.length > 0),
+                  ),
+                );
 
                 return steps.map((item, index) => (
                   <View
@@ -2596,7 +2737,8 @@ export default function CreateRecipeWizardScreen() {
                       )}
                     </View>
 
-                    {/* Heat Setting Selection */}
+                    {/* Heat Setting — only for heat-based actions (Bake/Cook/Fry/Boil) */}
+                    {HEAT_ACTIONS.includes(item.action ?? "") && (
                     <View className="mb-4">
                       <Text className="font-jakarta-semibold text-xs text-[#8B7D6F] mb-2">
                         Heat Setting
@@ -2635,6 +2777,7 @@ export default function CreateRecipeWizardScreen() {
                         })}
                       </View>
                     </View>
+                    )}
 
                     {/* Timer attaching/details */}
                     <View>
@@ -2783,33 +2926,36 @@ export default function CreateRecipeWizardScreen() {
                                   className="flex-1 font-jakarta-medium text-[#3B3328] text-xs py-1"
                                 />
                               </View>
-                              <TouchableOpacity
-                                activeOpacity={0.8}
-                                onPress={() =>
-                                  handleUpdateStep(
-                                    index,
-                                    "leaveOvernight",
-                                    !item.leaveOvernight,
-                                  )
-                                }
-                                className="flex-1 flex-row items-center justify-end pl-2"
-                              >
-                                <Ionicons
-                                  name={
-                                    item.leaveOvernight
-                                      ? "checkbox"
-                                      : "square-outline"
+                              {/* Overnight — only meaningful for Marinate steps */}
+                              {item.action === "Marinate" && (
+                                <TouchableOpacity
+                                  activeOpacity={0.8}
+                                  onPress={() =>
+                                    handleUpdateStep(
+                                      index,
+                                      "leaveOvernight",
+                                      !item.leaveOvernight,
+                                    )
                                   }
-                                  size={18}
-                                  color={
-                                    item.leaveOvernight ? "#FBA82E" : "#8B7D6F"
-                                  }
-                                  style={{ marginRight: 6 }}
-                                />
-                                <Text className="font-inter-medium text-[10px] text-[#5C544A]">
-                                  Leave Overnight
-                                </Text>
-                              </TouchableOpacity>
+                                  className="flex-1 flex-row items-center justify-end pl-2"
+                                >
+                                  <Ionicons
+                                    name={
+                                      item.leaveOvernight
+                                        ? "checkbox"
+                                        : "square-outline"
+                                    }
+                                    size={18}
+                                    color={
+                                      item.leaveOvernight ? "#FBA82E" : "#8B7D6F"
+                                    }
+                                    style={{ marginRight: 6 }}
+                                  />
+                                  <Text className="font-inter-medium text-[10px] text-[#5C544A]">
+                                    Leave Overnight
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
                             </View>
                           )}
                         </View>
@@ -2879,18 +3025,71 @@ export default function CreateRecipeWizardScreen() {
               </View>
 
               {/* Recipe Cover Preview */}
-              {imageUris.length > 0 && (
-                <View className="w-full aspect-[16/9] rounded-3xl overflow-hidden mb-6 shadow-sm border border-[#F5E3D8]/30 bg-gray-50">
-                  <Image
-                    source={{ uri: imageUris[0] }}
+              {(isVideoVerified || imageUris.length > 0) && (
+                <View 
+                  className="w-full aspect-[16/9] rounded-3xl overflow-hidden mb-6 shadow-sm border border-[#F5E3D8]/30 bg-gray-50 relative"
+                  onLayout={(e) => setReviewCarouselWidth(e.nativeEvent.layout.width)}
+                >
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
                     className="w-full h-full"
-                    contentFit="cover"
-                  />
-                  <View className="absolute bottom-3 left-3 bg-black/50 px-3 py-1 rounded-full backdrop-blur-md">
-                    <Text className="text-white text-xs font-jakarta-bold uppercase">
-                      {difficulty}
-                    </Text>
-                  </View>
+                    onScroll={(event) => {
+                      const slideSize = event.nativeEvent.layoutMeasurement.width;
+                      const index = event.nativeEvent.contentOffset.x / slideSize;
+                      const roundIndex = Math.round(index);
+                      if (reviewActiveImageIndex !== roundIndex) {
+                        setReviewActiveImageIndex(roundIndex);
+                      }
+                    }}
+                    scrollEventThrottle={16}
+                  >
+                    {/* Slide 0: Video (if exists) */}
+                    {isVideoVerified && videoUrl && (
+                      <View style={{ width: reviewCarouselWidth }} className="h-full bg-black">
+                        <YoutubePlayer
+                          width={reviewCarouselWidth}
+                          height={(reviewCarouselWidth * 9) / 16}
+                          play={reviewActiveImageIndex === 0}
+                          videoId={getYoutubeId(videoUrl) || ""}
+                          mute
+                          initialPlayerParams={{
+                            controls: false,
+                            loop: true,
+                            mute: true, // required for reliable autoplay in the webview
+                            start: previewStartTime,
+                            end: previewStartTime + previewDuration,
+                          }}
+                        />
+                      </View>
+                    )}
+
+                    {/* Image Slides */}
+                    {imageUris.map((uri, index) => (
+                      <View key={index} style={{ width: reviewCarouselWidth }} className="h-full relative bg-gray-50 items-center justify-center">
+                        <Image source={{ uri }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                      </View>
+                    ))}
+                  </ScrollView>
+
+
+
+                  {/* Pagination Dots */}
+                  {((isVideoVerified ? 1 : 0) + imageUris.length) > 1 && (
+                    <View className="absolute bottom-4 left-0 right-0 flex-row justify-center items-center gap-1.5 z-10 pointer-events-none">
+                      {Array.from({ length: (isVideoVerified ? 1 : 0) + imageUris.length }).map((_, index) => (
+                        <View
+                          key={index}
+                          className="h-1.5 rounded-full"
+                          style={{
+                            width: reviewActiveImageIndex === index ? 16 : 6,
+                            backgroundColor: reviewActiveImageIndex === index ? "#FBA82E" : "rgba(255,255,255,0.5)",
+                          }}
+                        />
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -3040,15 +3239,17 @@ export default function CreateRecipeWizardScreen() {
 
       {/* Full-screen Loading Overlay for publication */}
       {isSubmitting && (
-        <View className="absolute inset-0 bg-black/40 justify-center items-center z-50">
-          <View className="bg-white p-6 rounded-3xl items-center shadow-lg">
-            <ActivityIndicator size="large" color="#FBA82E" />
-            <Text className="font-jakarta-bold text-[#3B3328] text-base mt-4">
-              {editId ? "Saving Changes..." : "Uploading Images..."}
-            </Text>
-            <Text className="font-inter-regular text-text-secondary text-xs mt-1">
-              {editId ? "Please wait while we update your recipe." : "Please wait while we publish your recipe."}
-            </Text>
+        <View className="absolute inset-0 bg-black/50 justify-center items-center z-50 backdrop-blur-sm">
+          <View className="bg-white/95 p-8 rounded-[32px] items-center shadow-2xl w-[260px] border border-white/50">
+            <CookingLoader scale={0.9} />
+            <Animated.View style={{ opacity: fadeAnim }} className="items-center mt-4">
+              <Text className="font-jakarta-bold text-[#3B3328] text-base text-center">
+                {SUBMIT_MESSAGES[submitMessageIndex]}
+              </Text>
+              <Text className="font-inter-regular text-text-secondary text-xs mt-1 text-center">
+                {editId ? "Please wait while we update your recipe." : "Please wait while we publish your recipe."}
+              </Text>
+            </Animated.View>
           </View>
         </View>
       )}
@@ -3482,7 +3683,11 @@ export default function CreateRecipeWizardScreen() {
           ]}
           selectedValue={steps[activeStepActionPickerIndex]?.action || "Mix"}
           onSelect={(val) => {
-            handleUpdateStep(activeStepActionPickerIndex, "action", val);
+            const idx = activeStepActionPickerIndex;
+            handleUpdateStep(idx, "action", val);
+            // Clear settings that no longer apply to the chosen action.
+            if (!HEAT_ACTIONS.includes(val)) handleUpdateStep(idx, "heatSetting", null);
+            if (val !== "Marinate") handleUpdateStep(idx, "leaveOvernight", false);
           }}
           title="Select Action Type"
         />
@@ -3511,7 +3716,7 @@ export default function CreateRecipeWizardScreen() {
               </Text>
 
               <Text className="font-inter-regular text-[#8B7D6F] text-sm mb-8 text-center leading-5 px-2">
-                {editId ? "Your edits have been saved successfully." : "Your Culinary Zen masterpiece is now live. The community is going to love this!"}
+                {editId ? "Your edits have been saved successfully." : `Your "${title}" is now live. The community is going to love this!`}
               </Text>
 
               {/* Actions */}
@@ -3554,6 +3759,7 @@ export default function CreateRecipeWizardScreen() {
           </View>
         </Modal>
       )}
+
     </View>
   );
 }

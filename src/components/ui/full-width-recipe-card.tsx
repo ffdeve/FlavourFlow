@@ -1,8 +1,10 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text } from "react-native";
 import { Image } from "expo-image";
-import { Feather, FontAwesome } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { HeartButton } from "@/components/ui/heart-button";
+import { FrostedControl, FrostedImageCard, MetaPill } from "@/components/ui/frosted-recipe-card";
+
 const SPICE_IMAGES: Record<number, any> = {
   1: require("@/assets/icons/spice_1.png"),
   2: require("@/assets/icons/spice_2.png"),
@@ -31,72 +33,48 @@ export const FullWidthRecipeCard = ({
   image,
   ingredientsCount,
   rating = 4.8,
-  reviews = 500,
   onPress,
   isFavorite = false,
   onToggleFavorite,
 }: FullWidthRecipeCardProps) => {
-  const [imageUri, setImageUri] = React.useState(image);
-
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
+    <FrostedImageCard
+      image={image}
       onPress={onPress}
-      className="w-full mb-6"
+      aspectRatio={1.5}
+      radius={24}
+      blurHeightPct={50}
+      containerClassName="w-full mb-6"
+      contentClassName="px-4 pb-4"
+      topLeft={
+        spiceLevel > 0 && SPICE_IMAGES[spiceLevel] ? (
+          <Image source={SPICE_IMAGES[spiceLevel]} style={{ width: 64, height: 32 }} contentFit="contain" />
+        ) : null
+      }
+      topRight={
+        <>
+          <FrostedControl size={34} style={{ marginRight: 8 }}>
+            <HeartButton isLiked={isFavorite} onToggle={onToggleFavorite || (() => {})} size={18} />
+          </FrostedControl>
+          <FrostedControl size={34} onPress={onPress} style={{ backgroundColor: "#2A2018" }}>
+            <Feather name="arrow-up-right" size={18} color="#FFFFFF" />
+          </FrostedControl>
+        </>
+      }
     >
-      {/* Top Image Area */}
-      <View className="relative w-full h-64 bg-gray-100 rounded-[20px] overflow-hidden mb-3">
-        <Image
-          source={imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri }}
-          style={{ width: "100%", height: "100%" }}
-          contentFit="cover"
-          transition={300}
-          onError={() => {
-            if (imageUri !== "fallback") {
-              setImageUri("fallback");
-            }
-          }}
-        />
-
-        {/* Spice Level Badge (Top Left) */}
-        {spiceLevel > 0 && SPICE_IMAGES[spiceLevel] && (
-          <View className="absolute top-3 left-3 z-10">
-            <Image
-              source={SPICE_IMAGES[spiceLevel]}
-              style={{ width: 64, height: 32 }}
-              contentFit="contain"
-            />
-          </View>
-        )}
-
-        {/* Heart Favorite Toggle (Top Right) */}
-        <HeartButton
-          isLiked={isFavorite}
-          onToggle={onToggleFavorite || (() => {})}
-          size={18}
-          className="absolute top-2.5 right-2.5 z-10 bg-black/30 rounded-full items-center justify-center"
-        />
+      <Text className="font-jakarta-extrabold text-[#2A2018] text-[18px] mb-2" numberOfLines={1}>
+        {title}
+      </Text>
+      <View className="flex-row items-center flex-wrap">
+        <MetaPill>
+          <Feather name="clock" size={12} color="#8B7D6F" />
+          <Text className="font-inter-semibold text-[#8B7D6F] text-[12px] ml-1.5">{time}</Text>
+        </MetaPill>
+        <MetaPill>
+          <View className="w-1.5 h-1.5 rounded-full mr-1.5" style={{ backgroundColor: "#FBA82E" }} />
+          <Text className="font-inter-semibold text-[#FBA82E] text-[12px]">{ingredientsCount} Ingredients</Text>
+        </MetaPill>
       </View>
-
-      {/* Content Area */}
-      <View className="px-1">
-        {/* Title Row */}
-        <View className="flex-row justify-between items-start mb-1">
-          <Text
-            className="font-jakarta-bold text-[#3B3328] text-[16px] flex-1 mr-2"
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
-        </View>
-
-        {/* Subtitle Details */}
-        <View className="flex-row items-center">
-          <Text className="font-inter-medium text-gray-500 text-[13px]">
-            {time} • {ingredientsCount} Ingredients
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+    </FrostedImageCard>
   );
 };

@@ -291,11 +291,133 @@ export class RecommendationService {
           }
         }
       }
+
+      // ==========================================
+      // 🎯 DYNAMIC PERSONALIZED SECTIONS (from user data)
+      // Built from the cuisines the user engages with most (behavior) +
+      // their onboarding cuisines + diet. Inserted right after the main
+      // "Meals to Cook Today" so the feed adapts to each user.
+      // ==========================================
+      try {
+        const dynSections = await this.buildDynamicSections(userId, sections);
+        if (dynSections.length > 0) {
+          const coreIdx = sections.findIndex(
+            (s) => s.id === "meals_to_cook_today",
+          );
+          if (coreIdx >= 0) sections.splice(coreIdx + 1, 0, ...dynSections);
+          else sections.unshift(...dynSections);
+        }
+      } catch (e) {
+        console.error("Dynamic preference sections failed:", e);
+      }
     } catch (err) {
       console.error("Error formatting recommendation sections:", err);
     }
 
     return sections;
+  }
+
+  /**
+   * Personalized "category" sections derived from real user data:
+   * top cuisine from recent behavior, onboarding cuisines, and diet type.
+   * Each section needs ≥3 unseen recipes to render (avoids thin rows).
+   */
+  private async buildDynamicSections(
+    userId: string,
+    existing: RecommendationSection[],
+  ): Promise<RecommendationSection[]> {
+    const RECIPE_SELECT = `
+      id, title, dish_category, cuisine_type, prep_time, cook_time,
+      spice_level, ingredients, average_rating, tags, image_url, created_by,
+      profiles (full_name, avatar_url)
+    `;
+    const dyn: RecommendationSection[] = [];
+    const seenId = () =>
+      new Set(
+        [...existing, ...dyn].flatMap((s) => s.recipes.map((r: any) => r.id)),
+      );
+
+    // Preferences (onboarding)
+    const { data: prefs } = await supabase
+      .from("user_preferences")
+      .select("preferred_cuisines, diet_type")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    // Behavior: most-engaged cuisines from the last 50 interactions
+    const { data: ix } = await supabase
+      .from("recipe_interactions")
+      .select("recipes ( cuisine_type )")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    const cuisineCount: Record<string, number> = {};
+    (ix ?? []).forEach((row: any) => {
+      const c = Array.isArray(row.recipes)
+        ? row.recipes[0]?.cuisine_type
+        : row.recipes?.cuisine_type;
+      if (c) cuisineCount[c] = (cuisineCount[c] ?? 0) + 1;
+    });
+    const behaviorCuisines = Object.entries(cuisineCount)
+      .sort((a, b) => b[1] - a[1])
+      .map((e) => e[0]);
+
+    // Merge behavior-first, then onboarding cuisines; dedupe; take up to 2
+    const cuisineList = [
+      ...behaviorCuisines,
+      ...(prefs?.preferred_cuisines ?? []),
+    ]
+      .filter((c, i, arr) => c && arr.indexOf(c) === i)
+      .slice(0, 2);
+
+    for (const cuisine of cuisineList) {
+      const shown = seenId();
+      const { data } = await supabase
+        .from("recipes")
+        .select(RECIPE_SELECT)
+        .eq("cuisine_type", cuisine)
+        .order("average_rating", { ascending: false })
+        .limit(12);
+      const unique = (data ?? [])
+        .map(mapDbRecipeToUiRecipe)
+        .filter((r) => !shown.has(r.id));
+      if (unique.length >= 3) {
+        dyn.push({
+          id: `cuisine_${cuisine.toLowerCase().replace(/\s+/g, "_")}`,
+          title: `More ${cuisine} Recipes`,
+          recipes: unique.slice(0, 10),
+        });
+      }
+    }
+
+    // Diet-based section (e.g. "Vegan Picks"); try given casing + capitalized
+    if (prefs?.diet_type) {
+      const diet: string = prefs.diet_type;
+      const cap = diet.charAt(0).toUpperCase() + diet.slice(1);
+      const shown = seenId();
+      let unique: Recipe[] = [];
+      for (const tag of [diet, cap]) {
+        const { data } = await supabase
+          .from("recipes")
+          .select(RECIPE_SELECT)
+          .contains("diet_tags", [tag])
+          .order("average_rating", { ascending: false })
+          .limit(12);
+        unique = (data ?? [])
+          .map(mapDbRecipeToUiRecipe)
+          .filter((r) => !shown.has(r.id));
+        if (unique.length >= 3) break;
+      }
+      if (unique.length >= 3) {
+        dyn.push({
+          id: `diet_${diet.toLowerCase()}`,
+          title: `${cap} Picks`,
+          recipes: unique.slice(0, 10),
+        });
+      }
+    }
+
+    return dyn;
   }
 
   // Legacy fallback compatibility

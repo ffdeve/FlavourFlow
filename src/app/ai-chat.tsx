@@ -69,6 +69,50 @@ function ChefBooAvatar({ size = 36 }: { size?: number }) {
   );
 }
 
+// ─── Lightweight markdown (bold + bullets) ──────────────────────────────────
+// Gemini replies in markdown; render **bold** and bullet lines natively so the
+// chat never shows raw "**" asterisks.
+function renderInline(text: string, baseClass: string, keyPrefix: string) {
+  return text
+    .split(/(\*\*[^*]+\*\*)/g)
+    .filter((s) => s.length > 0)
+    .map((part, i) => {
+      const bold = /^\*\*[^*]+\*\*$/.test(part);
+      return (
+        <Text key={`${keyPrefix}_${i}`} className={`${baseClass} ${bold ? "font-jakarta-bold" : ""}`}>
+          {bold ? part.slice(2, -2) : part}
+        </Text>
+      );
+    });
+}
+
+function RichMessageText({ text, isUser }: { text: string; isUser: boolean }) {
+  const base = `text-[14.5px] leading-[22px] font-inter-medium ${isUser ? "text-white" : "text-[#3B3328]"}`;
+  const lines = text.split(/\n/);
+  return (
+    <View>
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <View key={`sp_${idx}`} style={{ height: 6 }} />;
+        const bullet = /^([*\-•])\s+(.*)$/.exec(trimmed);
+        if (bullet) {
+          return (
+            <View key={`b_${idx}`} className="flex-row" style={{ marginTop: 3 }}>
+              <Text className={base} style={{ marginRight: 6 }}>•</Text>
+              <Text className={base} style={{ flex: 1 }}>{renderInline(bullet[2], base, `b${idx}`)}</Text>
+            </View>
+          );
+        }
+        return (
+          <Text key={`t_${idx}`} className={base} style={{ marginTop: idx === 0 ? 0 : 3 }}>
+            {renderInline(trimmed, base, `t${idx}`)}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
 // ─── Message Bubble ──────────────────────────────────────────────────────────
 function MessageBubble({
   message,
@@ -104,13 +148,7 @@ function MessageBubble({
           elevation: isUser ? 0 : 2,
         }}
       >
-        <Text
-          className={`text-[14.5px] leading-[22px] font-inter-medium ${
-            isUser ? "text-white" : "text-[#3B3328]"
-          }`}
-        >
-          {message.text}
-        </Text>
+        <RichMessageText text={message.text} isUser={isUser} />
       </View>
 
       {isUser && (
@@ -281,6 +319,8 @@ export default function AiChatScreen() {
   const listRef = useRef<FlatList>(null);
   // Ingredients the user explicitly removed this turn — don't auto-re-add them
   const dismissedRef = useRef<Set<string>>(new Set());
+  // Every recipe already shown this session — so "different/more" excludes them
+  const shownRecipeIdsRef = useRef<Set<string>>(new Set());
 
   const displayName =
     profile?.full_name?.split(" ")[0] || "there";
@@ -292,6 +332,8 @@ export default function AiChatScreen() {
   }, []);
 
   // ── Live, debounced ingredient detection from typed/spoken text (no Gemini) ──
+  // Longer debounce → waits until you've stopped typing, so detection is
+  // accurate (only high-confidence ~90%+ matches) instead of jumpy per-keystroke.
   useEffect(() => {
     const text = inputText.trim();
     if (text.length < 3) return;
@@ -309,7 +351,7 @@ export default function AiChatScreen() {
         }
         return changed ? Array.from(byName.values()) : prev;
       });
-    }, 800);
+    }, 1400);
     return () => clearTimeout(handle);
   }, [inputText]);
 
@@ -407,6 +449,7 @@ export default function AiChatScreen() {
             userId: user?.id,
             history,
             ingredients,
+            excludeIds: Array.from(shownRecipeIdsRef.current),
           },
         });
 
@@ -449,6 +492,12 @@ export default function AiChatScreen() {
         } else {
           setCarouselRecipes([]);
         }
+
+        // Remember everything shown so a later "different/more" excludes them
+        [
+          ...(Array.isArray(data?.recipes) ? data.recipes : []),
+          ...(Array.isArray(data?.generatedRecipes) ? data.generatedRecipes : []),
+        ].forEach((r: any) => r?.id && shownRecipeIdsRef.current.add(String(r.id)));
       } catch (err) {
         console.error("ai-chat error:", err);
         const errMsg: Message = {
@@ -568,6 +617,7 @@ export default function AiChatScreen() {
               setMessages([]);
               setCarouselRecipes([]);
               setSelectedIngredients([]);
+              shownRecipeIdsRef.current = new Set();
             }}
             className="w-9 h-9 items-center justify-center rounded-full bg-[#FAF5EF]"
           >

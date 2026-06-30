@@ -11,7 +11,12 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  AppState,
+  KeyboardAvoidingView,
+  Platform,
+  Linking,
 } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Feather, FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -20,11 +25,25 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
 import * as Haptics from "expo-haptics";
 import YoutubePlayer from "react-native-youtube-iframe";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
 
 import { recipeService, Recipe } from "@/services/recipe.service";
 import { communityService } from "@/services/community.service";
 import { supabase } from "@/services/supabase";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  useTimersStore,
+  remainingSec,
+  type CookTimer,
+} from "@/store/timers.store";
+import {
+  ensureNotificationSetup,
+  presentTimerDoneNow,
+} from "@/services/notifications";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -99,9 +118,34 @@ function ConfettiEffect() {
   );
 }
 
+// ChefBoo's face — used on the sous-chef FAB and the ask sheet header.
+function ChefBooFace({ size = 36 }: { size?: number }) {
+  return (
+    <View
+      style={{ width: size, height: size, borderRadius: size / 2 }}
+      className="bg-[#FAF5EF] items-center justify-center overflow-hidden"
+    >
+      <Image
+        source={require("@/assets/images/chef-boo-home.webp")}
+        style={{ width: size, height: size }}
+        contentFit="cover"
+      />
+    </View>
+  );
+}
+
+// A substitution / alternative ChefBoo offers (rendered as a chip with a DB icon).
+type ChefSuggestion = {
+  type: "ingredient" | "appliance" | "technique" | string;
+  name: string;
+  note?: string;
+  icon?: string | null;
+};
+type ChefMsg = { role: "user" | "assistant"; text: string; suggestions?: ChefSuggestion[] };
+
 export default function CookingModeScreen() {
   const { id, aiRecipeId } = useLocalSearchParams<{ id: string; aiRecipeId: string }>();
-  const { user } = useAuth();
+  const { user, preferences } = useAuth();
   const [recipe, setRecipe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -202,10 +246,60 @@ export default function CookingModeScreen() {
   // TTS states
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // Timer states
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [defaultTime, setDefaultTime] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
+  // ── Multi-timer engine (background-safe; see timers.store.ts) ──────────────
+  const timers = useTimersStore((s) => s.timers);
+  const timerAdd = useTimersStore((s) => s.addTimer);
+  const timerStart = useTimersStore((s) => s.start);
+  const timerPause = useTimersStore((s) => s.pause);
+  const timerReset = useTimersStore((s) => s.reset);
+  const timerAddMinute = useTimersStore((s) => s.addMinute);
+  const timerRemove = useTimersStore((s) => s.remove);
+  const timerMarkDone = useTimersStore((s) => s.markDone);
+
+  const [now, setNow] = useState(Date.now());
+  const [doneBanner, setDoneBanner] = useState<{ label: string } | null>(null);
+  const firedRef = useRef<Set<string>>(new Set());
+
+  // ── In-cook ChefBoo (sous-chef) ───────────────────────────────────────────
+  const [chefOpen, setChefOpen] = useState(false);
+  const [chefInput, setChefInput] = useState("");
+  const [chefBusy, setChefBusy] = useState(false);
+  const [chefMsgs, setChefMsgs] = useState<ChefMsg[]>([]);
+
+  // Voice: dictation (speech→text) + hands-free voice-to-voice loop.
+  const [isListening, setIsListening] = useState(false);
+  const [handsFree, setHandsFree] = useState(false);
+  const handsFreeRef = useRef(false);
+  const chefOpenRef = useRef(false);
+  useEffect(() => { handsFreeRef.current = handsFree; }, [handsFree]);
+  useEffect(() => {
+    chefOpenRef.current = chefOpen;
+    // Closing the sheet ends any voice session so the mic/TTS don't linger.
+    if (!chefOpen) {
+      setHandsFree(false);
+      handsFreeRef.current = false;
+      Speech.stop();
+      try { ExpoSpeechRecognitionModule.stop(); } catch {}
+    }
+  }, [chefOpen]);
+
+  // ChefBoo's TTS voice settings (rate from user Settings; best available voice).
+  const ttsRateRef = useRef(1.0);
+  const ttsVoiceRef = useRef<string | undefined>(undefined);
+
+  // Icon lookup for substitution chips: ingredient + kitchen-essential master lists.
+  const iconMapRef = useRef<Map<string, string>>(new Map());
+
+  // "Step complete?" prompt shown when the CURRENT step's timer finishes.
+  const [stepDonePrompt, setStepDonePrompt] = useState<{ id: string; stepIndex: number } | null>(null);
+
+  // Latest finalized voice transcript + the handler that acts on it (set in render
+  // once the cooking handlers below exist, so hands-free events stay non-stale).
+  const lastTranscriptRef = useRef("");
+  const voiceHandlerRef = useRef<(t: string) => void>(() => {});
+
+  // If we restored an in-progress cook, show a one-time "resumed" banner.
+  const [resumedFromStep, setResumedFromStep] = useState<number | null>(null);
 
   // Rating state (for completion screen)
   const [rating, setRating] = useState(0);
@@ -255,6 +349,18 @@ export default function CookingModeScreen() {
         try {
           const data = await recipeService.getRecipeDetails(id);
           setRecipe(data);
+          // Resume an in-progress cook from where the user left off.
+          try {
+            const saved = await AsyncStorage.getItem(`cooking:resume:${id}`);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              const total = (data?.steps ?? []).length;
+              if (typeof parsed?.step === "number" && parsed.step > 0 && parsed.step < total) {
+                setCurrentStep(parsed.step);
+                setResumedFromStep(parsed.step + 1);
+              }
+            }
+          } catch {}
           if (user?.id) {
             recipeService.logInteraction(user.id, id, "COOK_START").catch((err) =>
               console.error("Failed to log cook start interaction:", err)
@@ -286,6 +392,17 @@ export default function CookingModeScreen() {
               ),
               videoUrl: null,
             });
+            // Resume an in-progress AI-recipe cook.
+            try {
+              const saved = await AsyncStorage.getItem(`cooking:resume:${aiRecipeId}`);
+              if (saved) {
+                const parsed = JSON.parse(saved);
+                if (typeof parsed?.step === "number" && parsed.step > 0 && parsed.step < rawSteps.length) {
+                  setCurrentStep(parsed.step);
+                  setResumedFromStep(parsed.step + 1);
+                }
+              }
+            } catch {}
           }
         } catch (err) {
           console.error("Error loading AI recipe for cooking mode:", err);
@@ -304,62 +421,179 @@ export default function CookingModeScreen() {
     return (hrs * 3600) + (mins * 60) || 60; // fallback to 60 seconds if empty
   };
 
-  // Configure timer and TTS for current step
+  // Stop any narration when the step changes
   useEffect(() => {
-    // Stop speech on step change
     Speech.stop();
     setIsSpeaking(false);
-
-    if (recipe && recipe.steps && recipe.steps[currentStep]) {
-      const step = recipe.steps[currentStep];
-      if (step.hasTimer) {
-        const duration = parseDuration(step);
-        setTimeLeft(duration);
-        setDefaultTime(duration);
-        setIsRunning(false);
-      } else {
-        setTimeLeft(0);
-        setDefaultTime(0);
-        setIsRunning(false);
-      }
-    }
   }, [currentStep, recipe]);
 
-  // Handle countdown ticks
+  // Notification setup + reconcile timers whenever we (re)enter the foreground.
   useEffect(() => {
-    let interval: any = null;
-    if (isRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && isRunning) {
-      setIsRunning(false);
-      // Haptics notification
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      
-      // Alert user
-      Alert.alert(
-        "Timer Finished! ⏰",
-        `Step ${currentStep + 1} countdown has completed. Ready to proceed!`,
-        [{ text: "OK" }]
-      );
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRunning, timeLeft, currentStep]);
+    ensureNotificationSetup();
+    useTimersStore.getState().reconcile();
+    setNow(Date.now());
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        useTimersStore.getState().reconcile();
+        setNow(Date.now());
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
-  // Clean up TTS when leaving page
+  // Live 1s clock — only ticks while at least one timer is running.
+  useEffect(() => {
+    if (!timers.some((t) => t.status === "running")) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [timers]);
+
+  // Foreground completion alarm: sound (immediate notification) + haptics + banner.
+  // firedRef guards against double-firing before markDone commits.
+  useEffect(() => {
+    for (const t of timers) {
+      if (t.status !== "running") continue;
+      const rem = remainingSec(t, now);
+      if (rem <= 0 && !firedRef.current.has(t.id)) {
+        firedRef.current.add(t.id);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        presentTimerDoneNow(t.label);
+        setDoneBanner({ label: t.label });
+        timerMarkDone(t.id);
+        // If this was the current step's timer, ask whether the step is done.
+        if (t.stepIndex != null) {
+          setStepDonePrompt({ id: t.id, stepIndex: t.stepIndex });
+        }
+      } else if (rem > 0) {
+        firedRef.current.delete(t.id);
+      }
+    }
+  }, [now, timers, timerMarkDone]);
+
+  // Auto-dismiss the in-app completion banner.
+  useEffect(() => {
+    if (!doneBanner) return;
+    const to = setTimeout(() => setDoneBanner(null), 5000);
+    return () => clearTimeout(to);
+  }, [doneBanner]);
+
+  // Clean up TTS + mic when leaving page
   useEffect(() => {
     return () => {
       Speech.stop();
+      try { ExpoSpeechRecognitionModule.stop(); } catch {}
     };
   }, []);
+
+  // Load the user's TTS speed, the best available voice, and the substitution
+  // icon map (ingredient + kitchen-essential buckets) once.
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem("chefbooTtsRate");
+        if (stored) ttsRateRef.current = parseFloat(stored) || 1.0;
+      } catch {}
+      try {
+        const voices = await Speech.getAvailableVoicesAsync();
+        const en = (voices ?? []).filter((v: any) => (v.language || "").toLowerCase().startsWith("en"));
+        // Prefer an Enhanced/Premium quality English voice for a more natural read.
+        const best =
+          en.find((v: any) => String(v.quality).toLowerCase() === "enhanced") ||
+          en.find((v: any) => /enhanced|premium|siri/i.test(v.identifier || "")) ||
+          en[0];
+        if (best?.identifier) ttsVoiceRef.current = best.identifier;
+      } catch {}
+      try {
+        const [ings, essentials] = await Promise.all([
+          recipeService.getIngredients(),
+          recipeService.getAllKitchenEssentials(),
+        ]);
+        const map = new Map<string, string>();
+        for (const it of (ings ?? []) as any[]) if (it?.name && it?.icon_url) map.set(String(it.name).toLowerCase(), it.icon_url);
+        for (const it of (essentials ?? []) as any[]) if (it?.name && it?.icon_url) map.set(String(it.name).toLowerCase(), it.icon_url);
+        iconMapRef.current = map;
+      } catch (e) {
+        console.warn("ChefBoo icon map load failed:", e);
+      }
+    })();
+  }, []);
+
+  // Speak text with the user's chosen rate + best voice. onDone fires after speech.
+  const speakText = (text: string, onDone?: () => void) => {
+    const clean = (text || "").trim();
+    if (!clean) { onDone?.(); return; }
+    Speech.stop();
+    setIsSpeaking(true);
+    Speech.speak(clean, {
+      rate: ttsRateRef.current,
+      voice: ttsVoiceRef.current,
+      onDone: () => { setIsSpeaking(false); onDone?.(); },
+      onStopped: () => setIsSpeaking(false),
+      onError: () => { setIsSpeaking(false); onDone?.(); },
+    });
+  };
+
+  // ── Voice dictation + hands-free loop events (shared mic) ──────────────────
+  useSpeechRecognitionEvent("start", () => setIsListening(true));
+  useSpeechRecognitionEvent("end", () => {
+    setIsListening(false);
+    // Hands-free: a phrase just finished → act on what was heard.
+    if (handsFreeRef.current && chefOpenRef.current) {
+      const heard = lastTranscriptRef.current.trim();
+      lastTranscriptRef.current = "";
+      if (heard) voiceHandlerRef.current(heard);
+    }
+  });
+  useSpeechRecognitionEvent("result", (event: any) => {
+    const transcript = (event.results ?? [])
+      .map((r: any) => r?.transcript ?? "")
+      .join(" ")
+      .trim();
+    if (!transcript) return;
+    lastTranscriptRef.current = transcript;
+    // Plain dictation (not hands-free) feeds the input box live.
+    if (!handsFreeRef.current) setChefInput(transcript);
+  });
+  useSpeechRecognitionEvent("error", (event: any) => {
+    console.warn("Speech recognition error:", event?.error, event?.message);
+    setIsListening(false);
+  });
+
+  // Start the mic. `single` = one phrase then auto-stop (used by the hands-free loop);
+  // otherwise continuous dictation that fills the input box until the user stops it.
+  const startListening = async (single: boolean) => {
+    try {
+      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!perm.granted) {
+        setHandsFree(false);
+        Alert.alert(
+          "Microphone access needed",
+          "To talk to ChefBoo, enable Microphone & Speech Recognition for FlavourFlow in Settings.",
+          [
+            { text: "Not now", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+        return;
+      }
+      lastTranscriptRef.current = "";
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        interimResults: true,
+        continuous: !single,
+        requiresOnDeviceRecognition: false,
+        addsPunctuation: true,
+      });
+    } catch (e) {
+      console.warn("Failed to start speech recognition:", e);
+      setIsListening(false);
+    }
+  };
 
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-[#FAF5EF] justify-center items-center">
-        <ActivityIndicator size="large" color="#FBA82E" />
+        <CookingLoader scale={0.8} />
         <Text className="font-jakarta-semibold text-text-secondary text-sm mt-3">
           Preparing kitchen guide...
         </Text>
@@ -370,6 +604,20 @@ export default function CookingModeScreen() {
   const steps = recipe?.steps || [];
   const totalSteps = steps.length;
   const currentStepData = steps[currentStep];
+
+  // ── Resume Later: persist the in-progress step locally; restored on re-entry. ─
+  const sessionKey = (id || aiRecipeId) as string | undefined;
+  const persistSession = (step: number) => {
+    if (!sessionKey) return;
+    AsyncStorage.setItem(
+      `cooking:resume:${sessionKey}`,
+      JSON.stringify({ step, total: totalSteps, ts: Date.now() }),
+    ).catch(() => {});
+  };
+  const clearSession = () => {
+    if (!sessionKey) return;
+    AsyncStorage.removeItem(`cooking:resume:${sessionKey}`).catch(() => {});
+  };
 
   const handleQuit = () => {
     Alert.alert(
@@ -424,7 +672,11 @@ export default function CookingModeScreen() {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        setCurrentStep((prev) => prev + 1);
+        setCurrentStep((prev) => {
+          const next = prev + 1;
+          persistSession(next);
+          return next;
+        });
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 200,
@@ -437,6 +689,7 @@ export default function CookingModeScreen() {
       stepTimes.current[currentStep] = (stepTimes.current[currentStep] || 0) + finalDuration;
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      clearSession();
       setIsCompleted(true);
       if (user?.id && id) {
         const metadata = {
@@ -472,7 +725,11 @@ export default function CookingModeScreen() {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        setCurrentStep((prev) => prev - 1);
+        setCurrentStep((prev) => {
+          const next = prev - 1;
+          persistSession(next);
+          return next;
+        });
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 200,
@@ -488,31 +745,247 @@ export default function CookingModeScreen() {
       Speech.stop();
       setIsSpeaking(false);
     } else {
-      setIsSpeaking(true);
-      Speech.speak(currentStepData.instruction, {
-        onDone: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false),
-        onStopped: () => setIsSpeaking(false),
+      speakText(currentStepData.instruction);
+    }
+  };
+
+  // ── Timer controls (store-driven, background-safe) ────────────────────────
+  const recipeKey = (id || aiRecipeId || recipe?.title || "recipe") as string;
+  const stepTimer =
+    timers.find((t) => t.recipeId === recipeKey && t.stepIndex === currentStep) ??
+    null;
+  const trayTimers = timers.filter((t) => t.id !== stepTimer?.id);
+
+  const stepTimerRunning = stepTimer?.status === "running";
+  const stepTimerDone = stepTimer?.status === "done";
+  const stepRemaining = stepTimer
+    ? remainingSec(stepTimer, now)
+    : currentStepData?.hasTimer
+      ? parseDuration(currentStepData)
+      : 0;
+
+  // Play/pause the current step's timer, lazily creating it (duration derived from
+  // the step's structured hasTimer/timerHours/timerMinutes fields) on first start.
+  const handleStepTimerToggle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (stepTimer) {
+      if (stepTimer.status === "running") timerPause(stepTimer.id);
+      else timerStart(stepTimer.id);
+      return;
+    }
+    if (currentStepData?.hasTimer) {
+      const newId = timerAdd({
+        label: `Step ${currentStep + 1}`,
+        durationSec: parseDuration(currentStepData),
+        recipeId: recipeKey,
+        stepIndex: currentStep,
+      });
+      timerStart(newId);
+    }
+  };
+
+  const handleStepTimerReset = () => {
+    if (!stepTimer) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    timerReset(stepTimer.id);
+  };
+
+  const handleStepAddMinute = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (stepTimer) {
+      timerAddMinute(stepTimer.id);
+    } else if (currentStepData?.hasTimer) {
+      timerAdd({
+        label: `Step ${currentStep + 1}`,
+        durationSec: parseDuration(currentStepData) + 60,
+        recipeId: recipeKey,
+        stepIndex: currentStep,
       });
     }
   };
 
-  // Timer controls
-  const toggleTimer = () => {
-    setIsRunning(!isRunning);
+  // Generic controls for the floating multi-timer tray
+  const handleTrayToggle = (t: CookTimer) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (t.status === "running") timerPause(t.id);
+    else timerStart(t.id);
+  };
+  const handleTrayDismiss = (timerId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    timerRemove(timerId);
   };
 
-  const resetTimer = () => {
-    setIsRunning(false);
-    setTimeLeft(defaultTime);
+  // ── In-cook ChefBoo helpers ───────────────────────────────────────────────
+  const openChefBoo = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setChefOpen(true);
   };
 
-  const addOneMinute = () => {
-    setTimeLeft((prev) => prev + 60);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  // Client-side manual-timer parser — instant, no network/LLM cost.
+  const parseManualTimer = (
+    text: string,
+  ): { seconds: number; label: string } | null => {
+    const m = text.toLowerCase();
+    const hasTimerIntent =
+      /\b(set|start|create|put on|add|begin)\b[\s\S]*\btimer\b/.test(m) ||
+      /\btimer\b[\s\S]*\bfor\b/.test(m) ||
+      /\bremind me\b[\s\S]*\bin\b/.test(m);
+    if (!hasTimerIntent) return null;
+
+    let seconds = 0;
+    const hr = m.match(/(\d+)\s*(hours?|hrs?|h)\b/);
+    const min = m.match(/(\d+)\s*(minutes?|mins?|m)\b/);
+    const sec = m.match(/(\d+)\s*(seconds?|secs?|s)\b/);
+    if (hr) seconds += parseInt(hr[1], 10) * 3600;
+    if (min) seconds += parseInt(min[1], 10) * 60;
+    if (sec) seconds += parseInt(sec[1], 10);
+    if (seconds === 0) {
+      const bare = m.match(/timer\s*(?:for\s*)?(\d+)\b/);
+      if (bare) seconds = parseInt(bare[1], 10) * 60; // bare number → minutes
+    }
+    if (seconds <= 0) return null;
+    const mins = Math.round(seconds / 60);
+    const label =
+      seconds % 60 === 0 ? `${mins} min timer` : `${seconds}s timer`;
+    return { seconds, label };
   };
+
+  // Re-open the mic for the next turn (only while hands-free + sheet open).
+  const maybeLoopListen = () => {
+    if (handsFreeRef.current && chefOpenRef.current) {
+      setTimeout(() => startListening(true), 400);
+    }
+  };
+  // Speak a reply when hands-free, then re-open the mic; otherwise just re-loop.
+  const speakThenLoop = (text: string) => {
+    if (handsFreeRef.current) speakText(text, maybeLoopListen);
+    else maybeLoopListen();
+  };
+
+  // Resolve a DB icon (ingredient or kitchen-essential bucket) for a suggestion.
+  const resolveSuggestionIcon = (s: ChefSuggestion): string | null => {
+    if (s.type === "technique") return null;
+    const map = iconMapRef.current;
+    const key = (s.name || "").trim().toLowerCase();
+    if (!key) return null;
+    if (map.has(key)) return map.get(key)!;
+    for (const [k, v] of map) {
+      if (k.includes(key) || key.includes(k)) return v;
+    }
+    return null;
+  };
+
+  const handleChefSend = async (preset?: string) => {
+    const text = (preset ?? chefInput).trim();
+    if (!text || chefBusy) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setChefMsgs((p) => [...p, { role: "user", text }]);
+    setChefInput("");
+
+    // Manual timer shortcut — handle locally, no round-trip.
+    const manual = parseManualTimer(text);
+    if (manual) {
+      const newId = timerAdd({
+        label: manual.label,
+        durationSec: manual.seconds,
+        recipeId: recipeKey,
+        stepIndex: null,
+      });
+      timerStart(newId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      const confirm = `Started a ${manual.label}. I'll alert you when it's done.`;
+      setChefMsgs((p) => [...p, { role: "assistant", text: confirm }]);
+      speakThenLoop(confirm);
+      return;
+    }
+
+    setChefBusy(true);
+    try {
+      const history = chefMsgs.slice(-8).map((mm) => ({ role: mm.role, text: mm.text }));
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: {
+          message: text,
+          userId: user?.id,
+          history,
+          mode: "cooking",
+          cookingContext: {
+            recipe: {
+              title: recipe?.title,
+              ingredients: recipe?.ingredients ?? [],
+            },
+            // Full method so ChefBoo knows completed + upcoming steps, not just now.
+            steps: steps
+              .map((s: any) => (typeof s === "string" ? s : s?.instruction))
+              .filter(Boolean),
+            currentStep: currentStepData
+              ? { instruction: currentStepData.instruction }
+              : null,
+            stepIndex: currentStep,
+            totalSteps,
+            // What's cooking right now, so ChefBoo can reason about timing.
+            runningTimers: timers
+              .filter((t) => t.status === "running")
+              .map((t) => ({ label: t.label, remaining: formatTime(remainingSec(t, now)) })),
+            preferences: preferences
+              ? {
+                  allergies: preferences.allergies ?? [],
+                  spice_level: preferences.spice_level ?? null,
+                  dietary:
+                    (preferences as any).dietary_restrictions ??
+                    (preferences as any).diet_type ??
+                    [],
+                }
+              : {},
+          },
+        },
+      });
+      if (error) throw error;
+
+      const reply = data?.reply ?? "Sorry, I didn't catch that — try again?";
+      const suggestions: ChefSuggestion[] = Array.isArray(data?.suggestions)
+        ? data.suggestions
+            .filter((s: any) => s && s.name)
+            .map((s: any) => ({
+              type: s.type,
+              name: s.name,
+              note: s.note,
+              icon: resolveSuggestionIcon(s),
+            }))
+        : [];
+      setChefMsgs((p) => [...p, { role: "assistant", text: reply, suggestions }]);
+
+      // Server may detect an odd-phrased timer request and return a structured action.
+      const action = data?.action;
+      if (action?.type === "start_timer" && action.seconds > 0) {
+        const label =
+          action.label || `${Math.round(action.seconds / 60)} min timer`;
+        const newId = timerAdd({
+          label,
+          durationSec: action.seconds,
+          recipeId: recipeKey,
+          stepIndex: null,
+        });
+        timerStart(newId);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+
+      speakThenLoop(reply);
+    } catch (err) {
+      console.error("chefboo cooking error:", err);
+      const errText = "I had trouble connecting. Check your connection and try again.";
+      setChefMsgs((p) => [...p, { role: "assistant", text: errText }]);
+      speakThenLoop(errText);
+    } finally {
+      setChefBusy(false);
+    }
+  };
+
+  const CHEF_SUGGESTIONS = [
+    "What does simmer mean?",
+    "I don't have coriander",
+    "How many tbsp in 1/4 cup?",
+    "Set a timer for 10 minutes",
+  ];
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -520,14 +993,473 @@ export default function CookingModeScreen() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // ── Local voice commands — navigation & timer control without the network. ──
+  // Returns true if it handled the utterance locally (so ChefBoo isn't called).
+  const handleLocalVoiceCommand = (raw: string): boolean => {
+    const m = raw.toLowerCase().trim();
 
+    if (/\b(next|next step|move on|carry on|go forward|forward)\b/.test(m)) {
+      if (currentStep < totalSteps - 1) {
+        const ni = currentStep + 1;
+        handleNextStep();
+        // Speak after the step-change effect (which stops TTS) has run.
+        setTimeout(() => speakThenLoop(steps[ni]?.instruction ?? "Next step."), 500);
+      } else {
+        handleNextStep(); // finishes the cook
+      }
+      return true;
+    }
+    if (/\b(go back|back|previous|prev|last step)\b/.test(m)) {
+      if (currentStep > 0) {
+        const pi = currentStep - 1;
+        handlePrevStep();
+        setTimeout(() => speakThenLoop(steps[pi]?.instruction ?? "Previous step."), 500);
+      } else {
+        speakThenLoop("You're on the first step.");
+      }
+      return true;
+    }
+    if (/\b(repeat|say again|read again|again|what was that|come again)\b/.test(m)) {
+      speakThenLoop(currentStepData?.instruction ?? "");
+      return true;
+    }
+    if (/\b(pause|stop)\b.*\btimer\b/.test(m)) {
+      const running = timers.filter((t) => t.status === "running");
+      running.forEach((t) => timerPause(t.id));
+      speakThenLoop(running.length ? "Timer paused." : "There's no timer running.");
+      return true;
+    }
+    if (/\b(start|resume)\b.*\btimer\b/.test(m)) {
+      if (stepTimer) {
+        timerStart(stepTimer.id);
+        speakThenLoop("Timer started.");
+      } else if (currentStepData?.hasTimer) {
+        handleStepTimerToggle();
+        speakThenLoop("Timer started.");
+      } else {
+        speakThenLoop("This step has no timer. Say 'set a timer for 5 minutes' to add one.");
+      }
+      return true;
+    }
+    if (/\b(stop listening|never mind|that's all|stop hands free|exit)\b/.test(m)) {
+      stopHandsFree();
+      return true;
+    }
+    return false;
+  };
+
+  // Acts on one finalized spoken phrase: local command → else ask ChefBoo.
+  const handleVoiceUtterance = (raw: string) => {
+    const text = (raw || "").trim();
+    if (!text) { maybeLoopListen(); return; }
+    // "Set timer for X" / "remind me in X" → create a timer immediately.
+    if (parseManualTimer(text)) { handleChefSend(text); return; }
+    if (handleLocalVoiceCommand(text)) return;
+    handleChefSend(text); // advice / substitutions / "how much salt?" → ChefBoo
+  };
+  // Keep the hands-free event handler pointed at the latest closure.
+  voiceHandlerRef.current = handleVoiceUtterance;
+
+  // Mic button in the sheet: plain dictation that fills the input box.
+  const toggleDictation = () => {
+    if (isListening) {
+      ExpoSpeechRecognitionModule.stop();
+      return;
+    }
+    startListening(false);
+  };
+
+  const stopHandsFree = () => {
+    setHandsFree(false);
+    handsFreeRef.current = false;
+    Speech.stop();
+    try { ExpoSpeechRecognitionModule.stop(); } catch {}
+  };
+
+  // Hands-free voice-to-voice: talk → ChefBoo answers aloud → mic re-opens.
+  const toggleHandsFree = () => {
+    if (handsFree) {
+      stopHandsFree();
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setHandsFree(true);
+    handsFreeRef.current = true;
+    startListening(true);
+  };
+
+  // ── In-cook ChefBoo ask sheet ─────────────────────────────────────────────
+  const renderChefBooSheet = () => (
+    <Modal
+      visible={chefOpen}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setChefOpen(false)}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        className="flex-1 justify-end"
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setChefOpen(false)}
+          className="flex-1 bg-black/40"
+        />
+        <View
+          className="bg-[#FFFDF5] rounded-t-[28px] px-5 pt-4 pb-6"
+          style={{ maxHeight: SCREEN_HEIGHT * 0.72 }}
+        >
+          <View className="items-center pb-2">
+            <View className="w-10 h-1.5 rounded-full bg-[#E5D9CC]" />
+          </View>
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-2">
+              <ChefBooFace size={38} />
+              <View>
+                <Text className="text-[16px] font-jakarta-bold text-[#3B3328]">ChefBoo</Text>
+                <Text className="text-[11px] font-inter-medium text-[#8B7D6F]" numberOfLines={1}>
+                  {recipe?.title ? `Cooking ${recipe.title}` : "Your cooking sous-chef"}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => setChefOpen(false)}
+              className="w-8 h-8 items-center justify-center rounded-full bg-[#FAF5EF]"
+            >
+              <Feather name="x" size={18} color="#3B3328" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            className="mb-3"
+            style={{ maxHeight: SCREEN_HEIGHT * 0.38 }}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 6 }}
+          >
+            {chefMsgs.length === 0 ? (
+              <View className="py-1">
+                <Text className="font-jakarta-medium text-[13px] text-[#8B7D6F] mb-3">
+                  Ask me anything about this dish — techniques, swaps, conversions,
+                  or fixes. I can start timers too.
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {CHEF_SUGGESTIONS.map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      onPress={() => handleChefSend(s)}
+                      className="bg-[#FAF5EF] border border-primary/15 px-3 py-2 rounded-full"
+                    >
+                      <Text className="font-jakarta-medium text-[12px] text-[#3B3328]">{s}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              chefMsgs.map((m, i) => (
+                <View
+                  key={i}
+                  className={`mb-2 max-w-[88%] ${m.role === "user" ? "self-end" : "self-start"}`}
+                >
+                  <View
+                    className={`px-3.5 py-2.5 rounded-2xl ${
+                      m.role === "user"
+                        ? "bg-primary rounded-br-md"
+                        : "bg-[#FAF5EF] border border-primary/10 rounded-bl-md"
+                    }`}
+                  >
+                    <Text
+                      className={`font-jakarta-medium text-[14px] leading-[20px] ${
+                        m.role === "user" ? "text-white" : "text-[#3B3328]"
+                      }`}
+                    >
+                      {m.text}
+                    </Text>
+                  </View>
+
+                  {/* Substitution / alternative chips with DB icons */}
+                  {m.role === "assistant" && m.suggestions && m.suggestions.length > 0 && (
+                    <View className="flex-row flex-wrap mt-2" style={{ gap: 8 }}>
+                      {m.suggestions.map((s, si) => (
+                        <TouchableOpacity
+                          key={`${i}_${si}`}
+                          activeOpacity={0.8}
+                          onPress={() => handleChefSend(`How do I use ${s.name} in this recipe?`)}
+                          className="flex-row items-center bg-white border border-[#F5E3D8] rounded-2xl pl-1.5 pr-3 py-1.5"
+                          style={{ maxWidth: SCREEN_WIDTH * 0.8 }}
+                        >
+                          <View className="w-8 h-8 rounded-full bg-[#FAF5EF] items-center justify-center mr-2 overflow-hidden">
+                            {s.icon ? (
+                              <Image source={{ uri: s.icon }} style={{ width: 24, height: 24 }} contentFit="contain" />
+                            ) : (
+                              <MaterialIcons
+                                name={s.type === "appliance" ? "blender" : s.type === "technique" ? "restaurant" : "eco"}
+                                size={16}
+                                color="#FBA82E"
+                              />
+                            )}
+                          </View>
+                          <View style={{ flexShrink: 1 }}>
+                            <Text className="font-jakarta-bold text-[12.5px] text-[#3B3328]" numberOfLines={1}>
+                              {s.name}
+                            </Text>
+                            {s.note ? (
+                              <Text className="font-inter-medium text-[11px] text-[#8B7D6F]" numberOfLines={2}>
+                                {s.note}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))
+            )}
+            {chefBusy && (
+              <View className="self-start bg-[#FAF5EF] border border-primary/10 px-4 py-3 rounded-2xl rounded-bl-md">
+                <ActivityIndicator size="small" color="#FBA82E" />
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Listening banner */}
+          {isListening && (
+            <View className="flex-row items-center justify-center mb-2.5 bg-[#E05252]/10 border border-[#E05252]/30 rounded-full py-2 px-4">
+              <View className="w-2 h-2 rounded-full bg-[#E05252] mr-2" />
+              <Text className="text-[12.5px] font-inter-medium text-[#E05252]" numberOfLines={1}>
+                {handsFree
+                  ? "Listening… say “next”, “repeat”, or ask me anything"
+                  : "Listening… tap the mic to stop"}
+              </Text>
+            </View>
+          )}
+
+          {/* Hands-free voice-to-voice toggle */}
+          <TouchableOpacity
+            onPress={toggleHandsFree}
+            activeOpacity={0.85}
+            className={`flex-row items-center justify-center mb-2.5 rounded-full py-2.5 px-4 border ${
+              handsFree ? "bg-[#3B3328] border-[#3B3328]" : "bg-[#FAF5EF] border-[#F5E3D8]"
+            }`}
+          >
+            <Feather
+              name={handsFree ? "x-circle" : "radio"}
+              size={15}
+              color={handsFree ? "#FBA82E" : "#8B7D6F"}
+            />
+            <Text
+              className={`ml-2 text-[12.5px] font-jakarta-semibold ${
+                handsFree ? "text-white" : "text-[#3B3328]"
+              }`}
+            >
+              {handsFree ? "Stop hands-free" : "Hands-free voice chat"}
+            </Text>
+          </TouchableOpacity>
+
+          <View className="flex-row items-end gap-2">
+            <TextInput
+              value={chefInput}
+              onChangeText={setChefInput}
+              placeholder="Ask ChefBoo…"
+              placeholderTextColor="#C4B8AC"
+              multiline
+              className="flex-1 bg-white border border-[#F5E3D8] rounded-2xl px-4 py-3 text-[14px] font-inter-medium text-[#3B3328] max-h-[100px]"
+              style={{ textAlignVertical: "top" }}
+            />
+            {/* Mic — voice to text dictation */}
+            <TouchableOpacity
+              onPress={toggleDictation}
+              disabled={chefBusy}
+              className={`w-12 h-12 rounded-2xl items-center justify-center ${
+                isListening && !handsFree ? "bg-[#E05252]" : "bg-[#FAF5EF]"
+              }`}
+            >
+              <Feather
+                name="mic"
+                size={18}
+                color={isListening && !handsFree ? "#fff" : "#8B7D6F"}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleChefSend()}
+              disabled={chefBusy || !chefInput.trim()}
+              className={`w-12 h-12 rounded-2xl items-center justify-center ${
+                chefBusy || !chefInput.trim() ? "bg-primary/40" : "bg-primary"
+              }`}
+            >
+              <Feather name="send" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+
+  // ── Floating overlays shown over the active cooking views (not completion) ──
+  const renderCookingOverlays = () => (
+    <>
+      {/* Completion banner */}
+      {doneBanner && (
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", top: 10, left: 16, right: 16, zIndex: 60 }}
+        >
+          <View className="bg-[#FBA82E] rounded-2xl px-4 py-3 flex-row items-center gap-2 shadow-lg">
+            <Ionicons name="alarm" size={18} color="#fff" />
+            <Text className="font-poppins-bold text-sm text-white flex-1" numberOfLines={1}>
+              {doneBanner.label} is done!
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Multi-timer tray (timers other than the current step's, incl. ChefBoo timers) */}
+      {trayTimers.length > 0 && (
+        <View
+          style={{
+            position: "absolute",
+            left: 16,
+            bottom: 100,
+            width: SCREEN_WIDTH * 0.6,
+            zIndex: 50,
+          }}
+        >
+          {trayTimers.slice(-3).map((t) => {
+            const rem = remainingSec(t, now);
+            const done = t.status === "done";
+            return (
+              <View
+                key={t.id}
+                className="bg-white/95 rounded-2xl px-3 py-2 mb-2 flex-row items-center gap-2.5 border border-primary/10 shadow-sm"
+              >
+                <View
+                  className={`w-7 h-7 rounded-full items-center justify-center ${
+                    done ? "bg-green-100" : "bg-primary/10"
+                  }`}
+                >
+                  <Ionicons
+                    name={done ? "checkmark" : "timer-outline"}
+                    size={15}
+                    color={done ? "#10B981" : "#FBA82E"}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-jakarta-bold text-[11px] text-text" numberOfLines={1}>
+                    {t.label}
+                  </Text>
+                  <Text
+                    className={`font-poppins-bold text-sm ${done ? "text-green-600" : "text-text"}`}
+                  >
+                    {done ? "Done" : formatTime(rem)}
+                  </Text>
+                </View>
+                {!done && (
+                  <TouchableOpacity
+                    onPress={() => handleTrayToggle(t)}
+                    className="w-8 h-8 bg-primary rounded-full items-center justify-center"
+                  >
+                    <Ionicons
+                      name={t.status === "running" ? "pause" : "play"}
+                      size={15}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => handleTrayDismiss(t.id)}
+                  className="w-7 h-7 bg-gray-100 rounded-full items-center justify-center border border-gray-200"
+                >
+                  <Feather name="x" size={13} color="#6B5D4F" />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Resumed-from-step banner (one tap to dismiss) */}
+      {resumedFromStep != null && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setResumedFromStep(null)}
+          style={{ position: "absolute", top: 10, left: 16, right: 16, zIndex: 60 }}
+        >
+          <View className="bg-[#3B3328] rounded-2xl px-4 py-3 flex-row items-center gap-2 shadow-lg">
+            <MaterialIcons name="bookmark" size={18} color="#FBA82E" />
+            <Text className="font-jakarta-semibold text-[13px] text-white flex-1" numberOfLines={1}>
+              Resumed from step {resumedFromStep}
+            </Text>
+            <Feather name="x" size={15} color="#C4B8AC" />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Step-complete prompt — shown when the current step's timer finishes */}
+      {stepDonePrompt && stepDonePrompt.stepIndex === currentStep && (
+        <View style={{ position: "absolute", left: 16, right: 16, bottom: 170, zIndex: 65 }}>
+          <View className="bg-white rounded-3xl px-4 py-4 border border-primary/15 shadow-lg">
+            <View className="flex-row items-center gap-2 mb-3">
+              <View className="w-8 h-8 rounded-full bg-green-100 items-center justify-center">
+                <Feather name="check" size={16} color="#10B981" />
+              </View>
+              <Text className="font-jakarta-bold text-[14px] text-[#3B3328] flex-1">
+                Step {currentStep + 1} timer finished — is this step done?
+              </Text>
+            </View>
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  setStepDonePrompt(null);
+                  handleNextStep();
+                }}
+                className="flex-1 bg-primary rounded-2xl py-3 items-center"
+              >
+                <Text className="font-jakarta-bold text-[13px] text-white">Yes, next step</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  // Need more time → run a fresh 5-minute timer for this step.
+                  if (stepTimer) timerRemove(stepTimer.id);
+                  const newId = timerAdd({
+                    label: `Step ${currentStep + 1}`,
+                    durationSec: 300,
+                    recipeId: recipeKey,
+                    stepIndex: currentStep,
+                  });
+                  timerStart(newId);
+                  setStepDonePrompt(null);
+                }}
+                className="flex-1 bg-[#FAF5EF] border border-[#F5E3D8] rounded-2xl py-3 items-center"
+              >
+                <Text className="font-jakarta-bold text-[13px] text-[#3B3328]">+5 more min</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ChefBoo sous-chef FAB */}
+      <TouchableOpacity
+        onPress={openChefBoo}
+        activeOpacity={0.85}
+        style={{ position: "absolute", right: 18, bottom: 100, zIndex: 55 }}
+        className="w-14 h-14 rounded-full bg-[#3B3328] items-center justify-center shadow-lg overflow-hidden"
+      >
+        <ChefBooFace size={56} />
+      </TouchableOpacity>
+
+      {renderChefBooSheet()}
+    </>
+  );
 
   // ------------------ COMPLETION STATE VIEW ------------------
   const handleShareToCommunity = async () => {
     if (!user?.id || isSharing) return;
     setIsSharing(true);
     try {
-      const caption = shareText.trim() || `Just cooked ${recipe?.title}! 🍳`;
+      const caption = shareText.trim() || `Just cooked ${recipe?.title}!`;
       // Link the DB recipe when available (AI recipes have no recipes-table id)
       const recipeId = id || null;
       await communityService.createPost(user.id, caption, "general", [], recipeId);
@@ -675,7 +1607,7 @@ export default function CookingModeScreen() {
                   activeOpacity={0.8}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                    setShareText(`Just cooked ${recipe.title}! 🍳`);
+                    setShareText(`Just cooked ${recipe.title}!`);
                     setShareModalVisible(true);
                   }}
                   className="flex-row items-center gap-2 bg-[#fff8f0] border border-primary/20 px-5 py-3 rounded-full shadow-sm"
@@ -852,7 +1784,7 @@ export default function CookingModeScreen() {
                 )}
               </View>
 
-              <Text className="font-poppins-bold text-xl text-text leading-7 mb-4">
+              <Text className="font-poppins-bold text-text mb-4" style={{ fontSize: 23, lineHeight: 32 }}>
                 {currentStepData?.instruction}
               </Text>
 
@@ -920,20 +1852,20 @@ export default function CookingModeScreen() {
           {currentStepData?.hasTimer && (
             <View className="bg-white rounded-3xl p-5 border border-primary/10 shadow-sm items-center mb-5">
               <Text className="font-poppins-semibold text-[10px] text-text-secondary uppercase tracking-wider mb-2">
-                Step Timer
+                {stepTimerDone ? "Timer Done" : "Step Timer"}
               </Text>
               <View className="flex-row items-center gap-4">
                 <Text className="font-poppins-bold text-2xl text-text">
-                  {formatTime(timeLeft)}
+                  {formatTime(stepRemaining)}
                 </Text>
                 <TouchableOpacity
-                  onPress={toggleTimer}
+                  onPress={handleStepTimerToggle}
                   className="w-10 h-10 bg-primary rounded-full items-center justify-center shadow"
                 >
-                  <Ionicons name={isRunning ? "pause" : "play"} size={18} color="white" />
+                  <Ionicons name={stepTimerRunning ? "pause" : "play"} size={18} color="white" />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={resetTimer}
+                  onPress={handleStepTimerReset}
                   className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center border border-gray-200"
                 >
                   <Feather name="rotate-ccw" size={14} color="#6B5D4F" />
@@ -967,11 +1899,13 @@ export default function CookingModeScreen() {
             className="flex-[6] bg-primary h-12 rounded-2xl items-center justify-center flex-row gap-2 shadow-lg shadow-primary/10"
           >
             <Text className="font-poppins-bold text-sm text-white">
-              {currentStep === totalSteps - 1 ? "Finish 🍳" : "Next Step"}
+              {currentStep === totalSteps - 1 ? "Finish" : "Next Step"}
             </Text>
             <Feather name="arrow-right" size={16} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
+
+        {renderCookingOverlays()}
       </SafeAreaView>
     );
   }
@@ -1025,7 +1959,7 @@ export default function CookingModeScreen() {
             {/* Instruction content and TTS Speaker */}
             <View className="flex-row items-start gap-4">
               <View className="flex-1">
-                <Text className="font-poppins-bold text-2xl text-text leading-9" style={{ fontSize: 24 }}>
+                <Text className="font-poppins-bold text-text" style={{ fontSize: 27, lineHeight: 38 }}>
                   {currentStepData?.instruction}
                 </Text>
               </View>
@@ -1115,13 +2049,13 @@ export default function CookingModeScreen() {
             </Text>
 
             {/* Circular display card */}
-            <View 
+            <View
               style={{
                 width: 170,
                 height: 170,
                 borderRadius: 85,
                 borderWidth: 6,
-                borderColor: isRunning ? "#FBA82E" : "#E8E4DD",
+                borderColor: stepTimerDone ? "#10B981" : stepTimerRunning ? "#FBA82E" : "#E8E4DD",
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: "#FAF5EF",
@@ -1129,10 +2063,10 @@ export default function CookingModeScreen() {
               className="mb-5 shadow-sm relative overflow-hidden"
             >
               <Text className="font-poppins-bold text-3xl text-text">
-                {formatTime(timeLeft)}
+                {formatTime(stepRemaining)}
               </Text>
               <Text className="font-jakarta-medium text-[10px] text-text-tertiary mt-1">
-                {isRunning ? "TIMER RUNNING" : "PAUSED"}
+                {stepTimerDone ? "DONE" : stepTimerRunning ? "TIMER RUNNING" : "PAUSED"}
               </Text>
             </View>
 
@@ -1140,7 +2074,7 @@ export default function CookingModeScreen() {
             <View className="flex-row items-center gap-4">
               {/* Reset button */}
               <TouchableOpacity
-                onPress={resetTimer}
+                onPress={handleStepTimerReset}
                 activeOpacity={0.7}
                 className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center border border-gray-200"
               >
@@ -1149,21 +2083,21 @@ export default function CookingModeScreen() {
 
               {/* Play / Pause button */}
               <TouchableOpacity
-                onPress={toggleTimer}
+                onPress={handleStepTimerToggle}
                 activeOpacity={0.8}
                 className="w-16 h-16 bg-primary rounded-full items-center justify-center shadow-md shadow-primary/20"
               >
-                <Ionicons 
-                  name={isRunning ? "pause" : "play"} 
-                  size={26} 
-                  color="#FFFFFF" 
-                  style={{ marginLeft: isRunning ? 0 : 3 }} 
+                <Ionicons
+                  name={stepTimerRunning ? "pause" : "play"}
+                  size={26}
+                  color="#FFFFFF"
+                  style={{ marginLeft: stepTimerRunning ? 0 : 3 }}
                 />
               </TouchableOpacity>
 
               {/* +1 Minute button */}
               <TouchableOpacity
-                onPress={addOneMinute}
+                onPress={handleStepAddMinute}
                 activeOpacity={0.7}
                 className="h-12 px-4 bg-interactive-light rounded-full items-center justify-center border border-interactive"
               >
@@ -1202,11 +2136,13 @@ export default function CookingModeScreen() {
           className="flex-[6] bg-primary h-14 rounded-2xl items-center justify-center flex-row gap-2 shadow-lg shadow-primary/10"
         >
           <Text className="font-poppins-bold text-base text-white">
-            {currentStep === totalSteps - 1 ? "Finish 🍳" : "Next Step"}
+            {currentStep === totalSteps - 1 ? "Finish" : "Next Step"}
           </Text>
           <Feather name="arrow-right" size={16} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
+
+      {renderCookingOverlays()}
     </SafeAreaView>
   );
 }

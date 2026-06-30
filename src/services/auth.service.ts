@@ -14,7 +14,7 @@ export class AuthService {
       },
     });
 
-    if (error) throw error;
+    if (error) throw this.mapEmailError(error);
     return data;
   }
 
@@ -152,14 +152,33 @@ export class AuthService {
   async resendOtp(email: string, type: 'signup' | 'recovery') {
     if (type === 'recovery') {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) throw error;
+      if (error) throw this.mapEmailError(error);
     } else {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
       });
-      if (error) throw error;
+      if (error) throw this.mapEmailError(error);
     }
+  }
+
+  /** Turn raw GoTrue email/SMTP errors into messages users can act on. */
+  private mapEmailError(error: any): Error {
+    const code = error?.code || error?.error_code;
+    const msg: string = error?.message || '';
+    if (code === 'over_email_send_rate_limit' || /you can only request this after/i.test(msg)) {
+      const secs = msg.match(/after (\d+) seconds/i)?.[1];
+      return new Error(
+        secs
+          ? `Please wait ${secs}s before requesting another email.`
+          : 'Too many requests. Please wait a moment before trying again.',
+      );
+    }
+    if (/error sending/i.test(msg)) {
+      // SMTP transport failed on the server (timeout / TLS / auth).
+      return new Error("We couldn't send the email right now. Please try again in a minute.");
+    }
+    return error instanceof Error ? error : new Error(msg || 'Something went wrong.');
   }
 
   // Listen to auth state changes

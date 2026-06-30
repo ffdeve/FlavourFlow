@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import React from "react";
 import { Text, View, TouchableOpacity } from "react-native";
 
-// Helper to get flag emoji from country code
+// Helper kept for backwards compat (unused for rendering — we use PNG flags now)
 export const getFlagEmoji = (countryCode: string): string => {
   const codePoints = countryCode
     .toUpperCase()
@@ -10,6 +10,10 @@ export const getFlagEmoji = (countryCode: string): string => {
     .map((char) => 127397 + char.charCodeAt(0));
   return String.fromCodePoint(...codePoints);
 };
+
+// Returns a PNG flag URL from flagcdn.com (free, no key, works everywhere)
+export const getFlagImageUri = (countryCode: string): string =>
+  `https://flagcdn.com/w80/${countryCode.toLowerCase()}.png`;
 
 // --- Diamond UI Component ---
 export const DiamondChip = ({
@@ -19,6 +23,7 @@ export const DiamondChip = ({
   onPress,
   isFlag = false,
   imageUrl,
+  countryCode,
 }: {
   label: string;
   emoji?: string | null;
@@ -26,6 +31,7 @@ export const DiamondChip = ({
   onPress: () => void;
   isFlag?: boolean;
   imageUrl?: string | null;
+  countryCode?: string | null;
 }) => {
   return (
     <View
@@ -72,8 +78,13 @@ export const DiamondChip = ({
                 contentFit="contain"
                 transition={200}
               />
-            ) : isFlag && emoji ? (
-              <Text className="text-5xl">{emoji}</Text>
+            ) : isFlag && countryCode ? (
+              <Image
+                source={{ uri: getFlagImageUri(countryCode) }}
+                style={{ width: 52, height: 34, borderRadius: 4 }}
+                contentFit="cover"
+                transition={200}
+              />
             ) : null}
             <Text
               style={{

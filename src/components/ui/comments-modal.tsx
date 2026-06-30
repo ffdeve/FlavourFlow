@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { Ionicons } from "@expo/vector-icons";
 import Avatar from "@/components/ui/avatar";
 import type { Comment } from "@/types";
@@ -129,7 +130,7 @@ export default function CommentsModal({
           {/* List or Loader */}
           {loading ? (
             <View className="flex-1 justify-center items-center">
-              <ActivityIndicator size="large" color="#FBA82E" />
+              <CookingLoader scale={0.8} />
             </View>
           ) : (
             <FlatList
@@ -138,7 +139,7 @@ export default function CommentsModal({
               contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
               ListEmptyComponent={
                 <View className="py-12 items-center justify-center">
-                  <Text className="text-4xl mb-3">💬</Text>
+                  <Ionicons name="chatbubble-outline" size={40} color="#C4B8AC" style={{ marginBottom: 12 }} />
                   <Text className="text-sm font-inter-medium text-[#8B7D6F] text-center">
                     No comments yet. Start the conversation!
                   </Text>

@@ -58,7 +58,15 @@
           ]
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./src/assets/icons/icon.png",
+          "color": "#FBA82E",
+          "defaultChannel": "cooking-timers"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

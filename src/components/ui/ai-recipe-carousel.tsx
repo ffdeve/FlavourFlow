@@ -1,6 +1,8 @@
 import React from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import { Image } from "expo-image";
+import { Feather } from "@expo/vector-icons";
+import { FrostedImageCard, MetaPill } from "@/components/ui/frosted-recipe-card";
 
 const SPICE_IMAGES: Record<number, any> = {
   1: require("@/assets/icons/spice_1.png"),
@@ -36,55 +38,63 @@ export function AIRecipeCarousel({ recipes, onOpen }: Props) {
         Recipes for you
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12 }}>
-        {recipes.map((r) => (
-          <TouchableOpacity
-            key={r.id}
-            activeOpacity={0.9}
+        {recipes.map((r, idx) => (
+          <FrostedImageCard
+            key={`${r.id}_${idx}`}
+            image={r.image}
             onPress={() => onOpen(r)}
-            className="mr-3 bg-white rounded-[18px] border border-[#F5E3D8]/60 overflow-hidden"
-            style={{
-              width: 180,
-              shadowColor: "#3B3328",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.05,
-              shadowRadius: 6,
-              elevation: 2,
-            }}
+            height={170}
+            radius={16}
+            blurHeightPct={50}
+            activeOpacity={0.9}
+            containerClassName="mr-3"
+            containerStyle={{ width: 180 }}
+            contentClassName="px-3 pb-2.5"
+            topLeft={
+              r.spiceLevel && SPICE_IMAGES[r.spiceLevel] ? (
+                <Image source={SPICE_IMAGES[r.spiceLevel]} style={{ width: 52, height: 26 }} contentFit="contain" />
+              ) : null
+            }
+            topRight={
+              r.isAI ? (
+                <View
+                  className="w-8 h-8 rounded-full bg-background items-center justify-center overflow-hidden border border-[#F5E3D8]"
+                  style={{
+                    shadowColor: "#3B3328",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 3,
+                    elevation: 3,
+                  }}
+                >
+                  <Image source={CHEF_BOO} style={{ width: 26, height: 26 }} contentFit="cover" />
+                </View>
+              ) : null
+            }
           >
-            {/* Image */}
-            <View className="relative w-full h-28 bg-gray-100">
-              <Image
-                source={r.image ? { uri: r.image } : require("@/assets/images/LogIn_front_photo.webp")}
-                style={{ width: "100%", height: "100%" }}
-                contentFit="cover"
-                transition={200}
-              />
-              {/* Spice level badge (asset icon) */}
-              {!!r.spiceLevel && SPICE_IMAGES[r.spiceLevel] && (
-                <View className="absolute top-2 left-2">
-                  <Image source={SPICE_IMAGES[r.spiceLevel]} style={{ width: 56, height: 28 }} contentFit="contain" />
-                </View>
-              )}
-              {/* AI-generated → ChefBoo avatar badge */}
-              {r.isAI && (
-                <View className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 items-center justify-center overflow-hidden border border-[#F5E3D8]">
-                  <Image source={CHEF_BOO} style={{ width: 24, height: 24 }} contentFit="cover" />
-                </View>
-              )}
+            <Text numberOfLines={1} className="font-jakarta-extrabold text-[#2A2018] text-[14px] mb-1.5">
+              {r.title}
+            </Text>
+            <View className="flex-row items-center flex-wrap">
+              {r.time ? (
+                <MetaPill>
+                  <Feather name="clock" size={10} color="#8B7D6F" />
+                  <Text className="font-inter-semibold text-[#8B7D6F] text-[10px] ml-1">{r.time} min</Text>
+                </MetaPill>
+              ) : null}
+              {r.ingredientsCount ? (
+                <MetaPill>
+                  <View className="w-1 h-1 rounded-full mr-1" style={{ backgroundColor: "#FBA82E" }} />
+                  <Text className="font-inter-semibold text-[#FBA82E] text-[10px]">{r.ingredientsCount} Ingr.</Text>
+                </MetaPill>
+              ) : null}
+              {!r.time && !r.ingredientsCount ? (
+                <MetaPill>
+                  <Text className="font-inter-semibold text-[#8B7D6F] text-[10px]">{r.cuisine ?? "Recipe"}</Text>
+                </MetaPill>
+              ) : null}
             </View>
-
-            {/* Title + meta (home-card style) */}
-            <View className="px-3 pt-2 pb-3">
-              <Text numberOfLines={1} className="text-[14px] font-jakarta-bold text-[#3B3328]">
-                {r.title}
-              </Text>
-              <Text className="text-[12px] font-inter-medium text-gray-500 mt-1" numberOfLines={1}>
-                {[r.time ? `${r.time} min` : null, r.ingredientsCount ? `${r.ingredientsCount} Ingredients` : null]
-                  .filter(Boolean)
-                  .join(" • ") || (r.cuisine ?? "Recipe")}
-              </Text>
-            </View>
-          </TouchableOpacity>
+          </FrostedImageCard>
         ))}
       </ScrollView>
     </View>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, Keyboard, ScrollView } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -103,7 +104,7 @@ export default function CommunitySearchScreen() {
       {/* Content */}
       {loading && posts.length === 0 && users.length === 0 ? (
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#FBA82E" />
+          <CookingLoader scale={0.8} />
           <Text className="text-sm font-inter-medium text-[#8B7D6F] mt-3">
             Exploring the community...
           </Text>

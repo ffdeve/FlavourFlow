@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Dimensions } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { cn } from "@/utils";
 import { HeartButton } from "@/components/ui/heart-button";
@@ -265,7 +267,7 @@ export default function CategoryDetailsScreen() {
         <View className="px-5 pt-4">
           {loading ? (
             <View className="items-center justify-center py-20">
-              <ActivityIndicator size="large" color="#FBA82E" />
+              <CookingLoader scale={0.8} />
               <Text className="font-jakarta-semibold text-text-secondary text-sm mt-3">
                 Loading recipes...
               </Text>
@@ -337,11 +339,11 @@ function CatalogRecipeCard({
       onPress={onPress}
       className="bg-white rounded-2xl overflow-hidden mb-4"
       style={{
-        shadowColor: "#3B3328",
-        shadowOffset: { width: 0, height: 4 },
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 20 },
         shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 3,
+        shadowRadius: 24,
+        elevation: 8,
       }}
     >
       {/* Image Container */}
@@ -360,7 +362,7 @@ function CatalogRecipeCard({
 
         {/* Spice Level (Top Left) */}
         {recipe.spiceLevel > 0 && SPICE_IMAGES[recipe.spiceLevel] && (
-          <View className="absolute top-3 left-3 z-10">
+          <View className="absolute top-3 -left-1 z-10">
             <Image
               source={SPICE_IMAGES[recipe.spiceLevel]}
               style={{ width: 64, height: 32 }}
@@ -377,22 +379,23 @@ function CatalogRecipeCard({
           className="absolute top-2.5 right-2.5 z-10 bg-black/30 rounded-full items-center justify-center"
         />
 
-        {/* Progressive Blur Gradient to White */}
-        <LinearGradient
-          colors={["transparent", "rgba(255,255,255,0.4)", "rgba(255,255,255,0.85)", "#FFFFFF"]}
-          locations={[0, 0.4, 0.75, 1]}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: "50%",
-          }}
-        />
+        {/* Netflix-style: blur layer + gradient on top */}
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "50%" }}>
+          <BlurView
+            tint="light"
+            intensity={20}
+            experimentalBlurMethod="dimezisBlurView"
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+          <LinearGradient
+            colors={["transparent", "rgba(255,255,255,0.70)", "#FFFFFF"]}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+        </View>
       </View>
 
       {/* White Content Area */}
-      <View className="px-3 pb-3 bg-white -mt-1">
+      <View className="px-3 pt-2 pb-3 bg-white -mt-1">
         {/* Title */}
         <Text
           className="font-jakarta-bold text-[#3B3328] text-[13px] mb-2 leading-[17px]"

@@ -102,14 +102,14 @@ export class CommunityService {
    * Upload post image to post-images storage bucket
    */
   async uploadPostImage(localUri: string, userId: string): Promise<string> {
-    // Compress image to a reasonable size (max width 1080px) and convert to JPEG
+    // Compress (max width 1080px) and convert to WebP for a much smaller file.
     const manipResult = await ImageManipulator.manipulateAsync(
       localUri,
       [{ resize: { width: 1080 } }],
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      { compress: 0.6, format: ImageManipulator.SaveFormat.WEBP }
     );
 
-    const fileExt = "jpg";
+    const fileExt = "webp";
     const filename = `${userId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${filename}`;
 
@@ -117,7 +117,7 @@ export class CommunityService {
     formData.append("file", {
       uri: manipResult.uri,
       name: filename,
-      type: "image/jpeg",
+      type: "image/webp",
     } as any);
 
     const { error: uploadError } = await supabase.storage

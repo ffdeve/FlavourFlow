@@ -133,14 +133,14 @@ export class ProfileService {
 
   // Upload avatar image
   async uploadAvatar(userId: string, fileUri: string) {
-    // Compress image for avatar (max width 400px)
+    // Compress image for avatar (max width 400px) and convert to WebP.
     const manipResult = await ImageManipulator.manipulateAsync(
       fileUri,
       [{ resize: { width: 400 } }],
-      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      { compress: 0.8, format: ImageManipulator.SaveFormat.WEBP }
     );
 
-    const fileExt = "jpg";
+    const fileExt = "webp";
     const fileName = `${userId}.${fileExt}`;
     // Using root path or 'avatars' folder depending on bucket structure.
     const filePath = `${fileName}`;
@@ -149,7 +149,7 @@ export class ProfileService {
     formData.append("file", {
       uri: manipResult.uri,
       name: fileName,
-      type: "image/jpeg",
+      type: "image/webp",
     } as any);
 
     const { error: uploadError } = await supabase.storage

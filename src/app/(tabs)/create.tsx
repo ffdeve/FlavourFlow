@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   RefreshControl,
 } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -22,7 +23,18 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 export default function CreateTabScreen() {
   const user = useAuthStore((state) => state.user);
   const isFocused = useIsFocused();
-  
+
+  // Guard against rapid multi-taps pushing several create-recipe screens.
+  const navLockRef = useRef(false);
+  useEffect(() => {
+    if (isFocused) navLockRef.current = false;
+  }, [isFocused]);
+  const openCreateRecipe = () => {
+    if (navLockRef.current) return;
+    navLockRef.current = true;
+    router.push("/create-recipe");
+  };
+
   const [recipes, setRecipes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -91,7 +103,7 @@ export default function CreateTabScreen() {
         {/* Create Recipe Banner Card */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => router.push("/create-recipe")}
+          onPress={openCreateRecipe}
           className="bg-[#FBA82E] rounded-[32px] relative overflow-hidden mb-6 mt-2 shadow-sm flex-row min-h-[140px]"
         >
           {/* Left Side: 70% Text */}
@@ -159,7 +171,7 @@ export default function CreateTabScreen() {
         {/* Recipes Grid/List */}
         {isLoading ? (
           <View className="py-20 justify-center items-center">
-            <ActivityIndicator size="large" color="#FBA82E" />
+            <CookingLoader scale={0.8} />
           </View>
         ) : recipes.length > 0 ? (
           <View className="pb-10">

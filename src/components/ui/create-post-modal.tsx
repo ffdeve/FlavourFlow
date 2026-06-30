@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import DraggableFlatList, {
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
@@ -430,7 +431,7 @@ export default function CreatePostModal({
           {/* Recipe List */}
           {loadingRecipes ? (
             <View className="flex-1 justify-center items-center">
-              <ActivityIndicator size="large" color="#FBA82E" />
+              <CookingLoader scale={0.8} />
             </View>
           ) : (
             <FlatList

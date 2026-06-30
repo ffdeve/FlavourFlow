@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Pressable,
 } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import Fuse from "fuse.js";
@@ -158,7 +159,7 @@ export function IngredientSelectorModal({ visible, onClose, onConfirm }: Props) 
         {/* Grid */}
         {loading ? (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color="#FBA82E" />
+            <CookingLoader scale={0.8} />
           </View>
         ) : (
           <FlatList

@@ -23,6 +23,7 @@ import Animated_Reanimated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -35,14 +36,28 @@ import { WebView } from "react-native-webview";
 import YoutubePlayer from "react-native-youtube-iframe";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const HERO_HEIGHT = SCREEN_HEIGHT * 0.42;
+const HERO_HEIGHT = SCREEN_HEIGHT * 0.45;
+// Breathing room above the video so it clears the floating header / notch.
+const VIDEO_TOP_PAD = 100;
+// Autoplay the recipe video when its slide is active. false = user taps play.
+const VIDEO_AUTOPLAY = false;
 
 function CarouselImage({ uri }: { uri: string }) {
   const [imageUri, setImageUri] = useState(uri);
+  const source = imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri };
   return (
-    <View style={{ width: SCREEN_WIDTH, height: HERO_HEIGHT, backgroundColor: "#f3f4f6" }}>
+    <View style={{ width: SCREEN_WIDTH, height: "100%", backgroundColor: "#1e1e1e" }}>
+      {/* Ambient Blurred Background */}
       <Image
-        source={imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri }}
+        source={source}
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+        contentFit="cover"
+        blurRadius={60}
+      />
+      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.3)" }} />
+      {/* Foreground image — cover so it fills the hero fully */}
+      <Image
+        source={source}
         style={{ width: "100%", height: "100%" }}
         contentFit="cover"
         transition={300}
@@ -229,9 +244,52 @@ export default function RecipeDetailScreen() {
     setActiveImageIndex(index);
   };
   const [activeVideo, setActiveVideo] = useState(false);
+  // Controlled play state for the inline YouTube preview.
+  const [videoPlaying, setVideoPlaying] = useState(VIDEO_AUTOPLAY);
+
+  // Keep the video paused unless its slide is active (autoplay gated by flag).
+  useEffect(() => {
+    if (recipe?.videoUrl && activeImageIndex === 0) setVideoPlaying(VIDEO_AUTOPLAY);
+    else setVideoPlaying(false);
+  }, [activeImageIndex, recipe?.videoUrl]);
+
+  // Dynamic Hero Height calculation
+  const animatedHeroHeight = useSharedValue(SCREEN_HEIGHT * 0.45);
+  const heroInitialized = useRef(false);
+
+  useEffect(() => {
+    // If we're on the video slide (slide 0 with a video) or playing video
+    const isVideoSlide = recipe?.videoUrl && activeImageIndex === 0;
+
+    let targetHeight = SCREEN_HEIGHT * 0.45;
+
+    if (activeVideo || isVideoSlide) {
+      // 16:9 + 32px sheet overlap + top padding above the video
+      targetHeight = (SCREEN_WIDTH * 9) / 16 + 32 + VIDEO_TOP_PAD;
+    } else {
+      // Image: 1:1 + 32px overlap
+      targetHeight = SCREEN_WIDTH + 32;
+    }
+
+    if (!heroInitialized.current) {
+      // First layout — set instantly so the hero doesn't "float"/spring open.
+      animatedHeroHeight.value = targetHeight;
+      heroInitialized.current = true;
+    } else {
+      // Switching between image ↔ video slides — animate smoothly (timing, no
+      // spring bounce) so the height change isn't a hard jump.
+      animatedHeroHeight.value = withTiming(targetHeight, { duration: 280 });
+    }
+  }, [activeImageIndex, activeVideo, recipe?.videoUrl]);
+
+  const heroAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: animatedHeroHeight.value,
+    };
+  });
   const handleDeleteRecipe = () => {
     Alert.alert(
-      "Delete Recipe 🍳",
+      "Delete Recipe",
       "Are you sure you want to permanently delete this recipe? This action cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
@@ -371,6 +429,8 @@ export default function RecipeDetailScreen() {
     recipeDietTags.length > 0 &&
     !recipeDietTags.includes(dietType.toLowerCase());
 
+
+
   return (
     <View className="flex-1 bg-[#FAF5EF]">
       <StatusBar barStyle="light-content" />
@@ -470,51 +530,52 @@ export default function RecipeDetailScreen() {
         onContentSizeChange={handleContentSizeChange}
       >
         {/* Hero Area */}
-        <View style={{ width: SCREEN_WIDTH, height: HERO_HEIGHT }}>
-          {recipe.videoUrl &&
-          youtubeVideoId &&
-          recipe.previewVideoStartTime !== undefined &&
-          recipe.previewVideoEndTime !== undefined ? (
-            <View style={{ width: "100%", height: "100%", overflow: "hidden" }}>
-              <YoutubePlayer
-                height={HERO_HEIGHT}
-                play={true}
-                mute={true}
-                videoId={youtubeVideoId}
-                initialPlayerParams={{
-                  controls: false,
-                  loop: true,
-                  start: recipe.previewVideoStartTime,
-                  end: recipe.previewVideoEndTime,
-                  showClosedCaptions: false,
-                }}
-              />
-              <View className="absolute top-16 right-5 bg-black/45 px-3 py-1 rounded-full border border-white/20 z-30">
-                <Text className="text-white text-[9px] font-jakarta-bold uppercase flex-row items-center">
-                  <Feather
-                    name="film"
-                    size={10}
-                    color="#FFFFFF"
-                    style={{ marginRight: 4 }}
-                  />{" "}
-                  Preview Trailer
-                </Text>
-              </View>
-            </View>
-          ) : activeVideo && recipe.videoUrl ? (
+        <Animated_Reanimated.View style={[{ width: SCREEN_WIDTH }, heroAnimatedStyle]}>
+          {activeVideo && recipe.videoUrl ? (
+            /* ── Full Video Player overlay (user tapped the video slide) ── */
             <View style={{ width: "100%", height: "100%", overflow: "hidden" }}>
               {youtubeVideoId ? (
-                <WebView
-                  style={{ width: "100%", height: "100%" }}
-                  javaScriptEnabled
-                  domStorageEnabled
-                  allowsFullscreenVideo
-                  allowsInlineMediaPlayback
-                  mediaPlaybackRequiresUserAction={false}
-                  source={{
-                    uri: `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&playsinline=1&controls=1`,
-                  }}
-                />
+                <View style={{ width: "100%", height: "100%", overflow: "hidden" }}>
+                  {/* Ambient blurred background visible above/below the WebView */}
+                  <Image
+                    source={
+                      recipe.image && recipe.image !== "fallback"
+                        ? { uri: recipe.image }
+                        : require("@/assets/images/LogIn_front_photo.webp")
+                    }
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+                    contentFit="cover"
+                    blurRadius={90}
+                  />
+                  <LinearGradient
+                    colors={[
+                      "rgba(42, 37, 32, 0.82)",
+                      "rgba(42, 37, 32, 0.3)",
+                      "rgba(42, 37, 32, 0.3)",
+                      "rgba(42, 37, 32, 0.82)",
+                    ]}
+                    locations={[0, 0.25, 0.75, 1]}
+                    style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+                  />
+                  <View style={{ position: "absolute", top: VIDEO_TOP_PAD, left: 0, right: 0, height: SCREEN_WIDTH * (9 / 16) }}>
+                    <YoutubePlayer
+                      height={SCREEN_WIDTH * (9 / 16)}
+                      width={SCREEN_WIDTH}
+                      play={activeVideo}
+                      videoId={youtubeVideoId}
+                      initialPlayerParams={{
+                        controls: true,
+                        modestbranding: true,
+                        rel: false,
+                      }}
+                      webViewProps={{
+                        allowsInlineMediaPlayback: true,
+                        mediaPlaybackRequiresUserAction: false,
+                      }}
+                      onError={(e: string) => console.log("YouTube player error:", e)}
+                    />
+                  </View>
+                </View>
               ) : (
                 <Video
                   source={{ uri: recipe.videoUrl }}
@@ -523,107 +584,153 @@ export default function RecipeDetailScreen() {
                   resizeMode={ResizeMode.COVER}
                   shouldPlay
                   onPlaybackStatusUpdate={(status) => {
-                    if (
-                      status.isLoaded &&
-                      !status.isPlaying &&
-                      status.didJustFinish
-                    ) {
+                    if (status.isLoaded && !status.isPlaying && status.didJustFinish) {
                       setActiveVideo(false);
                     }
                   }}
                 />
               )}
-              {/* Floating close button for video */}
+              {/* Floating close button — returns to the swipeable photo carousel */}
               <TouchableOpacity
                 onPress={() => setActiveVideo(false)}
-                className="absolute top-16 right-5 w-8 h-8 bg-black/50 rounded-full items-center justify-center z-30"
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                className="absolute top-14 right-5 w-10 h-10 bg-black/60 rounded-full items-center justify-center z-30"
               >
-                <Feather name="x" size={16} color="#FFFFFF" />
+                <Feather name="x" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-          ) : (
-            <View style={{ width: "100%", height: "100%" }}>
-              {/* Carousel swiping list of pictures */}
-              <FlatList
-                data={
-                  recipe.images && recipe.images.length > 0
-                    ? recipe.images
-                    : [recipe.image]
-                }
-                keyExtractor={(item, index) => `${item}_${index}`}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={handleScroll}
-                scrollEventThrottle={16}
-                style={{ width: "100%", height: "100%" }}
-                renderItem={({ item }) => <CarouselImage uri={item} />}
-              />
+          ) : (() => {
+            /* ── Unified Carousel: [Video Thumbnail] + [Cover Image] + [Other Images] ── */
 
-              {/* Swiper dots indicator for multiple pictures */}
-              {recipe.images && recipe.images.length > 1 && (
-                <View className="absolute bottom-16 left-0 right-0 flex-row justify-center items-center gap-1.5 z-10">
-                  {recipe.images.map((_: any, index: number) => (
-                    <View
-                      key={index}
-                      className={cn(
-                        "h-1.5 rounded-full",
-                        activeImageIndex === index
-                          ? "w-4 bg-primary"
-                          : "w-1.5 bg-white/60",
-                      )}
-                    />
-                  ))}
-                </View>
-              )}
+            // Build carousel slides:
+            // Slide 0 (if video exists): YouTube thumbnail
+            // Slide 1+: cover image + any additional images
+            const imageSlides: string[] =
+              recipe.images && recipe.images.length > 0
+                ? recipe.images
+                : recipe.image ? [recipe.image] : [];
 
-              {recipe.videoUrl && (
-                <TouchableOpacity
-                  onPress={() => setActiveVideo(true)}
-                  className="absolute inset-0 items-center justify-center bg-black/10 z-10"
-                  activeOpacity={0.8}
-                >
-                  <View className="w-16 h-16 rounded-full bg-black/45 items-center justify-center border border-white/20 shadow-md">
-                    <FontAwesome
-                      name="play"
-                      size={22}
-                      color="#FFFFFF"
-                      style={{ marginLeft: 4 }}
-                    />
+            // Prepend a special video marker as slide 0 when a video URL exists
+            const VIDEO_SLIDE_MARKER = "__VIDEO_SLIDE__";
+            const carouselData: string[] = recipe.videoUrl
+              ? [VIDEO_SLIDE_MARKER, ...imageSlides]
+              : imageSlides;
+
+            // YouTube thumbnail URL — try maxresdefault, fallback to hqdefault
+            const ytThumbnail = youtubeVideoId
+              ? `https://img.youtube.com/vi/${youtubeVideoId}/maxresdefault.jpg`
+              : null;
+
+            return (
+              <View style={{ width: "100%", height: "100%" }}>
+                <FlatList
+                  data={carouselData}
+                  keyExtractor={(item, index) => `${item}_${index}`}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                  style={{ width: "100%", height: "100%" }}
+                  renderItem={({ item, index }) => {
+                    if (item === VIDEO_SLIDE_MARKER) {
+                      // ── Video Slide: inline player. Plays while this slide is
+                      //    active; swipe from the padded areas above/below it. ──
+                      return (
+                        <View style={{ width: SCREEN_WIDTH, height: "100%" }}>
+                          {/* Ambient blurred backdrop above/below the 16:9 player */}
+                          <Image
+                            source={
+                              ytThumbnail
+                                ? { uri: ytThumbnail }
+                                : require("@/assets/images/LogIn_front_photo.webp")
+                            }
+                            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+                            contentFit="cover"
+                            blurRadius={60}
+                          />
+                          <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.45)" }} />
+                          {/* Player (16:9) with breathing room at the top */}
+                          <View style={{ position: "absolute", top: VIDEO_TOP_PAD, left: 0, right: 0, height: SCREEN_WIDTH * (9 / 16) }}>
+                            {youtubeVideoId ? (
+                              <YoutubePlayer
+                                height={SCREEN_WIDTH * (9 / 16)}
+                                width={SCREEN_WIDTH}
+                                play={videoPlaying}
+                                videoId={youtubeVideoId}
+                                initialPlayerParams={{ controls: true, modestbranding: true, rel: false }}
+                                webViewProps={{ allowsInlineMediaPlayback: true, mediaPlaybackRequiresUserAction: !VIDEO_AUTOPLAY }}
+                                onChangeState={(state: string) => {
+                                  if (state === "playing") setVideoPlaying(true);
+                                  else if (state === "paused" || state === "ended" || state === "unstarted")
+                                    setVideoPlaying(false);
+                                }}
+                                onError={(e: string) => console.log("YouTube player error:", e)}
+                              />
+                            ) : (
+                              <Video
+                                source={{ uri: recipe.videoUrl! }}
+                                style={{ width: "100%", height: "100%" }}
+                                useNativeControls
+                                resizeMode={ResizeMode.COVER}
+                                shouldPlay={videoPlaying}
+                              />
+                            )}
+                          </View>
+                        </View>
+                      );
+                    }
+                    // ── Image Slide ──
+                    return <CarouselImage uri={item} />;
+                  }}
+                />
+
+                {/* Dot indicator — counts all slides including the video slide */}
+                {carouselData.length > 1 && (
+                  <View className="absolute bottom-16 left-0 right-0 flex-row justify-center items-center gap-1.5 z-10">
+                    {carouselData.map((_, index) => (
+                      <View
+                        key={index}
+                        style={{
+                          height: 6,
+                          width: activeImageIndex === index ? 16 : 6,
+                          borderRadius: 3,
+                          backgroundColor:
+                            index === 0 && recipe.videoUrl
+                              ? activeImageIndex === 0 ? "#FF0000" : "rgba(255,255,255,0.5)"
+                              : activeImageIndex === index ? "#FBA82E" : "rgba(255,255,255,0.5)",
+                        }}
+                      />
+                    ))}
                   </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+                )}
 
-          {/* Time Overlay - Right Side Bottom */}
-          <View className="absolute bottom-6 right-5 bg-black/40 rounded-full py-1.5 px-3.5 flex-row items-center border border-white/20">
-            <Feather
-              name="clock"
-              size={14}
-              color="#FFFFFF"
-              style={{ marginRight: 6 }}
-            />
-            <Text className="font-jakarta-semibold text-white text-xs">
-              {recipe.time}
-            </Text>
-          </View>
-
-          {/* Spice Overlay - Left Side Bottom */}
-          {recipe.spiceLevel > 0 && (
-            <View className="absolute bottom-6 left-5 bg-black/40 rounded-full p-1.5 flex-row items-center border border-white/20">
-              <Image
-                source={SPICE_IMAGES[Math.min(recipe.spiceLevel, 5)]}
-                style={{ width: 20, height: 20 }}
-                contentFit="contain"
-              />
-            </View>
-          )}
-        </View>
+                {/* Spice & Time — only show on non-video slides */}
+                {activeImageIndex !== 0 || !recipe.videoUrl ? (
+                  <>
+                    <View className="absolute bottom-10 right-5 bg-black/40 rounded-full py-1.5 px-3.5 flex-row items-center border border-white/20">
+                      <Feather name="clock" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text className="font-jakarta-semibold text-white text-xs">{recipe.time}</Text>
+                    </View>
+                    {recipe.spiceLevel > 0 && (
+                      <View className="absolute bottom-10 left-5 bg-black/40 rounded-full p-1.5 flex-row items-center border border-white/20">
+                        <Image
+                          source={SPICE_IMAGES[Math.min(recipe.spiceLevel, 5)]}
+                          style={{ width: 20, height: 20 }}
+                          contentFit="contain"
+                        />
+                      </View>
+                    )}
+                  </>
+                ) : null}
+              </View>
+            );
+          })()}
+        </Animated_Reanimated.View>
 
         {/* White Content Sheet */}
         <View
-          className="bg-[#FAF5EF] -mt-4 rounded-t-[32px] px-6 pt-10 pb-32"
+          className="bg-[#FAF5EF] -mt-8 rounded-t-[32px] px-6 pt-6 pb-32"
           style={{ minHeight: SCREEN_HEIGHT * 0.6 }}
         >
           {/* Warning Banner */}

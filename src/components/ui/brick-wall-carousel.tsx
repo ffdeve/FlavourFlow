@@ -74,6 +74,7 @@ const MarqueeRow = ({
                 label={label}
                 emoji={emoji}
                 isFlag={isFlag}
+                countryCode={countryCode}
                 isSelected={isSelected}
                 onPress={() =>
                   toggleSelection(value, selectedItems, setSelectedItems)

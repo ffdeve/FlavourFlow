@@ -20,6 +20,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 // Components
 import { AnimatedSearchBar } from "@/components/ui/animated-search-bar";
@@ -131,6 +132,9 @@ export default function HomeScreen() {
   const { profile, user } = useAuth();
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
+  const scrollRef = React.useRef<any>(null);
+  const isRefreshingRef = React.useRef(false);
+  const pullStartY = useSharedValue(0);
 
   // Derived layout (depends on insets)
   const SPACER_HEIGHT = insets.top + HEADER_CONTENT;
@@ -146,6 +150,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(false);
   const [sectionsLoading, setSectionsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
   // Infinite Feed State
@@ -313,6 +318,81 @@ export default function HomeScreen() {
     loadMoreFeed();
   }, []);
 
+  // ─── Pull-to-refresh (frypan loader at top of main body, community-style) ──
+  const onRefresh = React.useCallback(async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
+    setRefreshing(true);
+    try {
+      // Min 1.2s so the frypan animation is actually seen, like community.
+      const minWait = new Promise((resolve) => setTimeout(resolve, 1200));
+
+      const tasks: Promise<any>[] = [
+        recipeService.getFeaturedRecipes(5).then(setFeaturedRecipes).catch(() => {}),
+      ];
+      if (user?.id) {
+        tasks.push(
+          recommendationService
+            .getNetflixStyleRecommendations(user.id)
+            .then(setRecSections)
+            .catch(() => {}),
+        );
+      }
+
+      // Reset + reload the infinite feed from page 1
+      feedPageRef.current = 1;
+      hasMoreFeedRef.current = true;
+      isFeedLoadingRef.current = false;
+      setHasMoreFeed(true);
+      const freshFeed = recipeService
+        .getFeedRecipes(1, 6, user?.id)
+        .then((recipes) => {
+          setFeedRecipes(recipes);
+          feedPageRef.current = 2;
+          setFeedPage(2);
+          if (recipes.length < 6) {
+            hasMoreFeedRef.current = false;
+            setHasMoreFeed(false);
+          }
+        })
+        .catch(() => {});
+      tasks.push(freshFeed);
+
+      await Promise.all([...tasks, minWait]);
+    } finally {
+      setRefreshing(false);
+      isRefreshingRef.current = false;
+    }
+  }, [user?.id]);
+
+  // Custom pull-to-refresh: a non-blocking Pan that runs simultaneously with the
+  // scroll. Because the scroll has bounces=false, a downward pull AT THE TOP
+  // doesn't move the sheet (content is clamped) — so the modal stays fixed and
+  // we just trigger the refresh + frypan overlay. Mid-content drags scroll as
+  // normal and never trigger (guarded on scrollY ≈ 0).
+  const pullGesture = React.useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY(15)
+        .simultaneousWithExternalGesture(scrollRef)
+        .onStart(() => {
+          pullStartY.value = scrollY.value;
+        })
+        .onEnd((e) => {
+          // Only a pull that BOTH started and ended at the very top counts as a
+          // refresh (so scrolling up to the top from mid-content doesn't fire it).
+          if (
+            pullStartY.value <= 2 &&
+            scrollY.value <= 2 &&
+            e.translationY > 80 &&
+            e.velocityY > 0
+          ) {
+            runOnJS(onRefresh)();
+          }
+        }),
+    [onRefresh],
+  );
+
   // ─── Scroll Handler ─────────────────────────────────────────────────────
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -345,137 +425,197 @@ export default function HomeScreen() {
     return { backgroundColor: withTiming(c, { duration: 300 }) };
   });
 
-  // Header bar border color (for corner masks)
-  const headerBarBorderColorStyle = useAnimatedStyle(() => {
-    const c =
-      CAROUSEL_COLORS[activePromoIndex % CAROUSEL_COLORS.length] || "#FBA82E";
-    return { borderColor: withTiming(c, { duration: 300 }) };
-  });
-
-  // Header bar height — stays full during Phase 1, compresses during Phase 2
-  const headerBarHeightStyle = useAnimatedStyle(() => {
-    const contentHeight = interpolate(
-      scrollY.value,
-      [0, PHASE1_END, PHASE2_END],
-      [HEADER_BAR_MAX, HEADER_BAR_MAX, HEADER_BAR_MIN],
-      Extrapolation.CLAMP,
-    );
-    return { height: insets.top + contentHeight };
-  });
-
-  // Welcome row — fades out and collapses during Phase 2
-  const welcomeAnimStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [PHASE1_END, PHASE2_END - 8],
-      [1, 0],
-      Extrapolation.CLAMP,
-    );
-    const height = interpolate(
-      scrollY.value,
-      [PHASE1_END, PHASE2_END],
-      [WELCOME_SECTION, 0],
-      Extrapolation.CLAMP,
-    );
+  // Welcome/location row — collapses as content scrolls inside the modal
+  const welcomeCollapseStyle = useAnimatedStyle(() => {
     return {
-      opacity,
-      height,
+      opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolation.CLAMP),
+      height: interpolate(
+        scrollY.value,
+        [0, 70],
+        [WELCOME_SECTION, 0],
+        Extrapolation.CLAMP,
+      ),
       overflow: "hidden" as const,
     };
   });
 
-  // Sticky Bottom Sheet Rounded Corners Mask Style
-  const maskStyle = useAnimatedStyle(() => {
-    const contentHeight = interpolate(
-      scrollY.value,
-      [0, PHASE1_END, PHASE2_END],
-      [HEADER_BAR_MAX, HEADER_BAR_MAX, HEADER_BAR_MIN],
-      Extrapolation.CLAMP,
-    );
-    const opacity = interpolate(
-      scrollY.value,
-      [PHASE1_END, PHASE2_END],
-      [0, 1],
-      Extrapolation.CLAMP,
-    );
+  // Promo carousel — collapses as content scrolls inside the modal
+  const carouselCollapseStyle = useAnimatedStyle(() => {
     return {
-      top: insets.top + contentHeight,
-      opacity,
+      opacity: interpolate(
+        scrollY.value,
+        [0, CAROUSEL_SECTION * 0.7],
+        [1, 0],
+        Extrapolation.CLAMP,
+      ),
+      height: interpolate(
+        scrollY.value,
+        [0, CAROUSEL_SECTION],
+        [CAROUSEL_SECTION, 0],
+        Extrapolation.CLAMP,
+      ),
+      overflow: "hidden" as const,
     };
   });
+
+  // First load → show a single frypan at the top of the modal (foodpanda-style),
+  // instead of the shimmer skeletons, until the main content arrives.
+  const initialLoading =
+    !refreshing &&
+    recommendedRecipes.length === 0 &&
+    feedRecipes.length === 0 &&
+    (sectionsLoading || recLoading || loading);
 
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
     <Animated.View style={[outerBgStyle, { flex: 1 }]}>
       <StatusBar barStyle="light-content" />
 
-      {/* ═══ LAYER 0 (Z:0) — BACKGROUND CAROUSEL ═══
-          Fixed in place, does NOT scroll. The white sheet (Layer 1)
-          slides over it, occluding it from the bottom up. */}
-      <View
-        style={{
-          position: "absolute",
-          top: CAROUSEL_TOP,
-          left: 0,
-          right: 0,
-          zIndex: 0,
-        }}
-      >
-        <View style={{ marginTop: 4, paddingBottom: 4 }}>
-          {loading ? (
+      {/* ═══ FIXED HEADER BAND ═══
+          Welcome/location row + search + promo carousel. The row and carousel
+          COLLAPSE as content scrolls inside the modal; the search bar stays. */}
+      <Animated.View style={[headerBarBgStyle, { paddingTop: insets.top }]}>
+        {/* Welcome row — collapses on scroll */}
+        <Animated.View style={welcomeCollapseStyle}>
+          <View style={{ paddingHorizontal: 24, paddingBottom: 8 }}>
             <View
               style={{
-                height: 110,
-                justifyContent: "center",
+                flexDirection: "row",
+                justifyContent: "space-between",
                 alignItems: "center",
               }}
             >
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <View>
+                <Text className="font-inter-regular text-white/80 text-sm">
+                  Welcome Back!
+                </Text>
+                <Text className="font-jakarta-bold text-white text-xl">
+                  {profile?.full_name?.split(" ")[0] || "User"}
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <TouchableOpacity
+                  className="items-center justify-center"
+                  onPress={() => router.push("/category-details?type=liked")}
+                >
+                  <Image
+                    source={require("@/assets/icons/heart_filled.webp")}
+                    style={{ width: 48, height: 48 }}
+                    contentFit="contain"
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="items-center justify-center"
+                  onPress={() => router.push("/ai-chat")}
+                >
+                  <Image
+                    source={require("@/assets/icons/fridge.webp")}
+                    style={{ width: 44, height: 42 }}
+                    contentFit="contain"
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-          ) : (
-            <PromotionCarousel
-              recipes={featuredRecipes}
-              onIndexChange={setActivePromoIndex}
-            />
-          )}
+          </View>
+        </Animated.View>
+
+        {/* Search bar — always visible (docks to top as the rest collapses) */}
+        <View style={{ paddingVertical: 4 }}>
+          <AnimatedSearchBar onPress={() => router.push("/search")} />
         </View>
-      </View>
 
-      {/* ═══ LAYER 1 (Z:1) — SCROLLABLE FOREGROUND ═══
-          Contains a transparent spacer (reveals carousel behind)
-          followed by the white bottom sheet. The sheet slides OVER
-          the carousel as the user scrolls up. */}
-      <AnimatedScrollView
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        snapToOffsets={[0, SPACER_HEIGHT]}
-        snapToAlignment="start"
-        snapToEnd={false}
-        decelerationRate="fast"
-        style={{ flex: 1, zIndex: 1 }}
+        {/* Promo carousel — collapses on scroll */}
+        <Animated.View style={carouselCollapseStyle}>
+          <View style={{ marginTop: 4, paddingBottom: 4 }}>
+            {loading ? (
+              <View
+                style={{
+                  height: 110,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              </View>
+            ) : (
+              <PromotionCarousel
+                recipes={featuredRecipes}
+                onIndexChange={setActivePromoIndex}
+              />
+            )}
+          </View>
+        </Animated.View>
+      </Animated.View>
+
+      {/* ═══ FIXED MODAL (main body) ═══
+          The sheet itself stays put; content scrolls INSIDE it. The frypan
+          loader is pinned at the modal's top (full cover on first load, a
+          small bar on pull-to-refresh). */}
+      <View
+        style={{
+          flex: 1,
+          marginTop: 16, // breathing room between the search header and the sheet
+          backgroundColor: "#FFFDF5",
+          borderTopLeftRadius: 32,
+          borderTopRightRadius: 32,
+          overflow: "hidden",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          elevation: 4,
+        }}
       >
-        {/* Transparent spacer — matches total header height.
-            pointerEvents="box-none" allows taps to pass through
-            to the carousel behind while still enabling scroll gestures. */}
-        <View style={{ height: SPACER_HEIGHT }} pointerEvents="box-none" />
+        {/* First-load: single frypan covering the modal until content arrives */}
+        {initialLoading && (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "100%",
+              backgroundColor: "#FFFDF5",
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              alignItems: "center",
+              justifyContent: "flex-start",
+              paddingTop: 56,
+              overflow: "hidden",
+              zIndex: 5,
+            }}
+            pointerEvents="none"
+          >
+            <CookingLoader scale={0.7} isAnimating />
+          </View>
+        )}
 
-        {/* White Bottom Sheet */}
-        <View
-          style={{
-            backgroundColor: "#FFFDF5",
-            borderTopLeftRadius: 32,
-            borderTopRightRadius: 32,
-            paddingBottom: 10,
-            minHeight: 700,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: -3 },
-            shadowOpacity: 0.06,
-            shadowRadius: 8,
-            elevation: 4,
-          }}
-        >
+        <GestureDetector gesture={pullGesture}>
+          <AnimatedScrollView
+            ref={scrollRef}
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: 24 }}
+          >
+
+          {/* Pull-to-refresh loader — sits ABOVE "Meals to Cook Today", inside the modal */}
+          {refreshing && (
+            <View
+              style={{
+                height: 84,
+                alignItems: "center",
+                justifyContent: "flex-end",
+                overflow: "hidden",
+                paddingBottom: 4,
+              }}
+            >
+              <CookingLoader scale={0.5} isAnimating />
+            </View>
+          )}
+
           {/* ── Core AI Section (Meals to Cook Today) ── */}
           <View>
             <View className="px-6 pt-6 flex-row justify-between items-end mb-4">
@@ -555,7 +695,6 @@ export default function HomeScreen() {
               <View key={`sec-skeleton-${sIdx}`} className="mt-6">
                 <View className="px-6 mb-4">
                   <View className="w-40 h-5 bg-gray-200 rounded animate-pulse opacity-70" />
-                  <View className="w-56 h-3 bg-gray-100 rounded mt-2 animate-pulse opacity-50" />
                 </View>
                 <ScrollView
                   horizontal
@@ -580,11 +719,6 @@ export default function HomeScreen() {
                     <Text className="font-inter-semibold text-primary-dark text-xl">
                       {section.title}
                     </Text>
-                    {section.subtitle && (
-                      <Text className="font-inter-regular text-text-secondary/60 text-xs mt-1">
-                        {section.subtitle}
-                      </Text>
-                    )}
                   </View>
                   <ScrollView
                     horizontal
@@ -641,88 +775,9 @@ export default function HomeScreen() {
           )}
           
           <View className="pb-24" />
-        </View>
-      </AnimatedScrollView>
-
-      {/* ═══ LAYER 2 (Z:2) — STICKY HEADER BAR ═══
-          Highest z-index. Contains the welcome row (fades + collapses
-          during Phase 2) and the search bar (docks to top).
-          pointerEvents="box-none" lets touches pass through empty
-          areas to the scroll view below for scrolling. */}
-      <Animated.View
-        style={[
-          headerBarBgStyle,
-          headerBarHeightStyle,
-          {
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 2,
-            overflow: "hidden",
-          },
-        ]}
-        pointerEvents="box-none"
-      >
-        <View style={{ flex: 1, paddingTop: insets.top }}>
-          {/* Welcome Row — fades out and collapses during Phase 2 */}
-          <Animated.View style={welcomeAnimStyle}>
-            <View style={{ paddingHorizontal: 24, paddingBottom: 8 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <View>
-                  <Text className="font-inter-regular text-white/80 text-sm">
-                    Welcome Back!
-                  </Text>
-                  <Text className="font-jakarta-bold text-white text-xl">
-                    {profile?.full_name?.split(" ")[0] || "User"}
-                  </Text>
-                </View>
-
-                {/* Right Icons */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <TouchableOpacity
-                    className="items-center justify-center"
-                    onPress={() => router.push("/category-details?type=liked")}
-                  >
-                    <Image
-                      source={require("@/assets/icons/heart_filled.webp")}
-                      style={{ width: 48, height: 48 }}
-                      contentFit="contain"
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="items-center justify-center"
-                    onPress={() => router.push("/ai-chat")}
-                  >
-                    <Image
-                      source={require("@/assets/icons/fridge.webp")}
-                      style={{ width: 44, height: 42 }}
-                      contentFit="contain"
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Animated.View>
-
-          {/* Search Bar — always visible, docks to top as welcome collapses */}
-          <View style={{ paddingVertical: 4 }}>
-            <AnimatedSearchBar onPress={() => router.push("/search")} />
-          </View>
-        </View>
-      </Animated.View>
+          </AnimatedScrollView>
+        </GestureDetector>
+      </View>
     </Animated.View>
   );
 }

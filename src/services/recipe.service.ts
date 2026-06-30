@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/services/supabase";
 import * as Crypto from "expo-crypto";
+import { File } from "expo-file-system";
 
 export const APP_SESSION_ID = Crypto.randomUUID();
 
@@ -610,23 +611,30 @@ export const recipeService = {
    * Upload recipe cover image to storage
    */
   async uploadRecipeImage(localUri: string, userId: string) {
-    const response = await fetch(localUri);
-    const blob = await response.blob();
-    const filename = `${userId}/${Date.now()}.jpg`;
-    
+    // The caller passes an already-compressed WebP URI. Read the actual file
+    // bytes and upload the Uint8Array — `fetch(uri).blob()` and FormData both
+    // yield 0-byte uploads for file:// URIs in React Native, so images never
+    // previewed. `File#bytes()` (expo-file-system v19) returns the real bytes.
+    const filename = `${userId}/${Date.now()}.webp`;
+
+    const bytes = await new File(localUri).bytes();
+    if (!bytes || bytes.length === 0) {
+      throw new Error("Image file is empty — failed to read local image bytes.");
+    }
+
     const { error } = await supabase.storage
       .from("recipe-images")
-      .upload(filename, blob, {
-        contentType: "image/jpeg",
+      .upload(filename, bytes, {
+        contentType: "image/webp",
         upsert: true,
       });
-      
+
     if (error) throw error;
-    
+
     const { data: { publicUrl } } = supabase.storage
       .from("recipe-images")
       .getPublicUrl(filename);
-      
+
     return publicUrl;
   },
 

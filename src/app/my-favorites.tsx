@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -72,7 +73,7 @@ export default function MyFavoritesScreen() {
       {/* Content */}
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FBA82E" />
+          <CookingLoader scale={0.8} />
           <Text className="mt-4 font-inter-medium text-[#8B7D6F]">Loading your favorites...</Text>
         </View>
       ) : favorites.length === 0 ? (

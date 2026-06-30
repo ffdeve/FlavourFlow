@@ -21,8 +21,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring,
-  withTiming,
+  withSpring
 } from "react-native-reanimated";
 
 interface PostCardProps {

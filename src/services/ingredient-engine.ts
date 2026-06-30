@@ -22,16 +22,26 @@ let cache: Ingredient[] | null = null;
 let fuse: Fuse<Ingredient> | null = null;
 let loadingPromise: Promise<void> | null = null;
 
+// Fast exact-name lookup (case-insensitive) so typed ingredient names always win.
+let exactByName: Map<string, Ingredient> | null = null;
+
 async function ensureLoaded(): Promise<void> {
   if (cache && fuse) return;
   if (!loadingPromise) {
     loadingPromise = recipeService.getIngredients().then((rows) => {
       cache = rows as Ingredient[];
+      exactByName = new Map();
+      for (const ing of cache) {
+        if (ing.name) exactByName.set(ing.name.toLowerCase(), ing);
+        if ((ing as any).name_urdu) exactByName.set(String((ing as any).name_urdu).toLowerCase(), ing);
+      }
       fuse = new Fuse(cache, {
+        // Tight threshold → only near-exact (~90%+) matches are even considered.
         keys: ["name", "name_urdu"],
-        threshold: 0.3,
+        threshold: 0.2,
         includeScore: true,
         ignoreLocation: true,
+        minMatchCharLength: 3,
       });
     });
   }
@@ -56,7 +66,8 @@ export async function detectIngredients(text: string): Promise<DetectedIngredien
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 1 && !FILLER.has(w));
+    // Require ≥3 chars so stray 1–2 letter tokens can't fuzzy-match.
+    .filter((w) => w.length >= 3 && !FILLER.has(w));
 
   const found = new Map<string, DetectedIngredient>();
   let i = 0;
@@ -64,9 +75,20 @@ export async function detectIngredients(text: string): Promise<DetectedIngredien
     let matched = false;
     for (let win = Math.min(3, words.length - i); win >= 1; win--) {
       const span = words.slice(i, i + win).join(" ");
+
+      // 1) Exact name match → accept instantly (handles all clean typed names).
+      const exact = exactByName?.get(span);
+      if (exact) {
+        found.set(exact.name, { name: exact.name, icon_url: exact.icon_url ?? null });
+        i += win;
+        matched = true;
+        break;
+      }
+
+      // 2) Fuzzy fallback — only HIGH-confidence matches (~90%+). Multi-word
+      //    spans get a touch more slack; single words must be very close.
       const res = fuse.search(span);
-      // Accept only confident matches; stricter for shorter spans to avoid noise.
-      const limit = win >= 2 ? 0.25 : 0.18;
+      const limit = win >= 2 ? 0.12 : 0.08;
       if (res.length > 0 && (res[0].score ?? 1) <= limit) {
         const ing = res[0].item;
         found.set(ing.name, { name: ing.name, icon_url: ing.icon_url ?? null });

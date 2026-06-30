@@ -1,5 +1,6 @@
 
 import { ScrollView, Text, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
 
 export default function CommunityScreen() {
   return (
@@ -11,7 +12,7 @@ export default function CommunityScreen() {
           className="bg-white rounded-lg p-6 items-center justify-center border border-gray-200"
           style={{ height: 300 }}
         >
-          <Text className="text-6xl mb-4">👥</Text>
+          <Feather name="users" size={48} color="#FBA82E" style={{ marginBottom: 16 }} />
           <Text className="text-text-secondary text-center">
             Community feed and posts coming soon
           </Text>

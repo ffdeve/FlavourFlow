@@ -8,6 +8,7 @@ import {
   View,
   DeviceEventEmitter,
 } from "react-native";
+import { CookingLoader } from "@/components/ui/cooking-loader";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -193,7 +194,7 @@ export default function UserProfileScreen() {
   if (loading) {
     return (
       <View className="flex-1 bg-[#FFFDF5] items-center justify-center">
-        <ActivityIndicator size="large" color="#FBA82E" />
+        <CookingLoader scale={0.8} />
       </View>
     );
   }

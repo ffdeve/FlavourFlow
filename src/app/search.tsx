@@ -16,6 +16,7 @@ import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { recipeService, Recipe } from "@/services/recipe.service";
 import { cn } from "@/utils";
 import * as Haptics from "expo-haptics";
@@ -484,18 +485,19 @@ function SearchRecipeCard({
           </Text>
         </View>
 
-        {/* Progressive Blur Gradient to White */}
-        <LinearGradient
-          colors={["transparent", "rgba(255,255,255,0.4)", "rgba(255,255,255,0.85)", "#FFFFFF"]}
-          locations={[0, 0.4, 0.75, 1]}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: "50%",
-          }}
-        />
+        {/* Netflix-style: blur layer + gradient on top */}
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "50%" }}>
+          <BlurView
+            tint="light"
+            intensity={20}
+            experimentalBlurMethod="dimezisBlurView"
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+          <LinearGradient
+            colors={["transparent", "rgba(255,255,255,0.70)", "#FFFFFF"]}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+        </View>
       </View>
 
       {/* White Content Area */}
