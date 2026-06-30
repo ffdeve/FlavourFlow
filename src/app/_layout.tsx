@@ -1,3 +1,4 @@
+import { OfflineBanner } from "@/components/ui/offline-banner";
 import { useAuthStore } from "@/store/auth.store";
 import {
   Inter_400Regular,
@@ -199,6 +200,7 @@ export default function RootLayout() {
             }}
           />
         </Stack>
+        <OfflineBanner />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
