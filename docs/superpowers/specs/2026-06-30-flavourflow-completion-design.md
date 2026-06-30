@@ -53,8 +53,9 @@ Fonts: `font-jakarta-bold` (titles), `font-jakarta-semibold` (card titles/button
 - Delete one-off scripts and artifacts from repo root: `fix_*.py`, `move_fridge.py`, `restore_index.py`, `refine_*.py`, `update_*.py`, `test-db.js`, `test-db-cols.js`, `test_api.js`, `fetch-schema.js`, `temp_migration.sql`, `html_snippet.txt`, `recent_chat`, and any `*.rej` / `*.swp` (`src/app/(tabs)/index.tsx.rej`, `.index.tsx.swp`, `.chefboo-preferences.tsx.swp`).
 - Confirm each deletion is safe (not imported, not a referenced asset) before removing.
 - Verify `.env` holds only env-referenced keys and nothing secret is hardcoded in `src/`. `.gitignore` already covers `.env` and `*.orig`.
+- **DB refinement (live audit):** the captured `remote_schema.sql` migration is empty (0 bytes), so the real schema lives only in the linked project (`gcuunqmbapmoelvczanv`). Run `supabase db dump --schema public` (CLI is installed + linked; may prompt for DB password once) to enumerate the live schema. Compare against the **18 tables the app actually references** (`recipes, profiles, follows, posts, post_likes, comments, favorites, user_preferences, recipe_interactions, recipe_recommendations, recipe_translations, ai_generated_recipes, notifications, kitchen_essentials, ingredients, cuisine_items, search_history, chefboo_events`). Anything not in that list — plus any **dangling bookmark/save-related table or column** (community posts have no save feature) and the removed Urdu columns — is a drop candidate. **Present the drop list to the user and get approval before any destructive migration.**
 
-**Done when:** repo root contains only real project files; `git status` clean after commit; app still builds.
+**Done when:** repo root contains only real project files; `git status` clean after commit; app still builds; live-schema drop list presented and approved (destructive DB changes applied only after sign-off).
 
 ---
 
@@ -87,7 +88,7 @@ Current state: only `createFollowNotification` + `subscribeToNotifications` exis
 Add **creator methods** (each no-ops when `recipientId === senderId`):
 - `createLikeNotification(recipientId, senderId, senderName, recipeId, recipeTitle)`
 - `createCommentNotification(recipientId, senderId, senderName, postId, snippet)`
-- `createBookmarkNotification(recipientId, senderId, senderName, recipeId, recipeTitle)`
+- `createBookmarkNotification(recipientId, senderId, senderName, recipeId, recipeTitle)` — **recipes only** (fired from the existing `favorites` heart). Community posts have no save feature (out of scope, per user).
 - `createShareNotification(recipientId, senderId, senderName, targetId)`
 
 Each writes `{ recipient_id, sender_id, type, title, message, data }` with `data` holding the deep-link target (`recipeId`/`postId`/`profileId`). Consolidate the duplicate follow insert in `profile.service.ts` to call `createFollowNotification`.
@@ -101,7 +102,7 @@ Add **read-side methods**:
 **Wire creators into real action sites:**
 - `recipe.service.ts` `toggleLikeRecipe` → on like, fire `createLikeNotification` to recipe owner.
 - `community.service.ts` `addComment` → fire `createCommentNotification` to post owner.
-- Bookmark action site → fire `createBookmarkNotification`.
+- Recipe favorite (`recipe.service.ts` `toggleFavoriteRecipe` / `favorites` table) → fire `createBookmarkNotification` to recipe owner.
 - Share action site → fire `createShareNotification`.
 - Type-to-icon/haptic mapping per `plan.md`: LIKE = `selectionAsync` (subtle), COMMENT = `impactAsync(Medium)`, FOLLOW = `impactAsync(Light)`, timer/system = `notificationAsync(Success/Warning)`.
 
@@ -137,6 +138,7 @@ New screen (or section) with persisted toggles (AsyncStorage + `user_preferences
 **Goal:** Replace the hardcoded `recipe.rating || "4.5"` with real, stored, per-user reviews shown on the recipe and on recipe cards (explicit `plan.md` requirement).
 
 **Scope:**
+- **Creator name → profile tap:** the author row in `recipe-detail.tsx` (line ~837, `By {recipe.authorName}` + avatar) is currently static. Wrap it in a `TouchableOpacity` that navigates to `user-profile` with `recipe.created_by` (the author's user id). No-op / non-interactive when the author is the current user (or route to own profile). Verified existing route param name during implementation.
 - Migration: `recipe_reviews` table — `id, recipe_id (fk), user_id (fk), rating int (1–5, check), comment text, created_at, updated_at`. **Unique `(recipe_id, user_id)`** = one review per user per recipe (upsert to edit). RLS: anyone authenticated can read; users insert/update/delete only their own.
 - Aggregate: a view or query returning `avg_rating` + `review_count` per recipe (e.g. `recipe_rating_summary` view).
 - `src/services/review.service.ts` — `getReviews(recipeId)`, `getUserReview(recipeId, userId)`, `submitReview(recipeId, userId, rating, comment)` (upsert), `deleteReview(id)`, `getRatingSummary(recipeId)`.
