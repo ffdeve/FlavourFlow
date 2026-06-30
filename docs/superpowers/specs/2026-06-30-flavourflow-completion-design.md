@@ -139,11 +139,12 @@ New screen (or section) with persisted toggles (AsyncStorage + `user_preferences
 
 **Scope:**
 - **Creator name → profile tap:** the author row in `recipe-detail.tsx` (line ~837, `By {recipe.authorName}` + avatar) is currently static. Wrap it in a `TouchableOpacity` that navigates to `user-profile` with `recipe.created_by` (the author's user id). No-op / non-interactive when the author is the current user (or route to own profile). Verified existing route param name during implementation.
-- Migration: `recipe_reviews` table — `id, recipe_id (fk), user_id (fk), rating int (1–5, check), comment text, created_at, updated_at`. **Unique `(recipe_id, user_id)`** = one review per user per recipe (upsert to edit). RLS: anyone authenticated can read; users insert/update/delete only their own.
-- Aggregate: a view or query returning `avg_rating` + `review_count` per recipe (e.g. `recipe_rating_summary` view).
-- `src/services/review.service.ts` — `getReviews(recipeId)`, `getUserReview(recipeId, userId)`, `submitReview(recipeId, userId, rating, comment)` (upsert), `deleteReview(id)`, `getRatingSummary(recipeId)`.
+- **Repurpose the existing `reviews` table** (Phase 0 audit found it: empty, unused, columns `id, recipe_id, user_id, rating, created_at`). Migration ALTERs it rather than creating a new table: add `comment text`, add `updated_at timestamptz default now()`, add `UNIQUE (recipe_id, user_id)` (one review per user per recipe → upsert to edit), add a `rating` CHECK (1–5), and add RLS (any authenticated user reads; users insert/update/delete only their own row). RLS may be absent today — add the policies.
+- **Aggregate into the existing `recipes.average_rating` column** (Phase 0 audit confirmed it exists). Maintain it from `reviews` via a trigger (recompute avg on review insert/update/delete) or recompute app-side; also surface `review_count`. Optionally a `recipe_rating_summary` view for `avg_rating + review_count` per recipe.
+- **Fix the rating bug:** `recipe-detail.tsx` currently reads `recipe.rating` — a column that does **not exist** (real column is `average_rating`) — which is why it always falls back to the hardcoded `"4.5"`. Switch to `average_rating` and show the live value (or a "New" state when `review_count === 0`).
+- `src/services/review.service.ts` (queries the `reviews` table) — `getReviews(recipeId)`, `getUserReview(recipeId, userId)`, `submitReview(recipeId, userId, rating, comment)` (upsert), `deleteReview(id)`, `getRatingSummary(recipeId)`.
 - `recipe-detail.tsx`: real rating in the title row (avg + count), a **reviews section** (list with avatar/name/stars/text/date), and a **write/edit review** control (star picker + text input) for the signed-in user.
-- Recipe cards (`section-recipe-card`, `full-width-recipe-card`, `popular-recipe-card`, `frosted-recipe-card`, `recommendation-card`): show real `avg_rating`/`review_count`; graceful "New" state when no reviews (no fake number).
+- Recipe cards (`section-recipe-card`, `full-width-recipe-card`, `popular-recipe-card`, `frosted-recipe-card`, `recommendation-card`): show real `average_rating`/`review_count`; graceful "New" state when no reviews (no fake number).
 - Submitting a review fires a `createCommentNotification`-style "reviewed your recipe" notification to the recipe owner.
 - Validate input (rating 1–5 required, comment length bounded).
 
