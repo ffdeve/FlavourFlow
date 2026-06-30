@@ -1,5 +1,6 @@
 import { authService } from "@/services/auth.service";
 import { profileService } from "@/services/profile.service";
+import { registerPushToken } from "@/services/notifications";
 import type { Profile, UserPreferences } from "@/types";
 import type { Session, User } from "@supabase/supabase-js";
 import { create } from "zustand";
@@ -98,6 +99,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isLoading: false,
           isInitialized: true,
         });
+
+        // Fire-and-forget: register this device for background push.
+        registerPushToken(session.user.id);
       } else {
         set({
           session: null,

@@ -1,5 +1,8 @@
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState, Platform } from "react-native";
+import { supabase } from "@/services/supabase";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cooking-timer notifications.
@@ -16,6 +19,35 @@ import { AppState, Platform } from "react-native";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TIMER_CHANNEL_ID = "cooking-timers";
+
+/**
+ * Register this device's Expo push token and store it on the user's profile so
+ * the `send-push` edge function can deliver background pushes. No-op when the
+ * user disabled push in settings, permission is denied, or running in Expo Go.
+ * Fire-and-forget — safe to call on every app start.
+ */
+export async function registerPushToken(userId: string): Promise<void> {
+  try {
+    const enabled = await AsyncStorage.getItem("pushNotificationsEnabled");
+    if (enabled === "false") return; // user opted out
+
+    const granted = await ensureNotificationSetup();
+    if (!granted) return;
+
+    const projectId =
+      (Constants.expoConfig as any)?.extra?.eas?.projectId ??
+      (Constants as any)?.easConfig?.projectId;
+
+    const { data: token } = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    if (!token) return;
+
+    await supabase.from("profiles").update({ push_token: token }).eq("id", userId);
+  } catch (e) {
+    console.warn("registerPushToken failed:", e);
+  }
+}
 
 let configured = false;
 
