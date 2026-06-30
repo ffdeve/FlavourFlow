@@ -43,7 +43,9 @@ export async function registerPushToken(userId: string): Promise<void> {
     );
     if (!token) return;
 
-    await supabase.from("profiles").update({ push_token: token }).eq("id", userId);
+    await supabase
+      .from("user_push_tokens")
+      .upsert({ user_id: userId, token, updated_at: new Date().toISOString() });
   } catch (e) {
     console.warn("registerPushToken failed:", e);
   }

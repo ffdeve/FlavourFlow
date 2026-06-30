@@ -9,11 +9,13 @@
 // push_token and forward a push to Expo's push service. RLS does not apply here
 // (service role), so we read push_token directly.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+// @ts-nocheck
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   try {
     const body = await req.json();
     const record = body?.record ?? body;
@@ -27,13 +29,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("push_token")
-      .eq("id", recipientId)
+    const { data: row } = await supabase
+      .from("user_push_tokens")
+      .select("token")
+      .eq("user_id", recipientId)
       .single();
 
-    const token = profile?.push_token;
+    const token = row?.token;
     if (!token || !token.startsWith("ExponentPushToken")) {
       return new Response("no token", { status: 200 });
     }
