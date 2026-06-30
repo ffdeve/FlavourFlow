@@ -31,6 +31,8 @@ import { RecommendationCard } from "@/components/ui/recommendation-card";
 import { SectionRecipeCard } from "@/components/ui/section-recipe-card";
 import { FullWidthRecipeCard } from "@/components/ui/full-width-recipe-card";
 import { CookingLoader } from "@/components/ui/cooking-loader";
+import { ErrorState } from "@/components/ui/error-state";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 // Service & Types
 import { Recipe, recipeService } from "@/services/recipe.service";
@@ -152,6 +154,8 @@ export default function HomeScreen() {
   const [sectionsLoading, setSectionsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [loadError, setLoadError] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   // Infinite Feed State
   const [feedRecipes, setFeedRecipes] = useState<Recipe[]>([]);
@@ -160,20 +164,23 @@ export default function HomeScreen() {
   const [hasMoreFeed, setHasMoreFeed] = useState(true);
 
   // ─── Data Loading ───────────────────────────────────────────────────────
-  useEffect(() => {
-    const loadHomeData = async () => {
-      try {
-        setLoading(true);
-        const featured = await recipeService.getFeaturedRecipes(5);
-        setFeaturedRecipes(featured);
-      } catch (err) {
-        console.error("Failed to load homepage recipes from database:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadHomeData();
+  const loadHomeData = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadError(false);
+      const featured = await recipeService.getFeaturedRecipes(5);
+      setFeaturedRecipes(featured);
+    } catch (err) {
+      console.error("Failed to load homepage recipes from database:", err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadHomeData();
+  }, [loadHomeData]);
 
   // Load Netflix-style recommendation sections
   useEffect(() => {
@@ -466,7 +473,33 @@ export default function HomeScreen() {
     feedRecipes.length === 0 &&
     (sectionsLoading || recLoading || loading);
 
+  const { isConnected } = useNetworkStatus();
+  const handleRetry = React.useCallback(async () => {
+    setRetrying(true);
+    try {
+      await loadHomeData();
+    } finally {
+      setRetrying(false);
+    }
+  }, [loadHomeData]);
+
   // ─── Render ─────────────────────────────────────────────────────────────
+  if (
+    loadError &&
+    !initialLoading &&
+    featuredRecipes.length === 0 &&
+    recommendedRecipes.length === 0 &&
+    feedRecipes.length === 0
+  ) {
+    return (
+      <ErrorState
+        variant={isConnected ? "error" : "offline"}
+        onRetry={handleRetry}
+        retrying={retrying}
+      />
+    );
+  }
+
   return (
     <Animated.View style={[outerBgStyle, { flex: 1 }]}>
       <StatusBar barStyle="light-content" />

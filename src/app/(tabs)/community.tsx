@@ -11,6 +11,8 @@ import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ErrorState } from "@/components/ui/error-state";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import {
   ActivityIndicator,
   Alert,
@@ -46,6 +48,9 @@ export default function CommunityScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All Feed");
+  const [loadError, setLoadError] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const { isConnected } = useNetworkStatus();
 
   // Modals
   const [createPostVisible, setCreatePostVisible] = useState(false);
@@ -89,13 +94,24 @@ export default function CommunityScreen() {
 
   const loadPosts = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const data = await communityService.getPosts(activeFilter, 30, user?.id);
       setPosts(data);
     } catch (err) {
       console.error("Failed to load community posts:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try {
+      await loadPosts();
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -343,6 +359,16 @@ export default function CommunityScreen() {
       </View>
     );
   };
+
+  if (loadError && !loading && posts.length === 0) {
+    return (
+      <ErrorState
+        variant={isConnected ? "error" : "offline"}
+        onRetry={handleRetry}
+        retrying={retrying}
+      />
+    );
+  }
 
   return (
     <View className="flex-1 bg-[#FFFDF5]">

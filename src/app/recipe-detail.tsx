@@ -10,6 +10,8 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import React, { useCallback, useEffect, useState, useRef } from "react";
+import { ErrorState } from "@/components/ui/error-state";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import {
   Alert,
   ActivityIndicator,
@@ -155,6 +157,8 @@ export default function RecipeDetailScreen() {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [originalRecipe, setOriginalRecipe] = useState<Recipe | null>(null);
   const [dbLoading, setDbLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [dbKitchenEssentials, setDbKitchenEssentials] = useState<any[]>([]);
   const [isTranslating, setIsTranslating] = useState(false);
   const [currentLang, setCurrentLang] = useState<'en' | 'ur' | 'roman_ur'>('en');
@@ -162,24 +166,26 @@ export default function RecipeDetailScreen() {
   // Dynamic serving scaling — defaults to the recipe's base servings on load.
   const [scaledServings, setScaledServings] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      const fetchRecipe = async () => {
-        try {
-          setDbLoading(true);
-          const data = await recipeService.getRecipeDetails(id);
-          setRecipe(data);
-          setOriginalRecipe(data);
-          setScaledServings(data?.servings || 2);
-        } catch (err) {
-          console.error("Error fetching recipe details:", err);
-        } finally {
-          setDbLoading(false);
-        }
-      };
-      fetchRecipe();
+  const fetchRecipe = useCallback(async () => {
+    if (!id) return;
+    try {
+      setDbLoading(true);
+      setDbError(false);
+      const data = await recipeService.getRecipeDetails(id);
+      setRecipe(data);
+      setOriginalRecipe(data);
+      setScaledServings(data?.servings || 2);
+    } catch (err) {
+      console.error("Error fetching recipe details:", err);
+      setDbError(true);
+    } finally {
+      setDbLoading(false);
     }
-  }, [id, user?.id]);
+  }, [id]);
+
+  useEffect(() => {
+    fetchRecipe();
+  }, [fetchRecipe]);
 
   useEffect(() => {
     const fetchKitchenEssentials = async () => {
@@ -335,6 +341,26 @@ export default function RecipeDetailScreen() {
       ],
     );
   };
+
+  const { isConnected } = useNetworkStatus();
+  const handleRetry = useCallback(async () => {
+    setRetrying(true);
+    try {
+      await fetchRecipe();
+    } finally {
+      setRetrying(false);
+    }
+  }, [fetchRecipe]);
+
+  if (dbError && !dbLoading && !recipe) {
+    return (
+      <ErrorState
+        variant={isConnected ? "error" : "offline"}
+        onRetry={handleRetry}
+        retrying={retrying}
+      />
+    );
+  }
 
   if (dbLoading || !recipe) {
     return (

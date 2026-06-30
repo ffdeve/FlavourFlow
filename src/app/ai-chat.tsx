@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import {
   Alert,
   Dimensions,
@@ -455,6 +456,7 @@ export default function AiChatScreen() {
   }, []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
+  const { isConnected } = useNetworkStatus();
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showFridge, setShowFridge] = useState(false);
@@ -931,9 +933,9 @@ export default function AiChatScreen() {
                   commitIngredients();
                 }
               }}
-              disabled={(!inputText.trim() && selectedIngredients.length === 0) || isTyping}
+              disabled={(!inputText.trim() && selectedIngredients.length === 0) || isTyping || !isConnected}
               className={`w-9 h-9 rounded-full items-center justify-center ml-2 ${
-                (inputText.trim() || selectedIngredients.length > 0) && !isTyping
+                (inputText.trim() || selectedIngredients.length > 0) && !isTyping && isConnected
                   ? "bg-[#FBA82E]"
                   : "bg-[#F5E3D8]"
               }`}
