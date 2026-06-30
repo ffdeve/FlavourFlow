@@ -21,6 +21,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Editor artifacts
+*.swp
+*.rej
+
 # Metro
 .metro-health-check*
 
