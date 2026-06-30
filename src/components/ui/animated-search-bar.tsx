@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
@@ -28,7 +29,7 @@ export function AnimatedSearchBar({ onPress }: { onPress: () => void }) {
         elevation: 2,
       }}
     >
-      <Feather name="search" size={20} color="#8B7D6F" />
+      <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 26, height: 26 }} contentFit="contain" />
       
       {/* Search Text Container */}
       <View pointerEvents="none" className="flex-row items-center ml-3 overflow-hidden flex-1 h-full relative justify-center">

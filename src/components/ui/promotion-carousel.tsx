@@ -1,5 +1,6 @@
 import { Recipe } from "@/services/recipe.service";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
@@ -9,7 +10,6 @@ import {
   View,
 } from "react-native";
 import Animated from "react-native-reanimated";
-import { router } from "expo-router";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width; // Full width cards without rounding
@@ -19,7 +19,10 @@ interface PromotionCarouselProps {
   onIndexChange?: (index: number) => void;
 }
 
-export function PromotionCarousel({ recipes, onIndexChange }: PromotionCarouselProps) {
+export function PromotionCarousel({
+  recipes,
+  onIndexChange,
+}: PromotionCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -74,17 +77,17 @@ export function PromotionCarousel({ recipes, onIndexChange }: PromotionCarouselP
             activeOpacity={0.9}
             style={{
               width: CARD_WIDTH,
-              height: 110,
+              height: 120,
               backgroundColor: "transparent",
               flexDirection: "row",
               paddingLeft: 24,
-              paddingRight: 0,
+              paddingRight: 24,
               alignItems: "center",
             }}
             onPress={() => router.push(`/recipe-detail?id=${recipe.id}`)}
           >
-            {/* Text Content - 65% */}
-            <View style={{ width: "65%", paddingRight: "5%" }}>
+            {/* Text Content */}
+            <View style={{ flex: 1, paddingRight: 16 }}>
               <Text
                 className="font-poppins-bold text-xl leading-snug mb-1 text-white"
                 numberOfLines={2}
@@ -99,13 +102,12 @@ export function PromotionCarousel({ recipes, onIndexChange }: PromotionCarouselP
               </Text>
             </View>
 
-            {/* Image Content - 30% */}
+            {/* Image Content - fully rounded and inset from edge */}
             <View
               style={{
-                width: "30%",
-                height: 110,
-                borderTopLeftRadius: 24,
-                borderBottomLeftRadius: 24,
+                width: "42%",
+                height: 120,
+                borderRadius: 22,
                 overflow: "hidden",
               }}
             >
@@ -127,7 +129,7 @@ export function PromotionCarousel({ recipes, onIndexChange }: PromotionCarouselP
       </ScrollView>
 
       {/* Pagination Dots Container */}
-      <View className="flex-row justify-center items-center py-1">
+      <View className="flex-row justify-center items-center py-1 mt-2">
         {list.map((_, index) => {
           const isActive = index === activeIndex;
           return (
@@ -147,4 +149,3 @@ export function PromotionCarousel({ recipes, onIndexChange }: PromotionCarouselP
     </View>
   );
 }
-

@@ -191,7 +191,7 @@ export default function CategoryDetailsScreen() {
               if (isSearchVisible) setSearchQuery("");
             }}
           >
-            <Feather name="search" size={20} color="#3B3328" />
+            <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 26, height: 26 }} contentFit="contain" />
           </TouchableOpacity>
           <TouchableOpacity className="w-10 h-10 items-center justify-center">
             <Ionicons name="options-outline" size={20} color="#3B3328" />
@@ -203,7 +203,7 @@ export default function CategoryDetailsScreen() {
       {isSearchVisible && (
         <View className="px-6 pb-3">
           <View className="flex-row items-center bg-white rounded-full px-4 h-11 border border-gray-100 shadow-sm">
-            <Feather name="search" size={16} color="#B5A99A" />
+            <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 22, height: 22 }} contentFit="contain" />
             <TextInput
               autoFocus
               value={searchQuery}

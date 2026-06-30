@@ -202,7 +202,7 @@ export default function SearchScreen() {
 
         {/* Text Input Container */}
         <View className="flex-1 flex-row items-center bg-white border border-gray-200/60 rounded-full px-3 h-11 relative">
-          <Feather name="search" size={16} color="#8B7D6F" className="mr-2" />
+          <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 22, height: 22 }} className="mr-2" contentFit="contain" />
           <TextInput
             placeholder="Search recipes, ingredients..."
             placeholderTextColor="#B5A99A"
@@ -356,7 +356,7 @@ export default function SearchScreen() {
         ListEmptyComponent={
           <View className="items-center justify-center py-20 px-4">
             <View className="w-20 h-20 rounded-full bg-[#F5E3D8]/30 items-center justify-center mb-4">
-              <Ionicons name="search-outline" size={40} color="#FBA82E" />
+              <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 48, height: 48 }} contentFit="contain" />
             </View>
             <Text className="font-jakarta-bold text-lg text-[#3B3328] text-center mb-1">
               No Recipes Found

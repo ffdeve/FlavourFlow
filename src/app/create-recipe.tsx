@@ -2221,7 +2221,7 @@ export default function CreateRecipeWizardScreen() {
                         onPress={() => handleRemoveIngredient(index)}
                         className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 items-center justify-center"
                       >
-                        <Feather name="trash-2" size={14} color="#E05252" />
+                        <Image source={require("@/assets/icons/trash.webp")} style={{ width: 20, height: 20 }} contentFit="contain" />
                       </TouchableOpacity>
                     </View>
 
@@ -2379,7 +2379,7 @@ export default function CreateRecipeWizardScreen() {
                 {/* Search Bar Input to Add/Search Kitchen Essentials */}
                 <View className="relative z-20">
                   <View className="flex-row items-center bg-white border border-[#F5E3D8] rounded-2xl p-2 pl-4 shadow-sm">
-                    <Feather name="search" size={18} color="#8B7D6F" />
+                    <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 24, height: 24 }} contentFit="contain" />
                     <TextInput
                       className="flex-1 ml-2 font-jakarta text-[#3B3328] text-sm h-10"
                       value={kitchenEssentialSearch}
@@ -2599,7 +2599,7 @@ export default function CreateRecipeWizardScreen() {
                         onPress={() => handleRemoveStep(index)}
                         className="w-8 h-8 rounded-full bg-[#E05252]/10 border border-[#E05252]/20 items-center justify-center"
                       >
-                        <Feather name="trash-2" size={14} color="#E05252" />
+                        <Image source={require("@/assets/icons/trash.webp")} style={{ width: 20, height: 20 }} contentFit="contain" />
                       </TouchableOpacity>
                     </View>
 

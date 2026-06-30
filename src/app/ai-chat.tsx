@@ -621,7 +621,7 @@ export default function AiChatScreen() {
             }}
             className="w-9 h-9 items-center justify-center rounded-full bg-[#FAF5EF]"
           >
-            <Feather name="trash-2" size={16} color="#8B7D6F" />
+            <Image source={require("@/assets/icons/trash.webp")} style={{ width: 22, height: 22 }} contentFit="contain" />
           </TouchableOpacity>
         )}
       </View>

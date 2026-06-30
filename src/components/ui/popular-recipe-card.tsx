@@ -59,7 +59,7 @@ export const PopularRecipeCard = ({
           </MetaPill>
         )}
         <MetaPill>
-          <Feather name="clock" size={12} color="#8B7D6F" />
+          <Image source={require("@/assets/icons/recipe_card_time.webp")} style={{ width: 18, height: 18 }} contentFit="contain" />
           <Text className="font-inter-semibold text-[#8B7D6F] text-[11px] ml-1.5">{time}</Text>
         </MetaPill>
       </View>

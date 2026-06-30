@@ -465,7 +465,7 @@ export default function RecipeDetailScreen() {
                 onPress={handleDeleteRecipe}
                 className="w-11 h-11 bg-red-600/40 border border-red-500/20 rounded-full items-center justify-center mr-2"
               >
-                <Feather name="trash-2" size={18} color="#FFFFFF" />
+                <Image source={require("@/assets/icons/trash.webp")} style={{ width: 24, height: 24, tintColor: "#FFFFFF" }} contentFit="contain" />
               </TouchableOpacity>
             </>
           )}
@@ -709,7 +709,7 @@ export default function RecipeDetailScreen() {
                 {activeImageIndex !== 0 || !recipe.videoUrl ? (
                   <>
                     <View className="absolute bottom-10 right-5 bg-black/40 rounded-full py-1.5 px-3.5 flex-row items-center border border-white/20">
-                      <Feather name="clock" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Image source={require("@/assets/icons/recipe_card_time.webp")} style={{ width: 18, height: 18, marginRight: 6 }} contentFit="contain" />
                       <Text className="font-jakarta-semibold text-white text-xs">{recipe.time}</Text>
                     </View>
                     {recipe.spiceLevel > 0 && (
@@ -1042,12 +1042,7 @@ export default function RecipeDetailScreen() {
 
                         {step.hasTimer && (
                           <View className="bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 flex-row items-center">
-                            <Feather
-                              name="clock"
-                              size={10}
-                              color="#FBA82E"
-                              style={{ marginRight: 3 }}
-                            />
+                            <Image source={require("@/assets/icons/recipe_card_time.webp")} style={{ width: 14, height: 14, marginRight: 3 }} contentFit="contain" />
                             <Text className="text-primary font-jakarta-bold text-[8px] uppercase">
                               {step.timerType === "countdown"
                                 ? `${step.timerHours ? `${step.timerHours}h ` : ""}${step.timerMinutes || 0}m`

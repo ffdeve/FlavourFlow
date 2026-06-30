@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import Avatar from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { communityService } from "@/services/community.service";
@@ -12,7 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
+ 
   Text,
   TouchableOpacity,
   View,
@@ -204,7 +205,7 @@ export default function ProfileScreen() {
             elevation: 3,
           }}
         >
-          <Feather name="search" size={16} color="white" style={{ marginRight: 6 }} />
+          <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 22, height: 22,  marginRight: 6  }} contentFit="contain" />
           <Text className="text-white font-jakarta-bold text-sm">
             Find Recipes
           </Text>

@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { BrickWallCarousel } from "@/components/ui/brick-wall-carousel";
 import { Button } from "@/components/ui/button";
 import { CookingLoader } from "@/components/ui/cooking-loader";
@@ -321,7 +322,7 @@ export default function UserPreferenceScreen() {
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search cuisines..."
-                leftIcon={<Feather name="search" size={20} color="#8B7D6F" />}
+                leftIcon={<Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 26, height: 26 }} contentFit="contain" />}
                 containerClassName="mx-6 mb-6"
                 fieldClassName="bg-white border border-[#F5E3D8]/50 rounded-full px-4 flex-row items-center h-14"
                 inputClassName="font-jakarta-medium text-sm text-[#3B3328] flex-1"
@@ -430,7 +431,7 @@ export default function UserPreferenceScreen() {
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder={`Search ${step3Tab.toLowerCase()}...`}
-                leftIcon={<Feather name="search" size={20} color="#8B7D6F" />}
+                leftIcon={<Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 26, height: 26 }} contentFit="contain" />}
                 containerClassName="mx-6 mb-2"
                 fieldClassName="bg-white border border-[#F5E3D8]/50 rounded-full px-4 flex-row items-center h-14"
                 inputClassName="font-jakarta-medium text-sm text-[#3B3328] flex-1"

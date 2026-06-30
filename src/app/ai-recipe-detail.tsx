@@ -33,7 +33,11 @@ const CHEF_BOO = require("@/assets/images/chatbot-image.webp");
 function MetaPill({ icon, label }: { icon: string; label: string }) {
   return (
     <View className="flex-row items-center bg-[#FAF5EF] rounded-full px-3 py-1.5 mr-2 mb-2">
-      <Feather name={icon as any} size={13} color="#FBA82E" />
+      {icon === "clock" ? (
+        <Image source={require("@/assets/icons/recipe_card_time.webp")} style={{ width: 18, height: 18 }} contentFit="contain" />
+      ) : (
+        <Feather name={icon as any} size={13} color="#FBA82E" />
+      )}
       <Text className="ml-1.5 text-[12px] font-inter-medium text-[#3B3328]">{label}</Text>
     </View>
   );

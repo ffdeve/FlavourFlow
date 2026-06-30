@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import Avatar from "@/components/ui/avatar";
 import { communityService } from "@/services/community.service";
 import { recipeService } from "@/services/recipe.service";
@@ -8,7 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
+ 
   Modal,
   SafeAreaView,
   ScrollView,
@@ -349,7 +350,7 @@ export default function CreatePostModal({
                 onPress={() => setLinkedRecipe(null)}
                 className="p-2"
               >
-                <Feather name="trash-2" size={16} color="#E05252" />
+                <Image source={require("@/assets/icons/trash.webp")} style={{ width: 22, height: 22 }} contentFit="contain" />
               </TouchableOpacity>
             </View>
           )}
@@ -412,7 +413,7 @@ export default function CreatePostModal({
           {/* Search Input */}
           <View className="px-6 py-3">
             <View className="flex-row items-center border border-[#F5E3D8]/60 bg-[#FAF5EF]/45 rounded-full px-4 py-2">
-              <Feather name="search" size={18} color="#8B7D6F" />
+              <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 24, height: 24 }} contentFit="contain" />
               <TextInput
                 placeholder="Search recipes..."
                 placeholderTextColor="#8B7D6F"

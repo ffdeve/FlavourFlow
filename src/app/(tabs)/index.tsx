@@ -554,7 +554,7 @@ export default function HomeScreen() {
       <View
         style={{
           flex: 1,
-          marginTop: 16, // breathing room between the search header and the sheet
+          marginTop: 8, // breathing room between the search header and the sheet
           backgroundColor: "#FFFDF5",
           borderTopLeftRadius: 32,
           borderTopRightRadius: 32,
@@ -590,15 +590,19 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <GestureDetector gesture={pullGesture}>
           <AnimatedScrollView
             ref={scrollRef}
             onScroll={scrollHandler}
             scrollEventThrottle={16}
             showsVerticalScrollIndicator={false}
-            bounces={false}
+            bounces={true}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 24 }}
+            onScrollEndDrag={(e: any) => {
+              if (e.nativeEvent.contentOffset.y < -60 && !isRefreshingRef.current) {
+                onRefresh();
+              }
+            }}
           >
 
           {/* Pull-to-refresh loader — sits ABOVE "Meals to Cook Today", inside the modal */}
@@ -776,7 +780,6 @@ export default function HomeScreen() {
           
           <View className="pb-24" />
           </AnimatedScrollView>
-        </GestureDetector>
       </View>
     </Animated.View>
   );

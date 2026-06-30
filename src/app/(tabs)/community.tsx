@@ -285,7 +285,7 @@ export default function CommunityScreen() {
             activeOpacity={0.7}
           >
             <ExpoImage
-              source={require("@/assets/icons/Magnifying _glass.webp")}
+              source={require("@/assets/icons/magnifying_glass.webp")}
               style={{ width: 40, height: 40 }}
               contentFit="contain"
             />

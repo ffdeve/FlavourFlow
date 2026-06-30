@@ -68,7 +68,7 @@ export const FeaturedRecipeCard = ({
 
           {/* Time */}
           <View className="flex-row items-center">
-            <Feather name="clock" size={12} color="white" className="mr-1" />
+            <Image source={require("@/assets/icons/recipe_card_time.webp")} style={{ width: 18, height: 18 }} contentFit="contain" />
             <Text className="font-poppins-regular text-white text-xs ml-1">
               {time}
             </Text>

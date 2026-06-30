@@ -27,7 +27,7 @@ interface Props {
   onConfirm: (ingredients: SelectedIngredient[]) => void;
 }
 
-const MAGNIFIER = require("@/assets/icons/Magnifying _glass.webp");
+const MAGNIFIER = require("@/assets/icons/magnifying_glass.webp");
 
 export function IngredientSelectorModal({ visible, onClose, onConfirm }: Props) {
   const [all, setAll] = useState<Ingredient[]>([]);

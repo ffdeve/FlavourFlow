@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, Keyboard, ScrollView } from "react-native";
 import { CookingLoader } from "@/components/ui/cooking-loader";
@@ -81,7 +82,7 @@ export default function CommunitySearchScreen() {
         </TouchableOpacity>
         
         <View className="flex-1 flex-row items-center bg-[#FAF5EF] rounded-xl px-3 h-10 border border-[#F5E3D8]/80">
-          <Feather name="search" size={18} color="#8B7D6F" />
+          <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 24, height: 24 }} contentFit="contain" />
           <TextInput
             className="flex-1 ml-2 font-inter-medium text-[#3B3328] text-sm h-full"
             placeholder="Search profiles or posts..."
@@ -131,7 +132,7 @@ export default function CommunitySearchScreen() {
           )}
           ListEmptyComponent={() => (
             <View className="items-center justify-center py-20 px-6">
-              <Feather name="search" size={48} color="#F5E3D8" />
+              <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 56, height: 56 }} contentFit="contain" />
               <Text className="text-lg font-jakarta-bold text-[#3B3328] mt-4 mb-2 text-center">
                 No Results Found
               </Text>
