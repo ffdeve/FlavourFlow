@@ -32,6 +32,7 @@ import {
 } from "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../../global.css";
+import "@/i18n";
 
 // Configure Reanimated logger to suppress strict mode rendering warnings
 configureReanimatedLogger({

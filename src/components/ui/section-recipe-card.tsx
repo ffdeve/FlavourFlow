@@ -68,8 +68,8 @@ export const SectionRecipeCard = ({
         </MetaPill>
         {recipe.ingredientsCount != null && (
           <MetaPill>
-            <View className="w-1.5 h-1.5 rounded-full mr-1" style={{ backgroundColor: "#FBA82E" }} />
-            <Text className="font-inter-semibold text-[#FBA82E] text-[11px]">{recipe.ingredientsCount} Ingredients</Text>
+            <Image source={require("@/assets/icons/Ingredients.webp")} style={{ width: 18, height: 18 }} contentFit="contain" />
+            <Text className="font-inter-semibold text-[#FBA82E] text-[11px] ml-1">{recipe.ingredientsCount} Ingredients</Text>
           </MetaPill>
         )}
       </View>

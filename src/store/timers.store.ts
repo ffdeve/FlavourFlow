@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import {
   cancelTimerNotification,
-  scheduleTimerDone,
+  scheduleAdaptiveTimer,
 } from "@/services/notifications";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ export interface CookTimer {
   startedAt: number | null; // wall-clock ms of the current running stretch
   pausedElapsedSec: number; // elapsed accumulated before the current stretch
   status: TimerStatus;
-  notificationId: string | null;
+  notificationIds: string[]; // adaptive set: warnings + completion
   recipeId: string | null;
   stepIndex: number | null; // step it was auto-created from (null = manual/ChefBoo)
   createdAt: number;
@@ -81,7 +81,7 @@ export const useTimersStore = create<TimersState>()(
           startedAt: null,
           pausedElapsedSec: 0,
           status: "paused",
-          notificationId: null,
+          notificationIds: [],
           recipeId,
           stepIndex,
           createdAt: Date.now(),
@@ -107,10 +107,10 @@ export const useTimersStore = create<TimersState>()(
           ),
         }));
 
-        const notificationId = await scheduleTimerDone(t.label, remaining);
+        const notificationIds = await scheduleAdaptiveTimer(t.label, remaining);
         set((s) => ({
           timers: s.timers.map((x) =>
-            x.id === id ? { ...x, notificationId } : x,
+            x.id === id ? { ...x, notificationIds } : x,
           ),
         }));
       },
@@ -120,7 +120,7 @@ export const useTimersStore = create<TimersState>()(
         if (!t || t.status !== "running") return;
 
         const elapsed = t.durationSec - remainingSec(t); // clamped 0..durationSec
-        await cancelTimerNotification(t.notificationId);
+        await cancelTimerNotification(t.notificationIds);
         set((s) => ({
           timers: s.timers.map((x) =>
             x.id === id
@@ -129,7 +129,7 @@ export const useTimersStore = create<TimersState>()(
                   status: "paused",
                   startedAt: null,
                   pausedElapsedSec: elapsed,
-                  notificationId: null,
+                  notificationIds: [],
                 }
               : x,
           ),
@@ -139,7 +139,7 @@ export const useTimersStore = create<TimersState>()(
       reset: async (id) => {
         const t = get().timers.find((x) => x.id === id);
         if (!t) return;
-        await cancelTimerNotification(t.notificationId);
+        await cancelTimerNotification(t.notificationIds);
         set((s) => ({
           timers: s.timers.map((x) =>
             x.id === id
@@ -148,7 +148,7 @@ export const useTimersStore = create<TimersState>()(
                   status: "paused",
                   startedAt: null,
                   pausedElapsedSec: 0,
-                  notificationId: null,
+                  notificationIds: [],
                 }
               : x,
           ),
@@ -165,15 +165,18 @@ export const useTimersStore = create<TimersState>()(
           ),
         }));
 
-        // If running, reschedule the completion notification for the new remaining.
+        // If running, reschedule the adaptive notification set for the new remaining.
         if (t.status === "running") {
-          await cancelTimerNotification(t.notificationId);
+          await cancelTimerNotification(t.notificationIds);
           const updated = get().timers.find((x) => x.id === id);
           const remaining = updated ? remainingSec(updated) : 0;
-          const notificationId = await scheduleTimerDone(t.label, remaining);
+          const notificationIds = await scheduleAdaptiveTimer(
+            t.label,
+            remaining,
+          );
           set((s) => ({
             timers: s.timers.map((x) =>
-              x.id === id ? { ...x, notificationId } : x,
+              x.id === id ? { ...x, notificationIds } : x,
             ),
           }));
         }
@@ -182,11 +185,11 @@ export const useTimersStore = create<TimersState>()(
       markDone: async (id) => {
         const t = get().timers.find((x) => x.id === id);
         if (!t) return;
-        await cancelTimerNotification(t.notificationId);
+        await cancelTimerNotification(t.notificationIds);
         set((s) => ({
           timers: s.timers.map((x) =>
             x.id === id
-              ? { ...x, status: "done", startedAt: null, notificationId: null }
+              ? { ...x, status: "done", startedAt: null, notificationIds: [] }
               : x,
           ),
         }));
@@ -194,13 +197,13 @@ export const useTimersStore = create<TimersState>()(
 
       remove: async (id) => {
         const t = get().timers.find((x) => x.id === id);
-        if (t) await cancelTimerNotification(t.notificationId);
+        if (t) await cancelTimerNotification(t.notificationIds);
         set((s) => ({ timers: s.timers.filter((x) => x.id !== id) }));
       },
 
       clearAll: async () => {
         await Promise.all(
-          get().timers.map((t) => cancelTimerNotification(t.notificationId)),
+          get().timers.map((t) => cancelTimerNotification(t.notificationIds)),
         );
         set({ timers: [] });
       },

@@ -44,8 +44,23 @@ import {
   ensureNotificationSetup,
   presentTimerDoneNow,
 } from "@/services/notifications";
+import { scaleQuantity } from "@/utils/recipe-steps";
+import { DEFAULT_ASSISTANT_SETTINGS } from "@/types";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+/** Short human description of a timer left over from a prior cooking session. */
+function describeSessionTimer(t?: CookTimer): string | null {
+  if (!t) return null;
+  if (t.status === "done") return "A timer finished while you were away.";
+  if (t.status === "paused") return "A timer was paused.";
+  if (t.status === "running") {
+    const rem = remainingSec(t);
+    const mins = Math.ceil(rem / 60);
+    return rem > 0 ? `A timer is still running (~${mins} min left).` : null;
+  }
+  return null;
+}
 
 // Confetti animation component matching HTML mockup intent
 function ConfettiEffect() {
@@ -144,8 +159,13 @@ type ChefSuggestion = {
 type ChefMsg = { role: "user" | "assistant"; text: string; suggestions?: ChefSuggestion[] };
 
 export default function CookingModeScreen() {
-  const { id, aiRecipeId } = useLocalSearchParams<{ id: string; aiRecipeId: string }>();
-  const { user, preferences } = useAuth();
+  const { id, aiRecipeId, servings, baseServings } = useLocalSearchParams<{
+    id: string;
+    aiRecipeId: string;
+    servings?: string;
+    baseServings?: string;
+  }>();
+  const { user, preferences, profile } = useAuth();
   const [recipe, setRecipe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -284,8 +304,18 @@ export default function CookingModeScreen() {
   }, [chefOpen]);
 
   // ChefBoo's TTS voice settings (rate from user Settings; best available voice).
+  const [voiceMapping, setVoiceMapping] = useState<Record<string, string>>({});
   const ttsRateRef = useRef(1.0);
   const ttsVoiceRef = useRef<string | undefined>(undefined);
+  const ttsUrduVoiceRef = useRef<string | undefined>(undefined);
+  const assistantSettings = {
+    ...DEFAULT_ASSISTANT_SETTINGS,
+    ...profile?.assistant_settings,
+  };
+
+  const [voiceLang, setVoiceLang] = useState<"en-US" | "ur-PK">(
+    assistantSettings.language === "urdu" ? "ur-PK" : "en-US"
+  );
 
   // Icon lookup for substitution chips: ingredient + kitchen-essential master lists.
   const iconMapRef = useRef<Map<string, string>>(new Map());
@@ -300,6 +330,12 @@ export default function CookingModeScreen() {
 
   // If we restored an in-progress cook, show a one-time "resumed" banner.
   const [resumedFromStep, setResumedFromStep] = useState<number | null>(null);
+  // Interactive recovery prompt: a saved session was found on entry. Holds the
+  // saved step + a human description of any timer left from that session.
+  const [resumePrompt, setResumePrompt] = useState<{
+    step: number;
+    timerInfo: string | null;
+  } | null>(null);
 
   // Rating state (for completion screen)
   const [rating, setRating] = useState(0);
@@ -337,7 +373,26 @@ export default function CookingModeScreen() {
     if (currentStep > maxStepReached.current) {
       maxStepReached.current = currentStep;
     }
-    
+
+    // STEP_COMPLETE analytics — only on a single forward advance (excludes the
+    // resume jump and back-navigation). Logs time spent on the step just left.
+    if (currentStep === prevStepRef.current + 1 && user?.id && id) {
+      const completedIndex = prevStepRef.current;
+      const completedAt = new Date(now).toISOString();
+      const payload = { stepIndex: completedIndex, completedAt, timeSpent: duration };
+      recipeService
+        .logInteraction(user.id, id, "STEP_COMPLETE", payload)
+        .catch((err) => console.error("Failed to log STEP_COMPLETE:", err));
+      // Local log too (cheap, offline-safe).
+      AsyncStorage.getItem(`cooking:steplog:${id}`)
+        .then((raw) => {
+          const arr = raw ? JSON.parse(raw) : [];
+          arr.push(payload);
+          return AsyncStorage.setItem(`cooking:steplog:${id}`, JSON.stringify(arr));
+        })
+        .catch(() => {});
+    }
+
     prevStepRef.current = currentStep;
     stepStartTime.current = now;
   }, [currentStep]);
@@ -349,15 +404,17 @@ export default function CookingModeScreen() {
         try {
           const data = await recipeService.getRecipeDetails(id);
           setRecipe(data);
-          // Resume an in-progress cook from where the user left off.
+          // In-progress cook found → ask the user whether to resume or start over.
           try {
             const saved = await AsyncStorage.getItem(`cooking:resume:${id}`);
             if (saved) {
               const parsed = JSON.parse(saved);
               const total = (data?.steps ?? []).length;
               if (typeof parsed?.step === "number" && parsed.step > 0 && parsed.step < total) {
-                setCurrentStep(parsed.step);
-                setResumedFromStep(parsed.step + 1);
+                const prior = useTimersStore
+                  .getState()
+                  .timers.find((x) => x.recipeId === id);
+                setResumePrompt({ step: parsed.step, timerInfo: describeSessionTimer(prior) });
               }
             }
           } catch {}
@@ -392,14 +449,16 @@ export default function CookingModeScreen() {
               ),
               videoUrl: null,
             });
-            // Resume an in-progress AI-recipe cook.
+            // In-progress AI-recipe cook found → prompt to resume or start over.
             try {
               const saved = await AsyncStorage.getItem(`cooking:resume:${aiRecipeId}`);
               if (saved) {
                 const parsed = JSON.parse(saved);
                 if (typeof parsed?.step === "number" && parsed.step > 0 && parsed.step < rawSteps.length) {
-                  setCurrentStep(parsed.step);
-                  setResumedFromStep(parsed.step + 1);
+                  const prior = useTimersStore
+                    .getState()
+                    .timers.find((x) => x.recipeId === aiRecipeId);
+                  setResumePrompt({ step: parsed.step, timerInfo: describeSessionTimer(prior) });
                 }
               }
             } catch {}
@@ -490,18 +549,47 @@ export default function CookingModeScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const stored = await AsyncStorage.getItem("chefbooTtsRate");
-        if (stored) ttsRateRef.current = parseFloat(stored) || 1.0;
+        ttsRateRef.current = assistantSettings.speechRate;
       } catch {}
       try {
         const voices = await Speech.getAvailableVoicesAsync();
-        const en = (voices ?? []).filter((v: any) => (v.language || "").toLowerCase().startsWith("en"));
-        // Prefer an Enhanced/Premium quality English voice for a more natural read.
+        const enVoices = (voices ?? []).filter((v: any) =>
+          (v.language || "").toLowerCase().startsWith("en")
+        );
+        const females = enVoices.filter((v) =>
+          /female|samantha|siri_female|karen|moira|tessa|susan|hazel|veena|zoe/i.test(
+            v.identifier || v.name || ""
+          )
+        );
+        const males = enVoices.filter((v) =>
+          /male|daniel|siri_male|tom|oliver|peter|rishi|ravi/i.test(
+            v.identifier || v.name || ""
+          )
+        );
+        const remaining = enVoices.filter((v) => !females.includes(v) && !males.includes(v));
+        remaining.forEach((v, idx) => {
+          if (idx % 2 === 0) females.push(v);
+          else males.push(v);
+        });
+
+        const mapping = {
+          female_1: females[0]?.identifier || enVoices[0]?.identifier,
+          female_2: females[1]?.identifier || females[0]?.identifier || enVoices[0]?.identifier,
+          male_1: males[0]?.identifier || enVoices[1]?.identifier || enVoices[0]?.identifier,
+          male_2: males[1]?.identifier || males[0]?.identifier || enVoices[0]?.identifier,
+        };
+        setVoiceMapping(mapping);
+
+        // Fallbacks
         const best =
-          en.find((v: any) => String(v.quality).toLowerCase() === "enhanced") ||
-          en.find((v: any) => /enhanced|premium|siri/i.test(v.identifier || "")) ||
-          en[0];
+          enVoices.find((v: any) => String(v.quality).toLowerCase() === "enhanced") ||
+          enVoices.find((v: any) => /enhanced|premium|siri/i.test(v.identifier || "")) ||
+          enVoices[0];
         if (best?.identifier) ttsVoiceRef.current = best.identifier;
+
+        const ur = (voices ?? []).filter((v: any) => (v.language || "").toLowerCase().startsWith("ur"));
+        const bestUr = ur[0];
+        if (bestUr?.identifier) ttsUrduVoiceRef.current = bestUr.identifier;
       } catch {}
       try {
         const [ings, essentials] = await Promise.all([
@@ -523,10 +611,38 @@ export default function CookingModeScreen() {
     const clean = (text || "").trim();
     if (!clean) { onDone?.(); return; }
     Speech.stop();
+    
+    // Respect voiceResponses preference
+    if (!assistantSettings.voiceResponses) {
+      onDone?.();
+      return;
+    }
+
     setIsSpeaking(true);
+
+    const hasUrdu = /[\u0600-\u06FF]/.test(clean);
+    const voiceKey = assistantSettings.voice;
+    const voiceId = voiceMapping[voiceKey];
+    let selectedVoice = voiceId || ttsVoiceRef.current;
+
+    if (hasUrdu) {
+      Speech.getAvailableVoicesAsync().then((voices) => {
+        const urVoice = voices.find(v => (v.language || "").toLowerCase().startsWith("ur"));
+        const fallbackUrVoice = urVoice?.identifier || ttsUrduVoiceRef.current;
+        Speech.speak(clean, {
+          rate: assistantSettings.speechRate,
+          voice: fallbackUrVoice,
+          onDone: () => { setIsSpeaking(false); onDone?.(); },
+          onStopped: () => setIsSpeaking(false),
+          onError: () => { setIsSpeaking(false); onDone?.(); },
+        });
+      });
+      return;
+    }
+
     Speech.speak(clean, {
-      rate: ttsRateRef.current,
-      voice: ttsVoiceRef.current,
+      rate: assistantSettings.speechRate,
+      voice: selectedVoice,
       onDone: () => { setIsSpeaking(false); onDone?.(); },
       onStopped: () => setIsSpeaking(false),
       onError: () => { setIsSpeaking(false); onDone?.(); },
@@ -578,7 +694,7 @@ export default function CookingModeScreen() {
       }
       lastTranscriptRef.current = "";
       ExpoSpeechRecognitionModule.start({
-        lang: "en-US",
+        lang: voiceLang,
         interimResults: true,
         continuous: !single,
         requiresOnDeviceRecognition: false,
@@ -604,6 +720,13 @@ export default function CookingModeScreen() {
   const steps = recipe?.steps || [];
   const totalSteps = steps.length;
   const currentStepData = steps[currentStep];
+
+  // Serving scaling carried over from the detail screen (for ChefBoo context).
+  const baseServingsNum =
+    Number(baseServings) || recipe?.servings || 2;
+  const scaledServingsNum = Number(servings) || baseServingsNum;
+  const cookScaleFactor =
+    baseServingsNum > 0 ? scaledServingsNum / baseServingsNum : 1;
 
   // ── Resume Later: persist the in-progress step locally; restored on re-entry. ─
   const sessionKey = (id || aiRecipeId) as string | undefined;
@@ -858,8 +981,11 @@ export default function CookingModeScreen() {
   };
   // Speak a reply when hands-free, then re-open the mic; otherwise just re-loop.
   const speakThenLoop = (text: string) => {
-    if (handsFreeRef.current) speakText(text, maybeLoopListen);
-    else maybeLoopListen();
+    if (handsFreeRef.current || assistantSettings.autoSpeak) {
+      speakText(text, maybeLoopListen);
+    } else {
+      maybeLoopListen();
+    }
   };
 
   // Resolve a DB icon (ingredient or kitchen-essential bucket) for a suggestion.
@@ -906,11 +1032,14 @@ export default function CookingModeScreen() {
         body: {
           message: text,
           userId: user?.id,
-          history,
+          history: assistantSettings.rememberCookingHistory ? history : [],
           mode: "cooking",
+          assistantSettings,
           cookingContext: {
             recipe: {
               title: recipe?.title,
+              servings: baseServingsNum,
+              scaledServings: scaledServingsNum,
               ingredients: recipe?.ingredients ?? [],
             },
             // Full method so ChefBoo knows completed + upcoming steps, not just now.
@@ -918,10 +1047,33 @@ export default function CookingModeScreen() {
               .map((s: any) => (typeof s === "string" ? s : s?.instruction))
               .filter(Boolean),
             currentStep: currentStepData
-              ? { instruction: currentStepData.instruction }
+              ? {
+                  instruction: currentStepData.instruction,
+                  action: currentStepData.action ?? null,
+                  heatSetting: currentStepData.heatSetting ?? null,
+                  temperature: currentStepData.temperature
+                    ? `${currentStepData.temperature}°${currentStepData.temperatureUnit || "C"}`
+                    : null,
+                  note: currentStepData.note ?? null,
+                  linkedIngredients: (currentStepData.linkedIngredients ?? []).map(
+                    (name: string) => {
+                      const match = (recipe?.ingredients ?? []).find(
+                        (i: any) => i.name?.toLowerCase() === name.toLowerCase(),
+                      );
+                      const rawQty = match?.amount
+                        ? `${match.amount} ${match.unit || ""}`.trim()
+                        : match?.quantity || "";
+                      return {
+                        name,
+                        quantity: scaleQuantity(String(rawQty), cookScaleFactor),
+                      };
+                    },
+                  ),
+                }
               : null,
             stepIndex: currentStep,
             totalSteps,
+            remainingSteps: Math.max(0, totalSteps - currentStep - 1),
             // What's cooking right now, so ChefBoo can reason about timing.
             runningTimers: timers
               .filter((t) => t.status === "running")
@@ -1076,6 +1228,18 @@ export default function CookingModeScreen() {
     try { ExpoSpeechRecognitionModule.stop(); } catch {}
   };
 
+  const toggleLanguage = () => {
+    const nextLang = voiceLang === "en-US" ? "ur-PK" : "en-US";
+    setVoiceLang(nextLang);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (isListening) {
+      ExpoSpeechRecognitionModule.stop();
+      setTimeout(() => {
+        startListening(!handsFree);
+      }, 300);
+    }
+  };
+
   // Hands-free voice-to-voice: talk → ChefBoo answers aloud → mic re-opens.
   const toggleHandsFree = () => {
     if (handsFree) {
@@ -1122,12 +1286,24 @@ export default function CookingModeScreen() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={() => setChefOpen(false)}
-              className="w-8 h-8 items-center justify-center rounded-full bg-[#FAF5EF]"
-            >
-              <Feather name="x" size={18} color="#3B3328" />
-            </TouchableOpacity>
+            <View className="flex-row items-center gap-2">
+              <TouchableOpacity
+                onPress={toggleLanguage}
+                activeOpacity={0.8}
+                className="px-2.5 py-1 rounded-full bg-[#FAF5EF] border border-primary/20 flex-row items-center gap-1"
+              >
+                <Text className="text-[10px] font-poppins-bold text-primary">
+                  {voiceLang === "en-US" ? "EN" : "UR"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setChefOpen(false)}
+                className="w-8 h-8 items-center justify-center rounded-full bg-[#FAF5EF]"
+              >
+                <Feather name="x" size={18} color="#3B3328" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
@@ -1377,6 +1553,59 @@ export default function CookingModeScreen() {
         </View>
       )}
 
+      {/* Interactive cooking recovery prompt */}
+      <Modal visible={resumePrompt != null} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center px-8">
+          <View className="bg-white w-full max-w-sm rounded-3xl p-6 items-center">
+            <View className="w-14 h-14 rounded-full bg-primary/10 items-center justify-center mb-4">
+              <MaterialIcons name="restart-alt" size={28} color="#FBA82E" />
+            </View>
+            <Text className="font-jakarta-bold text-[20px] text-[#3B3328] mb-1.5 text-center">
+              Resume Cooking?
+            </Text>
+            <Text className="font-inter-medium text-[13px] text-[#8B7D6F] text-center mb-1">
+              You left off at Step {(resumePrompt?.step ?? 0) + 1}
+              {totalSteps > 0 ? ` of ${totalSteps}` : ""}.
+            </Text>
+            {resumePrompt?.timerInfo && (
+              <Text className="font-inter-regular text-[12px] text-[#A89E92] text-center mb-1">
+                {resumePrompt.timerInfo}
+              </Text>
+            )}
+            <View className="flex-row gap-3 mt-5 w-full">
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  // Start over from Step 1, clearing the saved session.
+                  clearSession();
+                  setCurrentStep(0);
+                  stepStartTime.current = Date.now();
+                  maxStepReached.current = 0;
+                  setResumePrompt(null);
+                }}
+                className="flex-1 bg-[#FAF5EF] border border-[#F5E3D8] rounded-2xl py-3.5 items-center"
+              >
+                <Text className="font-jakarta-bold text-[14px] text-[#3B3328]">Start Over</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  const step = resumePrompt?.step ?? 0;
+                  setCurrentStep(step);
+                  setResumedFromStep(step + 1);
+                  stepStartTime.current = Date.now();
+                  maxStepReached.current = step;
+                  setResumePrompt(null);
+                }}
+                className="flex-1 bg-primary rounded-2xl py-3.5 items-center"
+              >
+                <Text className="font-jakarta-bold text-[14px] text-white">Resume</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Resumed-from-step banner (one tap to dismiss) */}
       {resumedFromStep != null && (
         <TouchableOpacity
@@ -1406,17 +1635,17 @@ export default function CookingModeScreen() {
                 Step {currentStep + 1} timer finished — is this step done?
               </Text>
             </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                setStepDonePrompt(null);
+                handleNextStep();
+              }}
+              className="bg-primary rounded-2xl py-3 items-center mb-2.5"
+            >
+              <Text className="font-jakarta-bold text-[13px] text-white">Next Step</Text>
+            </TouchableOpacity>
             <View className="flex-row gap-3">
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => {
-                  setStepDonePrompt(null);
-                  handleNextStep();
-                }}
-                className="flex-1 bg-primary rounded-2xl py-3 items-center"
-              >
-                <Text className="font-jakarta-bold text-[13px] text-white">Yes, next step</Text>
-              </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => {
@@ -1433,7 +1662,28 @@ export default function CookingModeScreen() {
                 }}
                 className="flex-1 bg-[#FAF5EF] border border-[#F5E3D8] rounded-2xl py-3 items-center"
               >
-                <Text className="font-jakarta-bold text-[13px] text-[#3B3328]">+5 more min</Text>
+                <Text className="font-jakarta-bold text-[13px] text-[#3B3328]">+5 Minutes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  // Repeat → restart with the step's original duration.
+                  if (stepTimer) timerRemove(stepTimer.id);
+                  const original = currentStepData?.hasTimer
+                    ? parseDuration(currentStepData)
+                    : 300;
+                  const newId = timerAdd({
+                    label: `Step ${currentStep + 1}`,
+                    durationSec: original,
+                    recipeId: recipeKey,
+                    stepIndex: currentStep,
+                  });
+                  timerStart(newId);
+                  setStepDonePrompt(null);
+                }}
+                className="flex-1 bg-[#FAF5EF] border border-[#F5E3D8] rounded-2xl py-3 items-center"
+              >
+                <Text className="font-jakarta-bold text-[13px] text-[#3B3328]">Repeat Timer</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1938,17 +2188,26 @@ export default function CookingModeScreen() {
 
       {/* Top progress bar indicator */}
       <View className="h-1 bg-gray-200/50 w-full relative">
-        <View 
-          className="h-full bg-primary" 
-          style={{ width: `${progressPercent}%` }} 
+        <View
+          className="h-full bg-primary"
+          style={{ width: `${progressPercent}%` }}
         />
       </View>
 
-      <ScrollView 
+      <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 110 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Progress label: Step X of Y • Z% Complete */}
+        <View className="flex-row items-center justify-between pb-3">
+          <Text className="font-jakarta-bold text-[12px] text-text">
+            Step {currentStep + 1} of {totalSteps}
+          </Text>
+          <Text className="font-inter-semibold text-[11px] text-text-tertiary">
+            {Math.round(progressPercent)}% Complete
+          </Text>
+        </View>
         {/* Step instruction Container */}
         <Animated.View style={{ transform: [{ translateX }] }} className="mb-6">
           <View className="bg-white rounded-3xl p-6 border border-primary/10 shadow-sm min-h-[160px] justify-between relative overflow-hidden">
@@ -2066,7 +2325,13 @@ export default function CookingModeScreen() {
                 {formatTime(stepRemaining)}
               </Text>
               <Text className="font-jakarta-medium text-[10px] text-text-tertiary mt-1">
-                {stepTimerDone ? "DONE" : stepTimerRunning ? "TIMER RUNNING" : "PAUSED"}
+                {stepTimerDone
+                  ? "DONE"
+                  : stepTimerRunning
+                    ? "TIMER RUNNING"
+                    : stepTimer
+                      ? "PAUSED"
+                      : "TAP TO START"}
               </Text>
             </View>
 

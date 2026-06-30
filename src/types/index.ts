@@ -10,16 +10,53 @@ export interface User {
   created_at: string;
 }
 
+export interface AssistantSettings {
+  language: "english" | "urdu" | "roman_urdu" | "auto_detect";
+  voice: "female_1" | "female_2" | "male_1" | "male_2";
+  speechRate: number; // 0.5 | 0.75 | 1.0 | 1.25 | 1.5
+  responseStyle: "short" | "balanced" | "detailed";
+  autoSpeak: boolean;
+  voiceResponses: boolean;
+  skillLevel: "beginner" | "intermediate" | "expert";
+  personality:
+    | "professional_chef"
+    | "friendly_chef"
+    | "cooking_teacher"
+    | "grandma_style";
+  rememberCookingHistory: boolean;
+  rememberAssistantChats: boolean;
+  temperatureUnit: "C" | "F";
+  measurementSystem: "metric" | "imperial";
+}
+
+export const DEFAULT_ASSISTANT_SETTINGS: AssistantSettings = {
+  language: "auto_detect",
+  voice: "female_1",
+  speechRate: 1.0,
+  responseStyle: "balanced",
+  autoSpeak: false,
+  voiceResponses: true,
+  skillLevel: "intermediate",
+  personality: "friendly_chef",
+  rememberCookingHistory: true,
+  rememberAssistantChats: true,
+  temperatureUnit: "C",
+  measurementSystem: "metric",
+};
+
 export interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  banner_url: string | null;
   bio: string | null;
   username: string | null;
   language: "en" | "ur";
+  is_private?: boolean;
   created_at: string;
   updated_at: string;
   last_username_change?: string | null;
+  assistant_settings?: AssistantSettings | null;
 }
 
 export interface UserPreferences {
@@ -40,7 +77,6 @@ export interface UserPreferences {
 export interface CuisineItem {
   id: string;
   name: string;
-  name_urdu: string | null;
   category: 'cuisine' | 'allergen' | 'country';
   icon_url: string | null;
   emoji: string | null;
@@ -54,7 +90,6 @@ export interface CuisineItem {
 export interface Ingredient {
   ingredient_id: number;
   name: string;
-  name_urdu?: string | null;
   category?: string | null;
   icon_url?: string | null;
   created_at?: string;
@@ -79,7 +114,6 @@ export interface Recipe {
   created_at: string;
   updated_at: string;
   // Additional fields for app usage
-  title_urdu?: string | null;
   image_url?: string | null;
   video_url?: string | null;
   cuisine_type?: string | null;
@@ -96,19 +130,20 @@ export interface Recipe {
 export interface RecipeIngredient {
   name: string;
   amount: string;
-  name_urdu?: string;
 }
 
 export interface RecipeStep {
   step: number;
   instruction: string;
-  instruction_urdu?: string;
   duration?: number; // in minutes
   image_url?: string;
   action?: string;
   parallel?: boolean;
   linkedIngredients?: string[];
   heatSetting?: string | null;
+  temperature?: string | number | null;
+  temperatureUnit?: "C" | "F";
+  note?: string;
   hasTimer?: boolean;
   timerType?: "countdown" | "target";
   timerHours?: string;

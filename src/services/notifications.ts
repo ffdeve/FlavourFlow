@@ -19,17 +19,6 @@ export const TIMER_CHANNEL_ID = "cooking-timers";
 
 let configured = false;
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => {
-    const active = AppState.currentState === "active";
-    return {
-      shouldShowBanner: !active,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    };
-  },
-});
 
 /**
  * One-time setup: notification handler (above), Android channel, and permission.
@@ -38,6 +27,19 @@ Notifications.setNotificationHandler({
  */
 export async function ensureNotificationSetup(): Promise<boolean> {
   try {
+    // Set handler once, safely inside a called function (not at module load)
+    Notifications.setNotificationHandler({
+      handleNotification: async () => {
+        const active = AppState.currentState === "active";
+        return {
+          shouldShowBanner: !active,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        };
+      },
+    });
+
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync(TIMER_CHANNEL_ID, {
         name: "Cooking Timers",
@@ -65,6 +67,28 @@ export function isNotificationConfigured(): boolean {
   return configured;
 }
 
+/** Internal: schedule one notification `secondsFromNow`. Returns id or null. */
+async function scheduleAt(
+  title: string,
+  body: string,
+  secondsFromNow: number,
+): Promise<string | null> {
+  try {
+    if (secondsFromNow <= 0) return null;
+    return await Notifications.scheduleNotificationAsync({
+      content: { title, body, sound: "default" },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.max(1, Math.round(secondsFromNow)),
+        ...(Platform.OS === "android" ? { channelId: TIMER_CHANNEL_ID } : {}),
+      },
+    });
+  } catch (e) {
+    console.error("scheduleAt failed:", e);
+    return null;
+  }
+}
+
 /**
  * Schedule the "timer done" alert for `secondsFromNow` in the future.
  * Returns the notification id (to cancel/reschedule) or null on failure.
@@ -73,24 +97,48 @@ export async function scheduleTimerDone(
   label: string,
   secondsFromNow: number,
 ): Promise<string | null> {
-  try {
-    if (secondsFromNow <= 0) return null;
-    return await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Timer finished",
-        body: `${label} is done.`,
-        sound: "default",
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: Math.max(1, Math.round(secondsFromNow)),
-        ...(Platform.OS === "android" ? { channelId: TIMER_CHANNEL_ID } : {}),
-      },
-    });
-  } catch (e) {
-    console.error("scheduleTimerDone failed:", e);
-    return null;
+  return scheduleAt("Timer finished", `${label} is done.`, secondsFromNow);
+}
+
+/**
+ * Adaptive schedule — denser warnings for longer timers, sparse for short ones:
+ *   <5 min:        completion only
+ *   5–30 min:      5 min left + completion
+ *   30 min–2 hr:   5 min left + 1 min left + completion
+ *   >2 hr:         30 min left + completion
+ * `remainingSeconds` is the time left now (re-derived on every (re)start). Returns
+ * all scheduled notification ids so the caller can cancel/reschedule the set.
+ */
+export async function scheduleAdaptiveTimer(
+  label: string,
+  remainingSeconds: number,
+): Promise<string[]> {
+  const total = Math.round(remainingSeconds);
+  if (total <= 0) return [];
+
+  // Warning offsets (seconds remaining) by tier.
+  let warnAt: number[];
+  if (total < 300) warnAt = [];
+  else if (total < 1800) warnAt = [300];
+  else if (total <= 7200) warnAt = [300, 60];
+  else warnAt = [1800];
+
+  const ids: string[] = [];
+  for (const left of warnAt) {
+    const fireIn = total - left;
+    if (fireIn <= 0) continue; // already past this mark
+    const mins = left >= 60 ? `${Math.round(left / 60)} min` : `${left} sec`;
+    const id = await scheduleAt(
+      "Almost done",
+      `${mins} left on ${label}.`,
+      fireIn,
+    );
+    if (id) ids.push(id);
   }
+
+  const doneId = await scheduleAt("Timer finished", `${label} is done.`, total);
+  if (doneId) ids.push(doneId);
+  return ids;
 }
 
 /**
@@ -112,11 +160,19 @@ export async function presentTimerDoneNow(label: string): Promise<void> {
   }
 }
 
-export async function cancelTimerNotification(id: string | null): Promise<void> {
+export async function cancelTimerNotification(
+  id: string | string[] | null,
+): Promise<void> {
   if (!id) return;
-  try {
-    await Notifications.cancelScheduledNotificationAsync(id);
-  } catch (e) {
-    console.error("cancelTimerNotification failed:", e);
-  }
+  const ids = Array.isArray(id) ? id : [id];
+  await Promise.all(
+    ids.map(async (one) => {
+      if (!one) return;
+      try {
+        await Notifications.cancelScheduledNotificationAsync(one);
+      } catch (e) {
+        console.error("cancelTimerNotification failed:", e);
+      }
+    }),
+  );
 }

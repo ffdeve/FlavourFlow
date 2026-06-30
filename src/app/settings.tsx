@@ -14,6 +14,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
@@ -172,6 +174,7 @@ export function SectionHeader({ title }: { title: string }) {
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { user, profile, signOut, updateProfile } = useAuth();
   const displayLanguage = profile?.language === "ur" ? "Urdu" : "English";
 
@@ -183,46 +186,28 @@ export default function SettingsScreen() {
   const [strictAllergy, setStrictAllergy] = useState(false);
   const [strictDietary, setStrictDietary] = useState(false);
 
-  // ChefBoo voice (Text-to-Speech) reading speed — applied in Cooking Mode.
-  const [ttsRate, setTtsRate] = useState(1.0);
+  // Privacy toggle state
+  const [isPrivate, setIsPrivate] = useState(profile?.is_private || false);
 
   useEffect(() => {
     const loadPrefs = async () => {
       try {
-        const [allergyVal, dietVal, pushVal, emailVal, rateVal] = await Promise.all([
+        const [allergyVal, dietVal, pushVal, emailVal] = await Promise.all([
           AsyncStorage.getItem("strictAllergyFilter"),
           AsyncStorage.getItem("strictDietaryFilter"),
           AsyncStorage.getItem("pushNotificationsEnabled"),
           AsyncStorage.getItem("emailNewsletterEnabled"),
-          AsyncStorage.getItem("chefbooTtsRate"),
         ]);
         if (allergyVal !== null) setStrictAllergy(allergyVal === "true");
         if (dietVal !== null) setStrictDietary(dietVal === "true");
         if (pushVal !== null) setPushEnabled(pushVal === "true");
         if (emailVal !== null) setEmailEnabled(emailVal === "true");
-        if (rateVal !== null) setTtsRate(parseFloat(rateVal) || 1.0);
       } catch (e) {
         console.error(e);
       }
     };
     loadPrefs();
   }, []);
-
-  // Map the stored rate to a friendly label for the settings row.
-  const voiceSpeedLabel = ttsRate <= 0.9 ? "Slow" : ttsRate >= 1.1 ? "Fast" : "Normal";
-
-  const handleVoiceSpeed = () => {
-    const setRate = async (rate: number) => {
-      setTtsRate(rate);
-      await AsyncStorage.setItem("chefbooTtsRate", String(rate));
-    };
-    Alert.alert("ChefBoo Voice Speed", "How fast should ChefBoo read steps aloud?", [
-      { text: "Slow", onPress: () => setRate(0.85) },
-      { text: "Normal", onPress: () => setRate(1.0) },
-      { text: "Fast", onPress: () => setRate(1.15) },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  };
 
   const toggleAllergyFilter = async (val: boolean) => {
     setStrictAllergy(val);
@@ -244,6 +229,13 @@ export default function SettingsScreen() {
     await AsyncStorage.setItem("emailNewsletterEnabled", val.toString());
   };
 
+  const togglePrivacy = async (val: boolean) => {
+    setIsPrivate(val);
+    if (updateProfile) {
+      await updateProfile({ is_private: val });
+    }
+  };
+
   // ── Support / preference modals ───────────────────────────────
   const [aboutVisible, setAboutVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
@@ -255,9 +247,9 @@ export default function SettingsScreen() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const handleLanguage = () => {
-    Alert.alert("Language", "Choose your preferred language.", [
-      { text: "English", onPress: () => updateProfile?.({ language: "en" }) },
-      { text: "اردو (Urdu)", onPress: () => updateProfile?.({ language: "ur" }) },
+    Alert.alert(t("Language"), "Choose your preferred language.", [
+      { text: "English", onPress: () => { updateProfile?.({ language: "en" }); i18n.changeLanguage("en"); } },
+      { text: "اردو (Urdu)", onPress: () => { updateProfile?.({ language: "ur" }); i18n.changeLanguage("ur"); } },
       { text: "Cancel", style: "cancel" },
     ]);
   };
@@ -341,7 +333,7 @@ export default function SettingsScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
         {/* ────── ACCOUNT SECTION ────── */}
-        <SectionHeader title="Account" />
+        <SectionHeader title={t("Profile")} />
         <View
           className="mx-5 bg-white rounded-[20px] border border-[#F5E3D8]/40 overflow-hidden"
           style={{
@@ -372,7 +364,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* ────── NOTIFICATIONS SECTION ────── */}
-        <SectionHeader title="Notifications" />
+        <SectionHeader title={t("Notifications")} />
         <View
           className="mx-5 bg-white rounded-[20px] border border-[#F5E3D8]/40 overflow-hidden"
           style={{
@@ -399,7 +391,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* ────── PREFERENCES SECTION ────── */}
-        <SectionHeader title="Preferences" />
+        <SectionHeader title={t("Preferences")} />
         <View
           className="mx-5 bg-white rounded-[20px] border border-[#F5E3D8]/40 overflow-hidden"
           style={{
@@ -429,10 +421,10 @@ export default function SettingsScreen() {
             onToggle={toggleDietaryFilter}
           />
           <SettingsRow
-            icon="volume-2"
-            label="ChefBoo Voice Speed"
-            value={voiceSpeedLabel}
-            onPress={handleVoiceSpeed}
+            icon="ghost"
+            iconPack="mci"
+            label="ChefBoo Preferences"
+            onPress={() => router.push("/chefboo-preferences" as any)}
           />
           <SettingsRow
             icon="information-circle-outline"
@@ -443,8 +435,29 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {/* ────── PRIVACY SECTION ────── */}
+        <SectionHeader title={t("Private Network")} />
+        <View
+          className="mx-5 bg-white rounded-[20px] border border-[#F5E3D8]/40 overflow-hidden"
+          style={{
+            shadowColor: "#3B3328",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 8,
+            elevation: 2,
+          }}
+        >
+          <SettingsToggleRow
+            icon="lock"
+            label="Private Network"
+            value={isPrivate}
+            onToggle={togglePrivacy}
+            showDivider={false}
+          />
+        </View>
+
         {/* ────── SUPPORT SECTION ────── */}
-        <SectionHeader title="Support" />
+        <SectionHeader title={t("Support")} />
         <View
           className="mx-5 bg-white rounded-[20px] border border-[#F5E3D8]/40 overflow-hidden"
           style={{

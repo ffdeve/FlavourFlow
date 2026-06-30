@@ -15,8 +15,8 @@ module.exports = {
           light: "#FCC368",
           dark: "#E39620",
           contrast: "#FF9C09",
-          50: "#FEF6E8",
-          100: "#FDEDD1",
+          50: "#FFFCF5",
+          100: "#FEF8ED",
           200: "#FCDBA3",
           300: "#FAC975",
           400: "#FBB747",
@@ -29,8 +29,8 @@ module.exports = {
 
         // Background - Cream
         background: {
-          DEFAULT: "#FCF0D6",
-          light: "#FEFBF2",
+          DEFAULT: "#FEFCF5",
+          light: "#FFFEFC",
           dark: "#F5E4C0",
         },
 

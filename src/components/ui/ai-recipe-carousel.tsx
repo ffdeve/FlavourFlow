@@ -84,8 +84,8 @@ export function AIRecipeCarousel({ recipes, onOpen }: Props) {
               ) : null}
               {r.ingredientsCount ? (
                 <MetaPill>
-                  <View className="w-1 h-1 rounded-full mr-1" style={{ backgroundColor: "#FBA82E" }} />
-                  <Text className="font-inter-semibold text-[#FBA82E] text-[10px]">{r.ingredientsCount} Ingr.</Text>
+                  <Image source={require("@/assets/icons/Ingredients.webp")} style={{ width: 18, height: 18 }} contentFit="contain" />
+                  <Text className="font-inter-semibold text-[#FBA82E] text-[10px] ml-1">{r.ingredientsCount} Ingr.</Text>
                 </MetaPill>
               ) : null}
               {!r.time && !r.ingredientsCount ? (

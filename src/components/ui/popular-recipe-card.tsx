@@ -54,8 +54,8 @@ export const PopularRecipeCard = ({
       <View className="flex-row items-center flex-wrap">
         {ingredientsCount != null && (
           <MetaPill>
-            <View className="w-1.5 h-1.5 rounded-full mr-1" style={{ backgroundColor: "#FBA82E" }} />
-            <Text className="font-inter-semibold text-[#FBA82E] text-[11px]">{ingredientsCount} Ingredients</Text>
+            <Image source={require("@/assets/icons/Ingredients.webp")} style={{ width: 18, height: 18 }} contentFit="contain" />
+            <Text className="font-inter-semibold text-[#FBA82E] text-[11px] ml-1">{ingredientsCount} Ingredients</Text>
           </MetaPill>
         )}
         <MetaPill>

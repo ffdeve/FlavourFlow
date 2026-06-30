@@ -5,8 +5,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { cn } from "@/utils";
 import { HeartButton } from "@/components/ui/heart-button";
@@ -337,7 +335,7 @@ function CatalogRecipeCard({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      className="bg-white rounded-2xl overflow-hidden mb-4"
+      className="rounded-2xl overflow-hidden mb-4 bg-white"
       style={{
         shadowColor: "#000000",
         shadowOffset: { width: 0, height: 20 },
@@ -346,7 +344,7 @@ function CatalogRecipeCard({
         elevation: 8,
       }}
     >
-      {/* Image Container */}
+      {/* Image Container (Top) */}
       <View className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
         <Image
           source={imageUri === "fallback" ? require("@/assets/images/LogIn_front_photo.webp") : { uri: imageUri }}
@@ -378,25 +376,17 @@ function CatalogRecipeCard({
           size={20}
           className="absolute top-2.5 right-2.5 z-10 bg-black/30 rounded-full items-center justify-center"
         />
-
-        {/* Netflix-style: blur layer + gradient on top */}
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "50%" }}>
-          <BlurView
-            tint="light"
-            intensity={20}
-            experimentalBlurMethod="dimezisBlurView"
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-          <LinearGradient
-            colors={["transparent", "rgba(255,255,255,0.70)", "#FFFFFF"]}
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-        </View>
       </View>
 
-      {/* White Content Area */}
-      <View className="px-3 pt-2 pb-3 bg-white -mt-1">
-        {/* Title */}
+      {/* Solid white footer (Bottom, non-absolute, with gap) */}
+      <View
+        style={{
+          backgroundColor: "#FFFFFF",
+          paddingHorizontal: 12,
+          paddingTop: 12, // gap between text and image
+          paddingBottom: 12,
+        }}
+      >
         <Text
           className="font-jakarta-bold text-[#3B3328] text-[13px] mb-2 leading-[17px]"
           numberOfLines={2}
@@ -404,8 +394,6 @@ function CatalogRecipeCard({
         >
           {recipe.title}
         </Text>
-
-        {/* Bottom Info Row */}
         <View className="flex-row items-center justify-between">
           <Text className="font-inter-medium text-[#8B7D6F] text-[10px]">
             {recipe.ingredientsCount} Ingredients

@@ -1,26 +1,29 @@
-import { Image } from "expo-image";
 import Avatar from "@/components/ui/avatar";
+import { FullWidthRecipeCard } from "@/components/ui/full-width-recipe-card";
 import { useAuth } from "@/hooks/use-auth";
 import { communityService } from "@/services/community.service";
 import { profileService } from "@/services/profile.service";
 import { recipeService } from "@/services/recipe.service";
 import type { Post } from "@/types";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   FlatList,
- 
+  Platform,
   Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { FullWidthRecipeCard } from "@/components/ui/full-width-recipe-card";
+import { useTranslation } from "react-i18next";
 
 type ProfileTab = "Posts" | "Cooked History";
 
@@ -28,6 +31,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { user, profile, updateProfile } = useAuth();
+  const { t } = useTranslation();
 
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [stats, setStats] = useState({
@@ -124,6 +128,60 @@ export default function ProfileScreen() {
     }
   }, [user?.id, updateProfile]);
 
+  // ── Banner Picker ──
+  const [bannerLoading, setBannerLoading] = useState(false);
+  const handleBannerPress = useCallback(async () => {
+    if (!user?.id) return;
+
+    const pickAndUpload = async () => {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [21, 9],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      setBannerLoading(true);
+      try {
+        const publicUrl = await profileService.uploadBanner(
+          user.id,
+          result.assets[0].uri,
+        );
+        await updateProfile({ banner_url: publicUrl });
+      } catch (err) {
+        console.error("Banner upload failed:", err);
+      } finally {
+        setBannerLoading(false);
+      }
+    };
+
+    if (profile?.banner_url) {
+      if (Platform.OS === "ios") {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: ["Change Banner", "Remove Banner", "Cancel"],
+            cancelButtonIndex: 2,
+            destructiveButtonIndex: 1,
+          },
+          (idx) => {
+            if (idx === 0) pickAndUpload();
+            if (idx === 1) updateProfile({ banner_url: null });
+          }
+        );
+      } else {
+        Alert.alert("Banner Options", "What would you like to do?", [
+          { text: "Change Banner", onPress: pickAndUpload },
+          { text: "Remove Banner", style: "destructive", onPress: () => updateProfile({ banner_url: null }) },
+          { text: "Cancel", style: "cancel" }
+        ]);
+      }
+    } else {
+      pickAndUpload();
+    }
+  }, [user?.id, profile?.banner_url, updateProfile]);
+
   const displayName = profile?.full_name || "FlavourFlow User";
   const displayEmail = user?.email || "";
 
@@ -137,9 +195,7 @@ export default function ProfileScreen() {
     return (
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() =>
-          Alert.alert("Coming soon", "Post detail view coming soon.")
-        }
+        onPress={() => router.push(`/post-detail?id=${item.id}`)}
         style={{ width: itemSize, height: itemSize, padding: 1 }}
       >
         {thumbnail ? (
@@ -191,7 +247,8 @@ export default function ProfileScreen() {
           No Cooking History Yet
         </Text>
         <Text className="text-[13px] font-inter-medium text-[#8B7D6F] text-center leading-5 mb-5 px-4">
-          When you finish cooking a recipe, it will appear here so you can keep track of all your culinary achievements.
+          When you finish cooking a recipe, it will appear here so you can keep
+          track of all your culinary achievements.
         </Text>
         <TouchableOpacity
           activeOpacity={0.9}
@@ -205,7 +262,11 @@ export default function ProfileScreen() {
             elevation: 3,
           }}
         >
-          <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 22, height: 22,  marginRight: 6  }} contentFit="contain" />
+          <Image
+            source={require("@/assets/icons/magnifying_glass.webp")}
+            style={{ width: 22, height: 22, marginRight: 6 }}
+            contentFit="contain"
+          />
           <Text className="text-white font-jakarta-bold text-sm">
             Find Recipes
           </Text>
@@ -220,7 +281,7 @@ export default function ProfileScreen() {
       {/* ── Top Header ── */}
       <View className="flex-row items-center justify-between px-6 pt-3 pb-2">
         <Text className="text-2xl font-jakarta-bold text-[#3B3328]">
-          Profile
+          {t("Profile")}
         </Text>
         <TouchableOpacity
           onPress={() => router.push("/settings")}
@@ -236,7 +297,7 @@ export default function ProfileScreen() {
 
       {/* ── Profile Card ── */}
       <View
-        className="mx-5 mt-3 bg-white rounded-[28px] border border-[#F5E3D8]/40 overflow-hidden"
+        className="mx-5 mt-3 bg-white rounded-[28px] border border-[#F5E3D8]/40 overflow-hidden relative"
         style={{
           shadowColor: "#3B3328",
           shadowOffset: { width: 0, height: 3 },
@@ -245,7 +306,36 @@ export default function ProfileScreen() {
           elevation: 3,
         }}
       >
-        <View className="flex-row items-center p-5">
+        {/* Banner Background */}
+        {profile?.banner_url ? (
+          <View
+            className="absolute top-0 left-0 right-0"
+            style={{ height: 160, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' }}
+          >
+            <Image
+              source={{ uri: profile.banner_url }}
+              style={{ width: "100%", height: "100%" }}
+              contentFit="cover"
+            />
+            {/* Subtle gradient at the bottom to blend into the white card */}
+            <LinearGradient
+              colors={["rgba(255,255,255,0.01)", "rgba(255,255,255,1)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={{ position: "absolute", bottom: -1, left: 0, right: 0, height: 32 }}
+            />
+          </View>
+        ) : (
+          <View
+            className="absolute top-0 left-0 right-0"
+            style={{ height: 160 }}
+          />
+        )}
+
+        <View
+          className="flex-row items-center p-5 pt-16 pb-6 z-10"
+          pointerEvents="box-none"
+        >
           {/* Avatar with camera overlay */}
           <TouchableOpacity
             onPress={handleAvatarPress}
@@ -260,16 +350,22 @@ export default function ProfileScreen() {
                 <ActivityIndicator size="small" color="#FBA82E" />
               </View>
             ) : (
-              <Avatar url={profile?.avatar_url} name={displayName} size={72} />
+              <View className="border-2 border-white rounded-full shadow-sm bg-white">
+                <Avatar
+                  url={profile?.avatar_url}
+                  name={displayName}
+                  size={68}
+                />
+              </View>
             )}
             {/* Camera badge */}
-            <View className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#FBA82E] rounded-full items-center justify-center border-2 border-white">
+            <View className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#FBA82E] rounded-full items-center justify-center border-2 border-white shadow-sm">
               <Feather name="camera" size={13} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
 
           {/* Name + Email */}
-          <View className="flex-1 ml-4">
+          <View className="flex-1 ml-4 justify-center">
             <Text
               className="text-lg font-jakarta-bold text-[#3B3328]"
               numberOfLines={1}
@@ -277,7 +373,7 @@ export default function ProfileScreen() {
               {displayName}
             </Text>
             <Text
-              className="text-[13px] font-inter-medium text-[#8B7D6F] mt-0.5"
+              className={`text-[13px] font-inter-medium mt-0.5 ${profile?.banner_url ? 'text-[#3B3328]' : 'text-[#8B7D6F]'}`}
               numberOfLines={1}
             >
               {displayEmail}
@@ -285,36 +381,81 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Camera button for banner */}
+        <TouchableOpacity
+          onPress={handleBannerPress}
+          style={{ zIndex: 20, elevation: 5 }}
+          className="absolute top-3 right-3 w-9 h-9 bg-[#FBA82E] rounded-full items-center justify-center shadow-md border-2 border-white"
+        >
+          {bannerLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Feather name="camera" size={16} color="#FFFFFF" />
+          )}
+        </TouchableOpacity>
+
         {/* Stats Bar */}
-        <View className="flex-row border-t border-[#F5E3D8]/30 py-4 px-2">
+        <View className="flex-row py-4 px-2">
           {[
-            { label: "Recipes", value: stats.recipes },
-            { label: "Followers", value: stats.followers },
-            { label: "Following", value: stats.following },
-          ].map((stat, i) => (
-            <View key={stat.label} className="flex-1 items-center">
-              {i > 0 && (
-                <View className="absolute left-0 top-1 bottom-1 w-px bg-[#F5E3D8]/50" />
-              )}
-              {statsLoading ? (
-                <ActivityIndicator size="small" color="#FBA82E" />
-              ) : (
-                <Text className="text-lg font-jakarta-bold text-[#3B3328]">
-                  {stat.value >= 1000
-                    ? `${(stat.value / 1000).toFixed(1)}K`
-                    : stat.value}
+            { label: t("Recipes"), value: stats.recipes, onPress: undefined },
+            {
+              label: t("Followers"),
+              value: stats.followers,
+              onPress: () => router.push(`/user-followers?userId=${user?.id}`),
+            },
+            {
+              label: t("Following"),
+              value: stats.following,
+              onPress: () => router.push(`/user-following?userId=${user?.id}`),
+            },
+          ].map((stat, i) => {
+            const content = (
+              <>
+                {i > 0 && (
+                  <View
+                    className="absolute left-0 top-1 bottom-1 w-px bg-[#F5E3D8]/50"
+                    pointerEvents="none"
+                  />
+                )}
+                {statsLoading ? (
+                  <ActivityIndicator size="small" color="#FBA82E" />
+                ) : (
+                  <Text className="text-lg font-jakarta-bold text-[#3B3328]">
+                    {stat.value >= 1000
+                      ? `${(stat.value / 1000).toFixed(1)}K`
+                      : stat.value}
+                  </Text>
+                )}
+                <Text className="text-[11px] font-inter-medium text-[#8B7D6F] mt-0.5">
+                  {stat.label}
                 </Text>
-              )}
-              <Text className="text-[11px] font-inter-medium text-[#8B7D6F] mt-0.5">
-                {stat.label}
-              </Text>
-            </View>
-          ))}
+              </>
+            );
+
+            if (stat.onPress) {
+              return (
+                <TouchableOpacity
+                  key={stat.label}
+                  activeOpacity={0.5}
+                  onPress={stat.onPress}
+                  className="flex-1 items-center relative"
+                >
+                  {content}
+                </TouchableOpacity>
+              );
+            }
+
+            return (
+              <View key={stat.label} className="flex-1 items-center relative">
+                {content}
+              </View>
+            );
+          })}
         </View>
       </View>
 
       {/* ── Content Tabs ── */}
-      <View className="flex-row mt-6 border-b border-[#F5E3D8]/50 mb-4">
+      <View className="flex-row mt-2 border-b border-[#F5E3D8]/50 mb-4">
         <TouchableOpacity
           className="flex-1 py-4 items-center justify-center"
           onPress={() => setActiveTab("Posts")}
@@ -354,6 +495,7 @@ export default function ProfileScreen() {
         numColumns={activeTab === "Posts" ? 3 : 1}
         ListHeaderComponent={renderHeader}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 100 }}
         ListEmptyComponent={() => (
           <View>

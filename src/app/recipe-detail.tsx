@@ -1,4 +1,9 @@
 import { cn } from "@/utils";
+import {
+  computeTimeBreakdown,
+  formatDuration,
+  scaleQuantity,
+} from "@/utils/recipe-steps";
 import { useAuth } from "@/hooks/use-auth";
 import { Feather, FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -7,6 +12,7 @@ import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   Alert,
+  ActivityIndicator,
   Dimensions,
   FlatList,
   ScrollView,
@@ -29,6 +35,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CookingLoader } from "@/components/ui/cooking-loader";
 import { Recipe, recipeService } from "@/services/recipe.service";
+import { aiService } from "@/services/ai.service";
 import { supabase } from "@/services/supabase";
 import { ResizeMode, Video } from "expo-av";
 import * as Haptics from "expo-haptics";
@@ -36,7 +43,7 @@ import { WebView } from "react-native-webview";
 import YoutubePlayer from "react-native-youtube-iframe";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const HERO_HEIGHT = SCREEN_HEIGHT * 0.45;
+const HERO_HEIGHT = (SCREEN_HEIGHT * 0.45) - 20;
 // Breathing room above the video so it clears the floating header / notch.
 const VIDEO_TOP_PAD = 100;
 // Autoplay the recipe video when its slide is active. false = user taps play.
@@ -80,7 +87,7 @@ const SPICE_IMAGES: Record<number, any> = {
 
 // Block icon asset images
 const INGREDIENTS_ICON = require("@/assets/icons/Ingredients.webp");
-const KCAL_ICON = require("@/assets/icons/kcal.png");
+const COOKED_ICON = require("@/assets/icons/Chef_likes.webp");
 const SERVINGS_ICON = require("@/assets/icons/servings.png");
 
 const MASTER_KITCHEN_ESSENTIALS = [
@@ -146,8 +153,14 @@ export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [originalRecipe, setOriginalRecipe] = useState<Recipe | null>(null);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbKitchenEssentials, setDbKitchenEssentials] = useState<any[]>([]);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [currentLang, setCurrentLang] = useState<'en' | 'ur' | 'roman_ur'>('en');
+
+  // Dynamic serving scaling — defaults to the recipe's base servings on load.
+  const [scaledServings, setScaledServings] = useState<number | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -156,6 +169,8 @@ export default function RecipeDetailScreen() {
           setDbLoading(true);
           const data = await recipeService.getRecipeDetails(id);
           setRecipe(data);
+          setOriginalRecipe(data);
+          setScaledServings(data?.servings || 2);
         } catch (err) {
           console.error("Error fetching recipe details:", err);
         } finally {
@@ -254,14 +269,14 @@ export default function RecipeDetailScreen() {
   }, [activeImageIndex, recipe?.videoUrl]);
 
   // Dynamic Hero Height calculation
-  const animatedHeroHeight = useSharedValue(SCREEN_HEIGHT * 0.45);
+  const animatedHeroHeight = useSharedValue((SCREEN_HEIGHT * 0.45) - 20);
   const heroInitialized = useRef(false);
 
   useEffect(() => {
     // If we're on the video slide (slide 0 with a video) or playing video
     const isVideoSlide = recipe?.videoUrl && activeImageIndex === 0;
 
-    let targetHeight = SCREEN_HEIGHT * 0.45;
+    let targetHeight = (SCREEN_HEIGHT * 0.45) - 20;
 
     if (activeVideo || isVideoSlide) {
       // 16:9 + 32px sheet overlap + top padding above the video
@@ -391,6 +406,35 @@ export default function RecipeDetailScreen() {
   const displayIngredients = showAllIngredients
     ? recipe.ingredients || []
     : (recipe.ingredients || []).slice(0, 6);
+
+  // ─── Serving scaling ──────────────────────────────────────────────────────
+  const baseServings = recipe.servings || 2;
+  const activeServings = scaledServings ?? baseServings;
+  const scaleFactor = baseServings > 0 ? activeServings / baseServings : 1;
+
+  /** Scale an ingredient's display amount (handles {amount,unit} or quantity). */
+  const scaledIngredientAmount = (ing: any): string => {
+    if (ing.amount) {
+      return `${scaleQuantity(String(ing.amount), scaleFactor)} ${ing.unit || ""}`.trim();
+    }
+    return scaleQuantity(String(ing.quantity || ""), scaleFactor);
+  };
+
+  /** Look up the scaled quantity for a linked-ingredient name (for step "Uses:"). */
+  const linkedIngredientLabel = (ingName: string): string => {
+    const match = (recipe.ingredients || []).find(
+      (i: any) => i.name?.toLowerCase() === ingName.toLowerCase(),
+    );
+    if (!match) return ingName;
+    const qty = scaledIngredientAmount(match);
+    return qty ? `${qty} ${ingName}` : ingName;
+  };
+
+  // ─── Time breakdown (Prep manual + Cook/Wait from step timers) ─────────────
+  const timeBreakdown = computeTimeBreakdown(
+    (recipe.steps as any) || [],
+    recipe.prepTime || 0,
+  );
 
   const allergies = preferences?.allergies || [];
   const dislikes = preferences?.dislikes || [];
@@ -710,13 +754,13 @@ export default function RecipeDetailScreen() {
                   <>
                     <View className="absolute bottom-10 right-5 bg-black/40 rounded-full py-1.5 px-3.5 flex-row items-center border border-white/20">
                       <Image source={require("@/assets/icons/recipe_card_time.webp")} style={{ width: 18, height: 18, marginRight: 6 }} contentFit="contain" />
-                      <Text className="font-jakarta-semibold text-white text-xs">{recipe.time}</Text>
+                      <Text className="font-jakarta-semibold text-white text-sm">{formatDuration(timeBreakdown.total)}</Text>
                     </View>
                     {recipe.spiceLevel > 0 && (
                       <View className="absolute bottom-10 left-5 bg-black/40 rounded-full p-1.5 flex-row items-center border border-white/20">
                         <Image
                           source={SPICE_IMAGES[Math.min(recipe.spiceLevel, 5)]}
-                          style={{ width: 20, height: 20 }}
+                          style={{ width: 26, height: 26 }}
                           contentFit="contain"
                         />
                       </View>
@@ -791,7 +835,7 @@ export default function RecipeDetailScreen() {
           </View>
 
           {/* Author Row */}
-          <View className="flex-row items-center mb-6">
+          <View className="flex-row items-center mb-4">
             <Image
               source={{
                 uri: recipe.authorAvatar || "https://i.pravatar.cc/150?img=5",
@@ -809,7 +853,58 @@ export default function RecipeDetailScreen() {
             />
           </View>
 
-          {/* 3 Blocks Row (Ingredients, Kcl, Serving) */}
+          {/* Translation Button */}
+          <View className="flex-row mb-6">
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => {
+                if (currentLang !== 'en') {
+                  setRecipe(originalRecipe);
+                  setCurrentLang('en');
+                  return;
+                }
+                Alert.alert("Translate Recipe", "Choose a language", [
+                  { text: "اردو (Urdu)", onPress: async () => {
+                    try {
+                      setIsTranslating(true);
+                      const translated = await aiService.translateRecipe(originalRecipe, 'ur');
+                      setRecipe({ ...originalRecipe!, ...translated });
+                      setCurrentLang('ur');
+                    } catch (err) {
+                      Alert.alert("Error", "Failed to translate recipe.");
+                    } finally {
+                      setIsTranslating(false);
+                    }
+                  }},
+                  { text: "Roman Urdu", onPress: async () => {
+                    try {
+                      setIsTranslating(true);
+                      const translated = await aiService.translateRecipe(originalRecipe, 'roman_ur');
+                      setRecipe({ ...originalRecipe!, ...translated });
+                      setCurrentLang('roman_ur');
+                    } catch (err) {
+                      Alert.alert("Error", "Failed to translate recipe.");
+                    } finally {
+                      setIsTranslating(false);
+                    }
+                  }},
+                  { text: "Cancel", style: "cancel" }
+                ]);
+              }}
+              className="flex-row items-center bg-[#F5E3D8]/40 px-4 py-2 rounded-full border border-[#F5E3D8]"
+            >
+              {isTranslating ? (
+                <ActivityIndicator size="small" color="#FBA82E" style={{ marginRight: 6 }} />
+              ) : (
+                <Ionicons name="language" size={16} color="#FBA82E" style={{ marginRight: 6 }} />
+              )}
+              <Text className="font-jakarta-semibold text-[13px] text-[#3B3328]">
+                {isTranslating ? "Translating..." : currentLang === 'en' ? "Translate Recipe" : "Revert to English"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 3 Blocks Row (Ingredients, Serving, Cooked) */}
           <View className="flex-row justify-between mb-6">
             {/* Block 1: Ingredients */}
             <View className="flex-1 bg-[#FFF2D9] rounded-2xl p-3 mr-2.5 items-center justify-center min-h-[110px]">
@@ -824,28 +919,82 @@ export default function RecipeDetailScreen() {
               </Text>
             </View>
 
-            {/* Block 2: Kcl */}
+            {/* Block 2: Serving — interactive scaler */}
             <View className="flex-1 bg-[#FFEAD2] rounded-2xl p-3 mr-2.5 items-center justify-center min-h-[110px]">
               <Image
-                source={KCAL_ICON}
-                style={{ width: 48, height: 48 }}
+                source={SERVINGS_ICON}
+                style={{ width: 40, height: 40 }}
                 contentFit="contain"
               />
-              <Text className="font-jakarta-medium text-text-DEFAULT text-xs text-center mt-2.5">
-                {recipe.nutrition?.calories || 320} Kcal
+              <View className="flex-row items-center mt-2">
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setScaledServings((prev) =>
+                      Math.max(1, (prev ?? baseServings) - 1),
+                    );
+                  }}
+                  className="w-6 h-6 rounded-full bg-white items-center justify-center border border-[#F0D9CE] shadow-sm"
+                >
+                  <Feather name="minus" size={13} color="#FBA82E" />
+                </TouchableOpacity>
+                <Text className="font-jakarta-bold text-text-DEFAULT text-sm mx-2.5 min-w-[18px] text-center">
+                  {activeServings}
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setScaledServings((prev) => (prev ?? baseServings) + 1);
+                  }}
+                  className="w-6 h-6 rounded-full bg-white items-center justify-center border border-[#F0D9CE] shadow-sm"
+                >
+                  <Feather name="plus" size={13} color="#FBA82E" />
+                </TouchableOpacity>
+              </View>
+              <Text className="font-inter-medium text-text-lighter text-[10px] text-center mt-1">
+                Servings
               </Text>
             </View>
 
-            {/* Block 3: Serving */}
+            {/* Block 3: Cooked */}
             <View className="flex-1 bg-[#FDF0EB] rounded-2xl p-3 items-center justify-center min-h-[110px]">
               <Image
-                source={SERVINGS_ICON}
+                source={COOKED_ICON}
                 style={{ width: 48, height: 48 }}
                 contentFit="contain"
               />
               <Text className="font-jakarta-medium text-text-DEFAULT text-xs text-center mt-2.5">
-                {recipe.servings || 2} Servings
+                {(recipe as any).cooked_count ? ((recipe as any).cooked_count >= 1000 ? ((recipe as any).cooked_count/1000).toFixed(1) + 'k' : (recipe as any).cooked_count) : 750} Cooked
               </Text>
+            </View>
+          </View>
+
+          {/* Time breakdown — Prep / Cook / Wait / Total */}
+          <View className="bg-white border border-[#F5E3D8]/60 rounded-2xl px-4 py-3 mb-6 flex-row items-center justify-between shadow-sm">
+            <View className="items-center flex-1">
+              <Text className="font-inter-semibold text-[10px] text-text-lighter mb-0.5">PREP</Text>
+              <Text className="font-jakarta-bold text-text-DEFAULT text-xs">{formatDuration(timeBreakdown.prep)}</Text>
+            </View>
+            <View className="w-px h-7 bg-[#F5E3D8]" />
+            <View className="items-center flex-1">
+              <Text className="font-inter-semibold text-[10px] text-text-lighter mb-0.5">COOK</Text>
+              <Text className="font-jakarta-bold text-text-DEFAULT text-xs">{formatDuration(timeBreakdown.cook)}</Text>
+            </View>
+            {timeBreakdown.wait > 0 && (
+              <>
+                <View className="w-px h-7 bg-[#F5E3D8]" />
+                <View className="items-center flex-1">
+                  <Text className="font-inter-semibold text-[10px] text-text-lighter mb-0.5">WAIT</Text>
+                  <Text className="font-jakarta-bold text-text-DEFAULT text-xs">{formatDuration(timeBreakdown.wait)}</Text>
+                </View>
+              </>
+            )}
+            <View className="w-px h-7 bg-[#F5E3D8]" />
+            <View className="items-center flex-1">
+              <Text className="font-inter-semibold text-[10px] text-primary mb-0.5">TOTAL</Text>
+              <Text className="font-jakarta-bold text-primary text-xs">{formatDuration(timeBreakdown.total)}</Text>
             </View>
           </View>
 
@@ -908,10 +1057,7 @@ export default function RecipeDetailScreen() {
                       className="text-text-DEFAULT font-jakarta-medium text-[9px] text-center mt-2 leading-3"
                       numberOfLines={2}
                     >
-                      {ing.amount
-                        ? `${ing.amount} ${ing.unit || ""}`
-                        : ing.quantity}{" "}
-                      {ing.name}
+                      {scaledIngredientAmount(ing)} {ing.name}
                     </Text>
                   </View>
                 ))}
@@ -1015,8 +1161,11 @@ export default function RecipeDetailScreen() {
                       )}
                     </View>
 
-                    {/* Action, Heat, Timer Metadata Row */}
-                    {(step.action || step.heatSetting || step.hasTimer) && (
+                    {/* Action, Temp, Heat, Timer Metadata Row */}
+                    {(step.action ||
+                      step.temperature ||
+                      step.heatSetting ||
+                      step.hasTimer) && (
                       <View className="flex-row items-center gap-1.5 flex-wrap mt-1">
                         {step.action && (
                           <View className="bg-[#F5E3D8]/50 px-2 py-0.5 rounded-full border border-[#F5E3D8]/80 flex-row items-center">
@@ -1025,6 +1174,21 @@ export default function RecipeDetailScreen() {
                             </Text>
                           </View>
                         )}
+
+                        {step.temperature != null &&
+                          String(step.temperature).trim() !== "" && (
+                            <View className="bg-red-50 px-2 py-0.5 rounded-full border border-red-100 flex-row items-center">
+                              <Feather
+                                name="thermometer"
+                                size={10}
+                                color="#E05252"
+                                style={{ marginRight: 3 }}
+                              />
+                              <Text className="text-[#E05252] font-jakarta-bold text-[8px] uppercase">
+                                {step.temperature}°{step.temperatureUnit || "C"}
+                              </Text>
+                            </View>
+                          )}
 
                         {step.heatSetting && (
                           <View className="bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100 flex-row items-center">
@@ -1053,7 +1217,22 @@ export default function RecipeDetailScreen() {
                       </View>
                     )}
 
-                    {/* Linked Ingredients Row */}
+                    {/* Chef Tip / Note */}
+                    {step.note && String(step.note).trim() !== "" && (
+                      <View className="flex-row items-start mt-2 bg-[#FFF7E8] border border-[#FBE2B0] rounded-xl px-2.5 py-1.5">
+                        <Feather
+                          name="info"
+                          size={11}
+                          color="#D99A2B"
+                          style={{ marginRight: 5, marginTop: 1 }}
+                        />
+                        <Text className="text-[#8A6A22] font-inter-medium text-[10px] leading-4 flex-1">
+                          {step.note}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Linked Ingredients Row — with scaled quantities */}
                     {step.linkedIngredients &&
                       step.linkedIngredients.length > 0 && (
                         <View className="flex-row flex-wrap items-center mt-2 gap-1">
@@ -1067,7 +1246,7 @@ export default function RecipeDetailScreen() {
                                 className="bg-[#F5E3D8]/20 border border-[#F5E3D8]/40 px-2 py-0.5 rounded-full"
                               >
                                 <Text className="text-[#5C544A] font-inter-medium text-[8px]">
-                                  {ingName}
+                                  {linkedIngredientLabel(ingName)}
                                 </Text>
                               </View>
                             ),
@@ -1091,7 +1270,11 @@ export default function RecipeDetailScreen() {
           onSwipeSuccess={() => {
             router.push({
               pathname: "/cooking-mode",
-              params: { id: id },
+              params: {
+                id: id,
+                servings: String(activeServings),
+                baseServings: String(baseServings),
+              },
             });
           }}
         />

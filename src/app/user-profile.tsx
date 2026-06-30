@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
+  Platform,
+  Share,
   Text,
   TouchableOpacity,
   View,
@@ -17,14 +21,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { profileService } from "@/services/profile.service";
 import Avatar from "@/components/ui/avatar";
 import type { Profile } from "@/types";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_GAP = 12;
-const CARD_WIDTH = (SCREEN_WIDTH - 40 - CARD_GAP) / 2;
 const BANNER_HEIGHT = 200;
 
-// ─── Recipe Grid Card ────────────────────────────────────────
-function RecipeGridCard({
+// ─── Search-style Recipe Card ────────────────────────────────
+function ProfileRecipeCard({
   recipe,
   onPress,
 }: {
@@ -33,82 +37,115 @@ function RecipeGridCard({
 }) {
   return (
     <TouchableOpacity
-      activeOpacity={0.92}
+      activeOpacity={0.9}
       onPress={onPress}
-      className="rounded-[20px] overflow-hidden bg-white border border-[#F5E3D8]/30"
+      className="rounded-2xl overflow-hidden bg-white"
       style={{
-        width: CARD_WIDTH,
         shadowColor: "#3B3328",
-        shadowOffset: { width: 0, height: 3 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.06,
-        shadowRadius: 10,
+        shadowRadius: 12,
         elevation: 3,
       }}
     >
       {/* Image */}
-      <View className="relative" style={{ height: CARD_WIDTH * 0.85 }}>
+      <View className="relative w-full aspect-[1.1] overflow-hidden bg-gray-100">
         <Image
           source={{
             uri:
               recipe.image_url ||
               "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600",
           }}
-          className="w-full h-full"
+          style={{ width: "100%", height: "100%" }}
           contentFit="cover"
           transition={300}
         />
-        {/* Gradient overlay at bottom */}
-        <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.35)"]}
-          className="absolute bottom-0 left-0 right-0 h-16"
-        />
-        {/* Cook time badge */}
-        {recipe.cook_time && (
-          <View className="absolute bottom-2.5 left-2.5 flex-row items-center bg-white/90 px-2.5 py-1 rounded-full">
-            <Feather name="clock" size={11} color="#8B7D6F" />
-            <Text className="text-[10px] font-inter-medium text-[#8B7D6F] ml-1">
-              {recipe.cook_time} min
-            </Text>
-          </View>
-        )}
+        {/* Rating overlay (Top Right) */}
+        <View className="absolute top-2.5 right-2.5 bg-black/45 px-1.5 py-0.5 rounded-full flex-row items-center z-10">
+          <Ionicons name="star" size={8} color="#FBA82E" />
+          <Text className="text-white text-[8px] font-jakarta-semibold ml-0.5">
+            {recipe.average_rating || "4.5"}
+          </Text>
+        </View>
       </View>
 
-      {/* Title */}
-      <View className="px-3 py-3">
+      {/* Footer */}
+      <View style={{ backgroundColor: "#FFFFFF", paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 }}>
         <Text
-          className="text-[13px] font-jakarta-semibold text-[#3B3328] leading-4"
-          numberOfLines={2}
+          className="font-jakarta-bold text-[#3B3328] text-[13px] mb-2 leading-[17px]"
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           {recipe.title}
         </Text>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Image source={require("@/assets/icons/Ingredients.webp")} style={{ width: 14, height: 14 }} contentFit="contain" />
+            <Text className="font-inter-medium text-[#8B7D6F] text-[10px] ml-1">
+              {recipe.ingredientsCount || (recipe.ingredients || []).length || 0} Ingredients
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <Image source={require("@/assets/icons/recipe_card_time.webp")} style={{ width: 14, height: 14 }} contentFit="contain" />
+            <Text className="font-inter-medium text-[#8B7D6F] text-[10px] ml-1">
+              {recipe.cook_time ? `${recipe.cook_time} min` : recipe.time || "—"}
+            </Text>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
 }
 
-// ─── Stats Pill ──────────────────────────────────────────────
 function StatPill({
   value,
   label,
   showDivider,
+  onPress,
+  isPrivate,
 }: {
-  value: number;
+  value: number | string;
   label: string;
   showDivider?: boolean;
+  onPress?: () => void;
+  isPrivate?: boolean;
 }) {
   const display =
-    value >= 1000 ? `${(value / 1000).toFixed(1)}K` : value.toString();
-  return (
-    <View className="flex-1 items-center relative">
+    isPrivate ? "-" : (typeof value === "number" && value >= 1000 ? `${(value / 1000).toFixed(1)}K` : value.toString());
+  
+  const inner = (
+    <>
       {showDivider && (
-        <View className="absolute left-0 top-1 bottom-1 w-px bg-[#F5E3D8]/60" />
+        <View className="absolute left-0 top-1 bottom-1 w-px bg-[#F5E3D8]/60" pointerEvents="none" />
       )}
-      <Text className="text-lg font-jakarta-bold text-[#3B3328]">
-        {display}
-      </Text>
+      <View className="flex-row items-center">
+        {isPrivate && <Feather name="lock" size={12} color="#8B7D6F" style={{ marginRight: 4 }} />}
+        <Text className="text-lg font-jakarta-bold text-[#3B3328]">
+          {display}
+        </Text>
+      </View>
       <Text className="text-[11px] font-inter-medium text-[#8B7D6F] mt-0.5">
         {label}
       </Text>
+    </>
+  );
+
+  if (onPress && !isPrivate) {
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.5} 
+        onPress={onPress} 
+        className="flex-1 items-center relative py-2"
+        style={{ zIndex: 10 }}
+      >
+        {inner}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View className="flex-1 items-center relative py-2">
+      {inner}
     </View>
   );
 }
@@ -120,6 +157,7 @@ export default function UserProfileScreen() {
   const router = useRouter();
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const { user: currentUser } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState({ followers: 0, following: 0, posts: 0, recipes: 0 });
@@ -164,32 +202,60 @@ export default function UserProfileScreen() {
     })();
   }, [userId, currentUser?.id]);
 
-  // ── Toggle Follow ──
-  const handleFollowToggle = useCallback(async () => {
-    if (!currentUser?.id || !userId || isOwnProfile) return;
-    setFollowLoading(true);
-    try {
-      if (isFollowing) {
-        await profileService.unfollowUser(currentUser.id, userId);
-        setIsFollowing(false);
-        setStats((prev) => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
-        DeviceEventEmitter.emit('FOLLOW_STATUS_CHANGED', { userId, isFollowing: false });
-      } else {
-        await profileService.followUser(currentUser.id, userId);
-        setIsFollowing(true);
-        setStats((prev) => ({ ...prev, followers: prev.followers + 1 }));
-        DeviceEventEmitter.emit('FOLLOW_STATUS_CHANGED', { userId, isFollowing: true });
-      }
-    } catch (err) {
-      console.error("Follow toggle error:", err);
-    } finally {
-      setFollowLoading(false);
-    }
-  }, [currentUser?.id, userId, isOwnProfile, isFollowing]);
-
   const displayName = profile?.full_name || "User";
   const displayUsername =
     profile?.username || `@${displayName.toLowerCase().replace(/\s+/g, "")}`;
+
+  // ── Toggle Follow ──
+  const handleFollowToggle = useCallback(() => {
+    if (!currentUser?.id || !userId || isOwnProfile) return;
+    
+    if (isFollowing) {
+      // Unfollow Modal
+      import("react-native").then(({ Alert }) => {
+        Alert.alert(
+          `Unfollow ${displayName}?`,
+          "",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Unfollow",
+              style: "destructive",
+              onPress: async () => {
+                // Optimistic Update
+                setIsFollowing(false);
+                setStats((prev) => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+                DeviceEventEmitter.emit('FOLLOW_STATUS_CHANGED', { userId, isFollowing: false });
+
+                try {
+                  await profileService.unfollowUser(currentUser.id, userId);
+                } catch (err) {
+                  // Revert if failed
+                  setIsFollowing(true);
+                  setStats((prev) => ({ ...prev, followers: prev.followers + 1 }));
+                  DeviceEventEmitter.emit('FOLLOW_STATUS_CHANGED', { userId, isFollowing: true });
+                  console.error("Unfollow toggle error:", err);
+                }
+              },
+            },
+          ]
+        );
+      });
+    } else {
+      // Optimistic Follow
+      setIsFollowing(true);
+      setStats((prev) => ({ ...prev, followers: prev.followers + 1 }));
+      DeviceEventEmitter.emit('FOLLOW_STATUS_CHANGED', { userId, isFollowing: true });
+
+      profileService.followUser(currentUser.id, userId).catch((err) => {
+        // Revert if failed
+        setIsFollowing(false);
+        setStats((prev) => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+        DeviceEventEmitter.emit('FOLLOW_STATUS_CHANGED', { userId, isFollowing: false });
+        console.error("Follow toggle error:", err);
+      });
+    }
+  }, [currentUser?.id, userId, isOwnProfile, isFollowing, displayName]);
 
   if (loading) {
     return (
@@ -204,42 +270,53 @@ export default function UserProfileScreen() {
     <View>
       {/* ── Banner ── */}
       <View style={{ height: BANNER_HEIGHT }} className="relative bg-[#F5E3D8]">
-        {/* Warm gradient banner */}
-        <LinearGradient
-          colors={["#FBA82E", "#F5905E", "#F5E3D8"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          className="w-full h-full"
-        />
-        {/* Decorative circles */}
-        <View
-          className="absolute opacity-10"
-          style={{
-            width: 200,
-            height: 200,
-            borderRadius: 100,
-            backgroundColor: "#FFFFFF",
-            top: -40,
-            right: -30,
-          }}
-        />
-        <View
-          className="absolute opacity-[0.06]"
-          style={{
-            width: 140,
-            height: 140,
-            borderRadius: 70,
-            backgroundColor: "#FFFFFF",
-            bottom: -20,
-            left: 30,
-          }}
-        />
+        {profile?.banner_url ? (
+          <Image
+            source={{ uri: profile.banner_url }}
+            style={{ width: "100%", height: "100%" }}
+            contentFit="cover"
+          />
+        ) : (
+          <>
+            {/* Warm gradient banner */}
+            <LinearGradient
+              colors={["#FBA82E", "#F5905E", "#F5E3D8"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              className="w-full h-full"
+            />
+            {/* Decorative circles */}
+            <View
+              className="absolute opacity-10"
+              style={{
+                width: 200,
+                height: 200,
+                borderRadius: 100,
+                backgroundColor: "#FFFFFF",
+                top: -40,
+                right: -30,
+              }}
+            />
+            <View
+              className="absolute opacity-[0.06]"
+              style={{
+                width: 140,
+                height: 140,
+                borderRadius: 70,
+                backgroundColor: "#FFFFFF",
+                bottom: -20,
+                left: 30,
+              }}
+            />
+          </>
+        )}
 
         {/* Back Button */}
         <TouchableOpacity
           onPress={() => router.back()}
-          className="absolute top-14 left-5 w-10 h-10 bg-white/30 rounded-full items-center justify-center"
+          className="absolute left-5 w-10 h-10 bg-white/30 rounded-full items-center justify-center"
           style={{
+            top: Math.max(insets.top + 10, 56), // Ensure it clears dynamic island
             backdropFilter: "blur(10px)",
           }}
         >
@@ -248,8 +325,37 @@ export default function UserProfileScreen() {
 
         {/* Options */}
         <TouchableOpacity
-          onPress={() => {}}
-          className="absolute top-14 right-5 w-10 h-10 bg-white/30 rounded-full items-center justify-center"
+          onPress={() => {
+            const options = ["Share Profile", "Report User", "Block User", "Cancel"];
+            const cancelIdx = 3;
+            const destructiveIdx = 2;
+
+            if (Platform.OS === "ios") {
+              ActionSheetIOS.showActionSheetWithOptions(
+                { options, cancelButtonIndex: cancelIdx, destructiveButtonIndex: destructiveIdx },
+                (idx) => {
+                  if (idx === 0) {
+                    Share.share({ message: `Check out ${displayName}'s profile on FlavourFlow!` });
+                  } else if (idx === 1) {
+                    Alert.alert("Report", `${displayName} has been reported. We'll review this shortly.`);
+                  } else if (idx === 2) {
+                    Alert.alert("Block", `${displayName} has been blocked.`);
+                  }
+                },
+              );
+            } else {
+              Alert.alert("Options", "", [
+                { text: "Share Profile", onPress: () => Share.share({ message: `Check out ${displayName}'s profile on FlavourFlow!` }) },
+                { text: "Report User", onPress: () => Alert.alert("Report", `${displayName} has been reported.`) },
+                { text: "Block User", style: "destructive", onPress: () => Alert.alert("Block", `${displayName} has been blocked.`) },
+                { text: "Cancel", style: "cancel" },
+              ]);
+            }
+          }}
+          className="absolute right-5 w-10 h-10 bg-white/30 rounded-full items-center justify-center"
+          style={{
+            top: Math.max(insets.top + 10, 56), // Ensure it clears dynamic island
+          }}
         >
           <Feather name="more-horizontal" size={20} color="#FFFFFF" />
         </TouchableOpacity>
@@ -299,8 +405,20 @@ export default function UserProfileScreen() {
         }}
       >
         <StatPill value={stats.recipes} label="Recipes" />
-        <StatPill value={stats.followers} label="Followers" showDivider />
-        <StatPill value={stats.following} label="Following" showDivider />
+        <StatPill 
+          value={stats.followers} 
+          label="Followers" 
+          showDivider 
+          onPress={() => router.push(`/user-followers?userId=${userId}`)} 
+          isPrivate={profile?.is_private && !isOwnProfile}
+        />
+        <StatPill 
+          value={stats.following} 
+          label="Following" 
+          showDivider 
+          onPress={() => router.push(`/user-following?userId=${userId}`)} 
+          isPrivate={profile?.is_private && !isOwnProfile}
+        />
       </View>
 
       {/* ── Follow Button (only for other users) ── */}
@@ -383,21 +501,20 @@ export default function UserProfileScreen() {
         data={recipes}
         numColumns={2}
         keyExtractor={(item) => item.id}
-        columnWrapperStyle={{
-          paddingHorizontal: 14,
-          gap: CARD_GAP,
-          marginBottom: CARD_GAP,
-        }}
+        columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 20 }}
         renderItem={({ item }) => (
-          <RecipeGridCard
-            recipe={item}
-            onPress={() => router.push(`/recipe-detail?id=${item.id}`)}
-          />
+          <View style={{ width: '48%' }}>
+            <ProfileRecipeCard
+              recipe={item}
+              onPress={() => router.push(`/recipe-detail?id=${item.id}`)}
+            />
+          </View>
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={<View className="h-20" />}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       />
     </View>
   );

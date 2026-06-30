@@ -99,6 +99,41 @@ export class CommunityService {
   }
 
   /**
+   * Fetch a single post by ID
+   */
+  async getPostById(postId: string): Promise<Post | null> {
+    const { data, error } = await supabase
+      .from("posts")
+      .select(`
+        *,
+        profile:profiles!posts_user_id_fkey (
+          id,
+          full_name,
+          avatar_url
+        ),
+        recipes (
+          id,
+          title,
+          description,
+          image_url,
+          created_by
+        )
+      `)
+      .eq("id", postId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null; // Post not found
+      }
+      console.error("Error fetching post by ID:", error);
+      throw error;
+    }
+
+    return data as Post;
+  }
+
+  /**
    * Upload post image to post-images storage bucket
    */
   async uploadPostImage(localUri: string, userId: string): Promise<string> {

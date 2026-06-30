@@ -15,12 +15,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import { recipeService, Recipe } from "@/services/recipe.service";
 import { cn } from "@/utils";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/hooks/use-auth";
+import { communityService } from "@/services/community.service";
+import UserListItem from "@/components/ui/user-list-item";
 
 // Spice level asset images
 const SPICE_IMAGES: Record<number, any> = {
@@ -67,7 +67,10 @@ export default function SearchScreen() {
   // Filters State
   const [selectedTimeLimit, setSelectedTimeLimit] = useState<number | null>(null); // max minutes
   const [selectedSpice, setSelectedSpice] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [showFilters, setShowFilters] = useState(false);
+  const [searchTab, setSearchTab] = useState<"recipes" | "users">("recipes");
+  const [userResults, setUserResults] = useState<any[]>([]);
 
   // Collapsible animation ref
   const filterAnim = useRef(new Animated.Value(0)).current;
@@ -107,6 +110,24 @@ export default function SearchScreen() {
     };
     fetchAllRecipes();
   }, []);
+
+  // Fetch users when searchTab is "users"
+  useEffect(() => {
+    if (searchTab === "users") {
+      const delayFn = setTimeout(async () => {
+        setLoading(true);
+        try {
+          const results = await communityService.searchExploreFeed(searchQuery);
+          setUserResults(results.users);
+        } catch (err) {
+          console.error("User search failed:", err);
+        } finally {
+          setLoading(false);
+        }
+      }, 400);
+      return () => clearTimeout(delayFn);
+    }
+  }, [searchQuery, searchTab]);
 
   // Map service Recipes to UnifiedRecipes
   const allRecipes = useMemo((): UnifiedRecipe[] => {
@@ -154,9 +175,14 @@ export default function SearchScreen() {
         }
       }
 
+      // 4. Category Filter
+      if (selectedCategory !== "All") {
+        if (recipe.categoryTag !== selectedCategory) return false;
+      }
+
       return true;
     });
-  }, [allRecipes, searchQuery, selectedTimeLimit, selectedSpice]);
+  }, [allRecipes, searchQuery, selectedTimeLimit, selectedSpice, selectedCategory]);
 
   // Animate Expand/Collapse filters panel
   const toggleFilterPanel = () => {
@@ -174,16 +200,18 @@ export default function SearchScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setSelectedTimeLimit(null);
     setSelectedSpice(null);
+    setSelectedCategory("All");
   };
 
   const activeFiltersCount =
     (selectedTimeLimit ? 1 : 0) +
-    (selectedSpice !== null ? 1 : 0);
+    (selectedSpice !== null ? 1 : 0) +
+    (selectedCategory !== "All" ? 1 : 0);
 
   // Height animation style
   const filterPanelHeight = filterAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 175], // Adjusted height for Cook Time + Spice Level
+    outputRange: [0, 220],
   });
 
   return (
@@ -202,15 +230,14 @@ export default function SearchScreen() {
 
         {/* Text Input Container */}
         <View className="flex-1 flex-row items-center bg-white border border-gray-200/60 rounded-full px-3 h-11 relative">
-          <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 22, height: 22 }} className="mr-2" contentFit="contain" />
+          <Image source={require("@/assets/icons/magnifying_glass.webp")} style={{ width: 22, height: 22, marginRight: 10 }} contentFit="contain" />
           <TextInput
             placeholder="Search recipes, ingredients..."
             placeholderTextColor="#B5A99A"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            className="flex-1 font-jakarta-medium text-text text-sm h-full pt-0.5"
+            className="flex-1 font-jakarta-medium text-text text-sm h-full"
             autoFocus
-            clearButtonMode="while-editing"
             returnKeyType="search"
             onSubmitEditing={() => {
               Keyboard.dismiss();
@@ -251,6 +278,34 @@ export default function SearchScreen() {
               </Text>
             </View>
           )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Tabs */}
+      <View className="flex-row px-5 py-2 border-b border-primary/10 bg-[#FAF5EF]">
+        <TouchableOpacity
+          onPress={() => setSearchTab("recipes")}
+          className={cn(
+            "flex-1 items-center justify-center py-2 border-b-2",
+            searchTab === "recipes" ? "border-[#FBA82E]" : "border-transparent"
+          )}
+        >
+          <Text className={cn(
+            "font-jakarta-semibold text-sm",
+            searchTab === "recipes" ? "text-[#3B3328]" : "text-[#B5A99A]"
+          )}>Recipes</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setSearchTab("users")}
+          className={cn(
+            "flex-1 items-center justify-center py-2 border-b-2",
+            searchTab === "users" ? "border-[#FBA82E]" : "border-transparent"
+          )}
+        >
+          <Text className={cn(
+            "font-jakarta-semibold text-sm",
+            searchTab === "users" ? "text-[#3B3328]" : "text-[#B5A99A]"
+          )}>Chefs / Users</Text>
         </TouchableOpacity>
       </View>
 
@@ -335,18 +390,37 @@ export default function SearchScreen() {
       </Animated.View>
 
       {/* Results Container */}
-      <FlatList
-        className="flex-1"
-        data={filteredRecipes}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 16 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        onViewableItemsChanged={handleViewableItemsChanged}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
-        ListHeaderComponent={
+      <View className="flex-1 bg-white">
+        {loading ? (
+          <View className="flex-1 items-center justify-center">
+            <Text className="font-jakarta-medium text-[#8B7D6F]">Searching...</Text>
+          </View>
+        ) : searchTab === "users" ? (
+          <FlatList
+            data={userResults}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <UserListItem user={item} />}
+            ListEmptyComponent={
+              <View className="flex-1 items-center justify-center pt-20 px-4">
+                <Text className="font-jakarta-medium text-[#8B7D6F] text-center">
+                  No users found matching "{searchQuery}".
+                </Text>
+              </View>
+            }
+          />
+        ) : (
+          <FlatList
+            className="flex-1"
+            data={filteredRecipes}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 16 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            onViewableItemsChanged={handleViewableItemsChanged}
+            viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+            ListHeaderComponent={
           <View className="flex-row justify-between items-center mb-4">
             <Text className="font-jakarta-semibold text-sm text-[#8B7D6F]">
               {filteredRecipes.length} {filteredRecipes.length === 1 ? "recipe" : "recipes"} found
@@ -424,6 +498,8 @@ export default function SearchScreen() {
           );
         }}
       />
+      )}
+    </View>
     </View>
   );
 }
@@ -448,7 +524,7 @@ function SearchRecipeCard({
     <TouchableOpacity
       activeOpacity={hasAllergy || hasDislike ? 1.0 : 0.9}
       onPress={hasAllergy || hasDislike ? undefined : onPress}
-      className="bg-white rounded-2xl overflow-hidden mb-4 relative"
+      className="rounded-2xl overflow-hidden mb-4 bg-white relative"
       style={{
         shadowColor: "#3B3328",
         shadowOffset: { width: 0, height: 4 },
@@ -457,11 +533,11 @@ function SearchRecipeCard({
         elevation: 3,
       }}
     >
-      {/* Image Container */}
-      <View className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
+      {/* Image Container (Top, aspect-[1.1] for taller height) */}
+      <View className="relative w-full aspect-[1.1] overflow-hidden bg-gray-100">
         <Image
-          source={{ uri: recipe.image }}
-          className="w-full h-full"
+          source={recipe.image ? { uri: recipe.image } : require("@/assets/images/LogIn_front_photo.webp")}
+          style={{ width: "100%", height: "100%" }}
           contentFit="cover"
           transition={300}
         />
@@ -471,7 +547,7 @@ function SearchRecipeCard({
           <View className="absolute top-2.5 left-2.5 z-10">
             <Image
               source={SPICE_IMAGES[recipe.spiceLevel]}
-              style={{ width: 36, height: 18 }}
+              style={{ width: 56, height: 28 }}
               contentFit="contain"
             />
           </View>
@@ -485,39 +561,64 @@ function SearchRecipeCard({
           </Text>
         </View>
 
-        {/* Netflix-style: blur layer + gradient on top */}
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "50%" }}>
-          <BlurView
-            tint="light"
-            intensity={20}
-            experimentalBlurMethod="dimezisBlurView"
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-          <LinearGradient
-            colors={["transparent", "rgba(255,255,255,0.70)", "#FFFFFF"]}
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-        </View>
+        {/* Warning Overlay */}
+        {(hasAllergy || hasDislike) && (
+          <View
+            className={cn(
+              "absolute inset-0 z-30 justify-center items-center p-3",
+              hasAllergy ? "bg-red-500/95" : "bg-neutral-800/95"
+            )}
+          >
+            <Ionicons
+              name={hasAllergy ? "alert-circle-outline" : "warning-outline"}
+              size={26}
+              color="#FFFFFF"
+              style={{ marginBottom: 4 }}
+            />
+            <Text className="text-white font-jakarta-bold text-center text-[11px] leading-4 mb-0.5">
+              {hasAllergy ? "Contains Allergen!" : "Contains Dislike"}
+            </Text>
+            <Text className="text-white/80 font-inter-regular text-center text-[9px] leading-3 mb-3 px-1">
+              {hasAllergy ? `This recipe contains ${allergyName}.` : `Contains disliked ${dislikeName}.`}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={onPress}
+              className="bg-white/20 border border-white/40 px-3 py-1.5 rounded-full"
+            >
+              <Text className="text-white font-jakarta-semibold text-[9px]">
+                View Recipe Anyway
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
-      {/* White Content Area */}
-      <View className="px-3 pb-3 bg-white -mt-1">
-        {/* Title */}
+      {/* Solid white footer (Bottom, non-absolute, with gap) */}
+      <View
+        style={{
+          backgroundColor: "#FFFFFF",
+          paddingHorizontal: 12,
+          paddingTop: 12, // gap between text and image
+          paddingBottom: 12,
+        }}
+      >
         <Text
           className="font-jakarta-bold text-[#3B3328] text-[13px] mb-2 leading-[17px]"
-          numberOfLines={2}
-          style={{ height: 34 }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           {recipe.title}
         </Text>
-
-        {/* Bottom Info Row */}
         <View className="flex-row items-center justify-between">
-          <Text className="font-inter-medium text-[#8B7D6F] text-[10px]">
-            {recipe.ingredientsCount} Ingredients
-          </Text>
           <View className="flex-row items-center">
-            <Feather name="clock" size={10} color="#8B7D6F" />
+            <Image source={require("@/assets/icons/Ingredients.webp")} style={{ width: 14, height: 14 }} contentFit="contain" />
+            <Text className="font-inter-medium text-[#8B7D6F] text-[10px] ml-1">
+              {recipe.ingredientsCount} Ingredients
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <Image source={require("@/assets/icons/recipe_card_time.webp")} style={{ width: 14, height: 14 }} contentFit="contain" />
             <Text className="font-inter-medium text-[#8B7D6F] text-[10px] ml-1">
               {recipe.time}
             </Text>
@@ -525,37 +626,6 @@ function SearchRecipeCard({
         </View>
       </View>
 
-      {/* Warning Overlay */}
-      {(hasAllergy || hasDislike) && (
-        <View
-          className={cn(
-            "absolute inset-0 z-30 justify-center items-center p-3 rounded-2xl",
-            hasAllergy ? "bg-red-500/95" : "bg-neutral-800/95"
-          )}
-        >
-          <Ionicons
-            name={hasAllergy ? "alert-circle-outline" : "warning-outline"}
-            size={26}
-            color="#FFFFFF"
-            style={{ marginBottom: 4 }}
-          />
-          <Text className="text-white font-jakarta-bold text-center text-[11px] leading-4 mb-0.5">
-            {hasAllergy ? "Contains Allergen!" : "Contains Dislike"}
-          </Text>
-          <Text className="text-white/80 font-inter-regular text-center text-[9px] leading-3 mb-3 px-1">
-            {hasAllergy ? `This recipe contains ${allergyName}.` : `Contains disliked ${dislikeName}.`}
-          </Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={onPress}
-            className="bg-white/20 border border-white/40 px-3 py-1.5 rounded-full"
-          >
-            <Text className="text-white font-jakarta-semibold text-[9px]">
-              View Recipe Anyway
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </TouchableOpacity>
   );
 }

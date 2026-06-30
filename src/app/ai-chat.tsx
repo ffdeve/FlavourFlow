@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
 import Avatar from "@/components/ui/avatar";
@@ -30,6 +30,9 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
+import * as Speech from "expo-speech";
+import * as Haptics from "expo-haptics";
+import { DEFAULT_ASSISTANT_SETTINGS } from "@/types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -117,9 +120,15 @@ function RichMessageText({ text, isUser }: { text: string; isUser: boolean }) {
 function MessageBubble({
   message,
   avatarUrl,
+  voiceResponses,
+  onSpeak,
+  isSpeaking,
 }: {
   message: Message;
   avatarUrl?: string | null;
+  voiceResponses?: boolean;
+  onSpeak?: () => void;
+  isSpeaking?: boolean;
 }) {
   const isUser = message.role === "user";
 
@@ -133,22 +142,40 @@ function MessageBubble({
         </View>
       )}
 
-      <View
-        className={`rounded-[20px] px-4 py-3 ${
-          isUser
-            ? "bg-[#FBA82E] rounded-br-[6px]"
-            : "bg-white rounded-bl-[6px] border border-[#F5E3D8]/60"
-        }`}
-        style={{
-          maxWidth: SCREEN_WIDTH * 0.72,
-          shadowColor: "#3B3328",
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: isUser ? 0 : 0.05,
-          shadowRadius: 6,
-          elevation: isUser ? 0 : 2,
-        }}
-      >
-        <RichMessageText text={message.text} isUser={isUser} />
+      <View className="flex-row items-center" style={{ gap: 8 }}>
+        <View
+          className={`rounded-[20px] px-4 py-3 ${
+            isUser
+              ? "bg-[#FBA82E] rounded-br-[6px]"
+              : "bg-white rounded-bl-[6px] border border-[#F5E3D8]/60"
+          }`}
+          style={{
+            maxWidth: SCREEN_WIDTH * 0.72,
+            shadowColor: "#3B3328",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: isUser ? 0 : 0.05,
+            shadowRadius: 6,
+            elevation: isUser ? 0 : 2,
+          }}
+        >
+          <RichMessageText text={message.text} isUser={isUser} />
+        </View>
+
+        {!isUser && voiceResponses && (
+          <TouchableOpacity
+            onPress={onSpeak}
+            activeOpacity={0.7}
+            className={`w-8 h-8 rounded-full items-center justify-center border shadow-sm ${
+              isSpeaking ? "bg-primary border-primary" : "bg-[#FAF5EF] border-primary/20"
+            }`}
+          >
+            <Feather
+              name={isSpeaking ? "volume-x" : "volume-2"}
+              size={13}
+              color={isSpeaking ? "#FFFFFF" : "#FBA82E"}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {isUser && (
@@ -308,6 +335,124 @@ function WelcomeState({
 export default function AiChatScreen() {
   const router = useRouter();
   const { user, profile } = useAuth();
+  
+  const ttsRateRef = useRef(1.0);
+  const ttsVoiceRef = useRef<string | undefined>(undefined);
+  const [voiceMapping, setVoiceMapping] = useState<Record<string, string>>({});
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+
+  const assistantSettings = {
+    ...DEFAULT_ASSISTANT_SETTINGS,
+    ...profile?.assistant_settings,
+  };
+
+  useEffect(() => {
+    ttsRateRef.current = assistantSettings.speechRate;
+  }, [assistantSettings.speechRate]);
+
+  useEffect(() => {
+    async function loadVoices() {
+      try {
+        const available = await Speech.getAvailableVoicesAsync();
+        const enVoices = (available ?? []).filter((v: any) =>
+          (v.language || "").toLowerCase().startsWith("en")
+        );
+        const females = enVoices.filter((v) =>
+          /female|samantha|siri_female|karen|moira|tessa|susan|hazel|veena|zoe/i.test(
+            v.identifier || v.name || ""
+          )
+        );
+        const males = enVoices.filter((v) =>
+          /male|daniel|siri_male|tom|oliver|peter|rishi|ravi/i.test(
+            v.identifier || v.name || ""
+          )
+        );
+        const remaining = enVoices.filter((v) => !females.includes(v) && !males.includes(v));
+        remaining.forEach((v, idx) => {
+          if (idx % 2 === 0) females.push(v);
+          else males.push(v);
+        });
+
+        const mapping = {
+          female_1: females[0]?.identifier || enVoices[0]?.identifier,
+          female_2: females[1]?.identifier || females[0]?.identifier || enVoices[0]?.identifier,
+          male_1: males[0]?.identifier || enVoices[1]?.identifier || enVoices[0]?.identifier,
+          male_2: males[1]?.identifier || males[0]?.identifier || enVoices[0]?.identifier,
+        };
+        setVoiceMapping(mapping);
+      } catch (err) {
+        console.warn("Failed to load device voices:", err);
+      }
+    }
+    loadVoices();
+  }, []);
+
+  const speakText = (msgId: string, text: string) => {
+    Speech.stop();
+    if (speakingMsgId === msgId && isSpeaking) {
+      setIsSpeaking(false);
+      setSpeakingMsgId(null);
+      return;
+    }
+
+    if (!assistantSettings.voiceResponses) {
+      Alert.alert("Voice Responses Disabled", "Please enable Voice Responses in ChefBoo Preferences to hear responses.");
+      return;
+    }
+
+    const clean = (text || "").trim();
+    if (!clean) return;
+
+    setIsSpeaking(true);
+    setSpeakingMsgId(msgId);
+
+    const hasUrdu = /[\u0600-\u06FF]/.test(clean);
+    
+    const voiceKey = assistantSettings.voice;
+    const voiceId = voiceMapping[voiceKey];
+    
+    let selectedVoice = voiceId;
+    if (hasUrdu) {
+      Speech.getAvailableVoicesAsync().then((voices) => {
+        const urVoice = voices.find(v => (v.language || "").toLowerCase().startsWith("ur"));
+        const fallbackUrVoice = urVoice?.identifier;
+        Speech.speak(clean, {
+          rate: ttsRateRef.current,
+          voice: fallbackUrVoice,
+          onDone: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+          onStopped: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+          onError: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+        });
+      });
+      return;
+    }
+
+    if (!selectedVoice) {
+      Speech.speak(clean, {
+        rate: ttsRateRef.current,
+        onDone: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+        onStopped: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+        onError: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+      });
+      return;
+    }
+
+    Speech.speak(clean, {
+      voice: selectedVoice,
+      rate: ttsRateRef.current,
+      onDone: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+      onStopped: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+      onError: () => { setIsSpeaking(false); setSpeakingMsgId(null); },
+    });
+  };
+
+  // Stop speech on unmount
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -392,7 +537,7 @@ export default function AiChatScreen() {
       // en-US is the most reliable dictation model; device locales like en-PK
       // often lack an on-device model. Network recognition allowed for accuracy.
       ExpoSpeechRecognitionModule.start({
-        lang: "en-US",
+        lang: assistantSettings.language === "urdu" ? "ur-PK" : "en-US",
         interimResults: true,
         continuous: true,
         requiresOnDeviceRecognition: false,
@@ -447,21 +592,29 @@ export default function AiChatScreen() {
           body: {
             message: trimmed,
             userId: user?.id,
-            history,
+            history: assistantSettings.rememberAssistantChats ? history : [],
             ingredients,
             excludeIds: Array.from(shownRecipeIdsRef.current),
+            assistantSettings,
           },
         });
 
         if (error) throw error;
 
+        const replyText = data?.reply ?? "Sorry, something went wrong. Please try again.";
         const reply: Message = {
           id: `a_${Date.now()}`,
           role: "assistant",
-          text: data?.reply ?? "Sorry, something went wrong. Please try again.",
+          text: replyText,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, reply]);
+
+        if (assistantSettings.autoSpeak && assistantSettings.voiceResponses) {
+          setTimeout(() => {
+            speakText(reply.id, replyText);
+          }, 100);
+        }
 
         // Surface recipes in the carousel: DB matches, or the AI-generated ones
         if (Array.isArray(data?.recipes) && data.recipes.length > 0) {
@@ -577,9 +730,17 @@ export default function AiChatScreen() {
           />
         );
       }
-      return <MessageBubble message={item} avatarUrl={profile?.avatar_url} />;
+      return (
+        <MessageBubble
+          message={item}
+          avatarUrl={profile?.avatar_url}
+          voiceResponses={assistantSettings.voiceResponses}
+          onSpeak={() => speakText(item.id, item.text)}
+          isSpeaking={speakingMsgId === item.id && isSpeaking}
+        />
+      );
     },
-    [profile?.avatar_url, answeredIds, handleAvailabilityAnswer],
+    [profile?.avatar_url, answeredIds, handleAvailabilityAnswer, assistantSettings.voiceResponses, speakingMsgId, isSpeaking, voiceMapping],
   );
 
   return (

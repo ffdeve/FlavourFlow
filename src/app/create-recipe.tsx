@@ -2,6 +2,15 @@ import { recipeService } from "@/services/recipe.service";
 import { useAuthStore } from "@/store/auth.store";
 import { RecipeStep } from "@/types";
 import { cn } from "@/utils";
+import {
+  STEP_ACTIONS,
+  TEMP_ACTIONS,
+  HEAT_ACTIONS,
+  REST_ACTIONS,
+  HEAT_LEVELS,
+  computeTimeBreakdown,
+  formatDuration,
+} from "@/utils/recipe-steps";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -295,8 +304,24 @@ const parseQuantityAndUnit = (
   return { quantity: cleanStr, unit: defaultUnit, category };
 };
 
-// Actions that involve a flame/heat source — only these show the heat selector.
-const HEAT_ACTIONS = ["Bake", "Cook", "Fry", "Boil"];
+/** A fresh blank step with all action-aware fields defaulted. */
+const makeEmptyStep = (stepNumber: number): RecipeStep => ({
+  step: stepNumber,
+  instruction: "",
+  action: "Mix",
+  parallel: false,
+  linkedIngredients: [],
+  heatSetting: null,
+  temperature: "",
+  temperatureUnit: "C",
+  note: "",
+  hasTimer: false,
+  timerType: "countdown",
+  timerHours: "",
+  timerMinutes: "",
+  targetTime: "",
+  leaveOvernight: false,
+});
 
 export default function CreateRecipeWizardScreen() {
   const { editId } = useLocalSearchParams<{ editId?: string }>();
@@ -616,27 +641,16 @@ export default function CreateRecipeWizardScreen() {
 
   // Active row indices for autocomplete suggestions and unit picker
   const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
+  // When a suggestion is tapped, the still-focused name TextInput fires a
+  // spurious onChangeText with the half-typed value ("Chi") that would revert
+  // the selected name and reopen the list. This flag swallows that one event.
+  const suppressIngredientChangeRef = useRef<Record<number, boolean>>({});
   const [activeUnitPickerIndex, setActiveUnitPickerIndex] = useState<
     number | null
   >(null);
 
   // Steps/Directions list state
-  const [steps, setSteps] = useState<RecipeStep[]>([
-    {
-      step: 1,
-      instruction: "",
-      action: "Mix",
-      parallel: false,
-      linkedIngredients: [],
-      heatSetting: null,
-      hasTimer: false,
-      timerType: "countdown",
-      timerHours: "",
-      timerMinutes: "",
-      targetTime: "",
-      leaveOvernight: false,
-    },
-  ]);
+  const [steps, setSteps] = useState<RecipeStep[]>([makeEmptyStep(1)]);
 
   const [activeStepActionPickerIndex, setActiveStepActionPickerIndex] =
     useState<number | null>(null);
@@ -725,7 +739,6 @@ export default function CreateRecipeWizardScreen() {
               "Low-Carb",
               "Nut-Free",
               "Healthy",
-              "Non-Halal",
             ];
 
             setSelectedMealTypes(tags.filter((t: string) => mealTypes.includes(t)));
@@ -761,6 +774,9 @@ export default function CreateRecipeWizardScreen() {
                   parallel: s.parallel || false,
                   linkedIngredients: s.linkedIngredients || [],
                   heatSetting: s.heatSetting || null,
+                  temperature: s.temperature ?? "",
+                  temperatureUnit: s.temperatureUnit || "C",
+                  note: s.note || "",
                   hasTimer: s.hasTimer || false,
                   timerType: s.timerType || "countdown",
                   timerHours: s.timerHours || "",
@@ -889,23 +905,7 @@ export default function CreateRecipeWizardScreen() {
 
   // Steps dynamic list actions
   const handleAddStep = () => {
-    setSteps([
-      ...steps,
-      {
-        step: steps.length + 1,
-        instruction: "",
-        action: "Mix",
-        parallel: false,
-        linkedIngredients: [],
-        heatSetting: null,
-        hasTimer: false,
-        timerType: "countdown",
-        timerHours: "",
-        timerMinutes: "",
-        targetTime: "",
-        leaveOvernight: false,
-      },
-    ]);
+    setSteps([...steps, makeEmptyStep(steps.length + 1)]);
   };
 
   const handleUpdateStep = (
@@ -913,8 +913,8 @@ export default function CreateRecipeWizardScreen() {
     key: keyof RecipeStep,
     value: any,
   ) => {
-    setSteps(
-      steps.map((item, idx) =>
+    setSteps((prev) =>
+      prev.map((item, idx) =>
         idx === index ? { ...item, [key]: value } : item,
       ),
     );
@@ -922,22 +922,7 @@ export default function CreateRecipeWizardScreen() {
 
   const handleRemoveStep = (index: number) => {
     if (steps.length === 1) {
-      setSteps([
-        {
-          step: 1,
-          instruction: "",
-          action: "Mix",
-          parallel: false,
-          linkedIngredients: [],
-          heatSetting: null,
-          hasTimer: false,
-          timerType: "countdown",
-          timerHours: "",
-          timerMinutes: "",
-          targetTime: "",
-          leaveOvernight: false,
-        },
-      ]);
+      setSteps([makeEmptyStep(1)]);
       return;
     }
     const filtered = steps.filter((_, i) => i !== index);
@@ -1053,6 +1038,44 @@ export default function CreateRecipeWizardScreen() {
           `Step ${tooShortIndex + 1}'s instruction is too short. Describe what to do in a short sentence (at least ${MIN_INSTRUCTION} characters).`,
         );
         return;
+      }
+      // Action-aware requirements.
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i];
+        if (!s.instruction.trim()) continue;
+        const action = s.action ?? "";
+        const hasTemp = Number(s.temperature) > 0;
+        const durationMins =
+          (parseInt(String(s.timerHours || "0"), 10) || 0) * 60 +
+          (parseInt(String(s.timerMinutes || "0"), 10) || 0);
+        const hasDuration = s.hasTimer && durationMins > 0;
+
+        if (TEMP_ACTIONS.includes(action) && !hasTemp) {
+          Alert.alert(
+            "Temperature needed",
+            `Step ${i + 1} (${action}) needs a temperature. e.g. 180°C.`,
+          );
+          return;
+        }
+        // Bake / Air Fry / Roast also need a duration (Preheat does not).
+        if (
+          TEMP_ACTIONS.includes(action) &&
+          action !== "Preheat" &&
+          !hasDuration
+        ) {
+          Alert.alert(
+            "Duration needed",
+            `Step ${i + 1} (${action}) needs a cooking time. Attach a timer.`,
+          );
+          return;
+        }
+        if (HEAT_ACTIONS.includes(action) && !s.heatSetting) {
+          Alert.alert(
+            "Heat level needed",
+            `Step ${i + 1} (${action}) needs a heat level (Low–High).`,
+          );
+          return;
+        }
       }
     }
 
@@ -2103,6 +2126,8 @@ export default function CreateRecipeWizardScreen() {
                               </Text>
                               <TouchableOpacity
                                 onPress={() => {
+                                  suppressIngredientChangeRef.current[index] =
+                                    false;
                                   handleUpdateIngredientFull(index, {
                                     name: "",
                                     icon_url: "",
@@ -2129,6 +2154,12 @@ export default function CreateRecipeWizardScreen() {
                           <TextInput
                             value={item.name}
                             onChangeText={(val) => {
+                              // Swallow the spurious commit fired when a suggestion
+                              // is tapped while this field is still focused.
+                              if (suppressIngredientChangeRef.current[index]) {
+                                suppressIngredientChangeRef.current[index] = false;
+                                return;
+                              }
                               // Only allow alphabetical characters (English & Urdu) and spaces
                               const cleaned = val.replace(
                                 /[^a-zA-Z\s\u0600-\u06FF]/g,
@@ -2249,6 +2280,8 @@ export default function CreateRecipeWizardScreen() {
                               <Pressable
                                 key={sug.name}
                                 onPress={() => {
+                                  suppressIngredientChangeRef.current[index] =
+                                    true;
                                   Keyboard.dismiss();
                                   console.log(
                                     "[Ingredient Selected]",
@@ -2540,6 +2573,34 @@ export default function CreateRecipeWizardScreen() {
                 </View>
               </View>
 
+              {/* Live time breakdown — Prep (manual) + Cook/Wait from step timers */}
+              {(() => {
+                const bd = computeTimeBreakdown(steps, prepTime);
+                return (
+                  <View className="bg-white border border-[#F5E3D8]/45 rounded-2xl px-4 py-3 mb-5 shadow-sm flex-row items-center justify-between">
+                    <View className="items-center flex-1">
+                      <Text className="font-inter-semibold text-[10px] text-[#A89E92] mb-0.5">PREP</Text>
+                      <Text className="font-jakarta-bold text-[#3B3328] text-xs">{formatDuration(bd.prep)}</Text>
+                    </View>
+                    <View className="w-px h-7 bg-[#F5E3D8]/60" />
+                    <View className="items-center flex-1">
+                      <Text className="font-inter-semibold text-[10px] text-[#A89E92] mb-0.5">COOK</Text>
+                      <Text className="font-jakarta-bold text-[#3B3328] text-xs">{formatDuration(bd.cook)}</Text>
+                    </View>
+                    <View className="w-px h-7 bg-[#F5E3D8]/60" />
+                    <View className="items-center flex-1">
+                      <Text className="font-inter-semibold text-[10px] text-[#A89E92] mb-0.5">WAIT</Text>
+                      <Text className="font-jakarta-bold text-[#3B3328] text-xs">{formatDuration(bd.wait)}</Text>
+                    </View>
+                    <View className="w-px h-7 bg-[#F5E3D8]/60" />
+                    <View className="items-center flex-1">
+                      <Text className="font-inter-semibold text-[10px] text-[#FBA82E] mb-0.5">TOTAL</Text>
+                      <Text className="font-jakarta-bold text-[#FBA82E] text-xs">{formatDuration(bd.total)}</Text>
+                    </View>
+                  </View>
+                );
+              })()}
+
               {(() => {
                 // Dedupe by name — linking is by name, so duplicate ingredient
                 // names (e.g. two "Chicken" rows) must not produce duplicate keys.
@@ -2737,14 +2798,84 @@ export default function CreateRecipeWizardScreen() {
                       )}
                     </View>
 
-                    {/* Heat Setting — only for heat-based actions (Bake/Cook/Fry/Boil) */}
+                    {/* Temperature — for oven/air-fry actions (Preheat/Bake/Air Fry/Roast) */}
+                    {TEMP_ACTIONS.includes(item.action ?? "") && (
+                      <View className="mb-4">
+                        <Text className="font-jakarta-semibold text-xs text-[#8B7D6F] mb-2">
+                          Temperature
+                        </Text>
+                        <View className="flex-row gap-3 items-center">
+                          <View className="flex-[1.4] bg-white border border-[#F5E3D8]/40 rounded-full px-4 py-1 flex-row items-center justify-between">
+                            <TextInput
+                              keyboardType="number-pad"
+                              value={
+                                item.temperature != null
+                                  ? String(item.temperature)
+                                  : ""
+                              }
+                              onChangeText={(val) => {
+                                const cleaned = val.replace(/[^0-9]/g, "");
+                                handleUpdateStep(index, "temperature", cleaned);
+                              }}
+                              placeholder="180"
+                              placeholderTextColor="#A89E92"
+                              className="flex-1 font-jakarta-medium text-[#3B3328] text-center text-sm py-2"
+                            />
+                            <Text className="font-inter-semibold text-[11px] text-[#8B7D6F] ml-1">
+                              °{item.temperatureUnit || "C"}
+                            </Text>
+                          </View>
+                          <View className="flex-1 bg-[#F5E3D8]/20 p-1 rounded-full flex-row">
+                            {(["C", "F"] as const).map((unit) => {
+                              const isActive =
+                                (item.temperatureUnit || "C") === unit;
+                              return (
+                                <TouchableOpacity
+                                  key={unit}
+                                  activeOpacity={0.8}
+                                  onPress={() =>
+                                    handleUpdateStep(
+                                      index,
+                                      "temperatureUnit",
+                                      unit,
+                                    )
+                                  }
+                                  className={cn(
+                                    "flex-1 py-2 items-center justify-center rounded-full",
+                                    isActive ? "bg-[#FBA82E]" : "",
+                                  )}
+                                >
+                                  <Text
+                                    className={cn(
+                                      "font-jakarta-bold text-xs",
+                                      isActive
+                                        ? "text-white"
+                                        : "text-[#8B7D6F]",
+                                    )}
+                                  >
+                                    °{unit}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                        <Text className="font-inter-regular text-[10px] text-[#A89E92] mt-1.5 ml-1">
+                          {item.action === "Preheat"
+                            ? "e.g. Preheat oven to 180°C."
+                            : "Typical baking: 160°C–220°C (320°F–430°F)."}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Heat Setting — only for stovetop actions (Fry/Sauté/Simmer/Boil/Cook) */}
                     {HEAT_ACTIONS.includes(item.action ?? "") && (
                     <View className="mb-4">
                       <Text className="font-jakarta-semibold text-xs text-[#8B7D6F] mb-2">
                         Heat Setting
                       </Text>
-                      <View className="flex-row gap-2.5">
-                        {(["Low", "Medium", "High"] as const).map((level) => {
+                      <View className="flex-row gap-2">
+                        {HEAT_LEVELS.map((level) => {
                           const isActive = item.heatSetting === level;
                           return (
                             <TouchableOpacity
@@ -2758,15 +2889,17 @@ export default function CreateRecipeWizardScreen() {
                                 );
                               }}
                               className={cn(
-                                "flex-1 py-2.5 rounded-full items-center justify-center border",
+                                "flex-1 py-2.5 px-1 rounded-full items-center justify-center border",
                                 isActive
                                   ? "bg-[#FBA82E] border-transparent"
                                   : "bg-[#F5E3D8]/10 border-[#F5E3D8]/30",
                               )}
                             >
                               <Text
+                                numberOfLines={1}
+                                adjustsFontSizeToFit
                                 className={cn(
-                                  "font-jakarta-semibold text-xs",
+                                  "font-jakarta-semibold text-[11px]",
                                   isActive ? "text-white" : "text-[#8B7D6F]",
                                 )}
                               >
@@ -2926,8 +3059,8 @@ export default function CreateRecipeWizardScreen() {
                                   className="flex-1 font-jakarta-medium text-[#3B3328] text-xs py-1"
                                 />
                               </View>
-                              {/* Overnight — only meaningful for Marinate steps */}
-                              {item.action === "Marinate" && (
+                              {/* Overnight — for resting/chilling actions */}
+                              {REST_ACTIONS.includes(item.action ?? "") && (
                                 <TouchableOpacity
                                   activeOpacity={0.8}
                                   onPress={() =>
@@ -2960,6 +3093,28 @@ export default function CreateRecipeWizardScreen() {
                           )}
                         </View>
                       )}
+                    </View>
+
+                    {/* Chef Tip / Note — optional, on every step */}
+                    <View className="mt-4">
+                      <Text className="font-jakarta-semibold text-xs text-[#8B7D6F] mb-1.5">
+                        Chef Tip{" "}
+                        <Text className="font-inter-regular text-[#A89E92]">
+                          (optional)
+                        </Text>
+                      </Text>
+                      <TextInput
+                        value={item.note || ""}
+                        onChangeText={(val) =>
+                          handleUpdateStep(index, "note", val)
+                        }
+                        placeholder="e.g. Do not overcrowd the pan."
+                        placeholderTextColor="#A89E92"
+                        multiline
+                        className="bg-white rounded-2xl p-3.5 border border-[#F5E3D8]/45 font-jakarta-medium text-[#3B3328] text-sm shadow-sm"
+                        textAlignVertical="top"
+                        style={{ minHeight: 52 }}
+                      />
                     </View>
                   </View>
                 ));
@@ -3669,25 +3824,15 @@ export default function CreateRecipeWizardScreen() {
         <DropdownPickerModal
           visible={activeStepActionPickerIndex !== null}
           onClose={() => setActiveStepActionPickerIndex(null)}
-          options={[
-            "Mix",
-            "Marinate",
-            "Bake",
-            "Cook",
-            "Chop",
-            "Fry",
-            "Boil",
-            "Garnish",
-            "Serve",
-            "Other",
-          ]}
+          options={STEP_ACTIONS}
           selectedValue={steps[activeStepActionPickerIndex]?.action || "Mix"}
           onSelect={(val) => {
             const idx = activeStepActionPickerIndex;
             handleUpdateStep(idx, "action", val);
             // Clear settings that no longer apply to the chosen action.
             if (!HEAT_ACTIONS.includes(val)) handleUpdateStep(idx, "heatSetting", null);
-            if (val !== "Marinate") handleUpdateStep(idx, "leaveOvernight", false);
+            if (!TEMP_ACTIONS.includes(val)) handleUpdateStep(idx, "temperature", "");
+            if (!REST_ACTIONS.includes(val)) handleUpdateStep(idx, "leaveOvernight", false);
           }}
           title="Select Action Type"
         />
@@ -3895,7 +4040,6 @@ const DIETARY_TAGS: { name: string; icon: any; family?: string }[] = [
   { name: "Low-Carb", icon: require("@/assets/icons/Low_carb.webp") },
   { name: "Nut-Free", icon: require("@/assets/icons/Nut_free.webp") },
   { name: "Healthy", icon: require("@/assets/icons/Healthy.webp") },
-  { name: "Non-Halal", icon: require("@/assets/icons/Non_Halal.webp") },
 ];
 
 const ALLOWED_UNITS = {

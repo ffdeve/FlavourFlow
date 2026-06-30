@@ -70,8 +70,8 @@ export const RecommendationCard = ({
           <Text className="font-inter-semibold text-[#714d28] text-[11px] ml-1">{recipe.time}</Text>
         </MetaPill>
         <MetaPill>
-          <View className="w-1.5 h-1.5 rounded-full mr-1" style={{ backgroundColor: "#FBA82E" }} />
-          <Text className="font-inter-semibold text-[#FBA82E] text-[11px]">{recipe.ingredientsCount} Ingredients</Text>
+          <Image source={require("@/assets/icons/Ingredients.webp")} style={{ width: 18, height: 18 }} contentFit="contain" />
+          <Text className="font-inter-semibold text-[#FBA82E] text-[11px] ml-1">{recipe.ingredientsCount} Ingredients</Text>
         </MetaPill>
         <MetaPill>
           <FontAwesome name="star" size={10} color="#FBA82E" />

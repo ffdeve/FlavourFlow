@@ -170,6 +170,43 @@ export class ProfileService {
     return data.publicUrl;
   }
 
+  // Upload banner image
+  async uploadBanner(userId: string, fileUri: string) {
+    // Compress image for banner (max width 1200px) and convert to WebP.
+    const manipResult = await ImageManipulator.manipulateAsync(
+      fileUri,
+      [{ resize: { width: 1200 } }],
+      { compress: 0.8, format: ImageManipulator.SaveFormat.WEBP }
+    );
+
+    const fileExt = "webp";
+    const fileName = `${userId}-banner.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const formData = new FormData();
+    formData.append("file", {
+      uri: manipResult.uri,
+      name: fileName,
+      type: "image/webp",
+    } as any);
+
+    const { error: uploadError } = await supabase.storage
+      .from("user-avartars") // Reusing the same bucket
+      .upload(filePath, formData, {
+        upsert: true,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from("user-avartars")
+      .getPublicUrl(filePath);
+
+    // Update profile
+    await this.upsertProfile({ id: userId, banner_url: data.publicUrl });
+    return data.publicUrl;
+  }
+
   // ============= FOLLOW SYSTEM =============
 
   /** Follow a user */
@@ -179,6 +216,28 @@ export class ProfileService {
       following_id: followingId,
     });
     if (error && error.code !== "23505") throw error; // Ignore duplicate key if already following
+
+    // Fire-and-forget: insert follow notification directly via Supabase
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", followerId)
+      .single()
+      .then(({ data: profile }) => {
+        if (profile) {
+          supabase.from("notifications").insert({
+            recipient_id: followingId,
+            sender_id: followerId,
+            type: "FOLLOW",
+            title: "New Follower",
+            message: `${profile.full_name || "Someone"} started following you`,
+            data: { profileId: followerId },
+          }).then(({ error: notifErr }) => {
+            if (notifErr) console.warn("Follow notification failed:", notifErr);
+          });
+        }
+      })
+      .catch(() => {}); // silently ignore
   }
 
   /** Unfollow a user */
@@ -264,6 +323,44 @@ export class ProfileService {
       this.getRecipeCount(userId),
     ]);
     return { profile, followers, following, posts, recipes };
+  }
+
+  /** Get list of users following the given user */
+  async getFollowersList(userId: string) {
+    const { data, error } = await supabase
+      .from("follows")
+      .select(`
+        profile:profiles!follows_follower_id_fkey (
+          id,
+          full_name,
+          avatar_url,
+          bio
+        )
+      `)
+      .eq("following_id", userId);
+    
+    if (error) throw error;
+    // @ts-ignore - Supabase types might be tricky here, but we know the shape
+    return (data || []).map((row) => row.profile);
+  }
+
+  /** Get list of users the given user is following */
+  async getFollowingList(userId: string) {
+    const { data, error } = await supabase
+      .from("follows")
+      .select(`
+        profile:profiles!follows_following_id_fkey (
+          id,
+          full_name,
+          avatar_url,
+          bio
+        )
+      `)
+      .eq("follower_id", userId);
+    
+    if (error) throw error;
+    // @ts-ignore
+    return (data || []).map((row) => row.profile);
   }
 }
 

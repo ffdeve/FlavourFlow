@@ -137,7 +137,7 @@ const DIRECT_ANSWER_INTENTS = new Set<Intent>([
   "GENERAL_FOOD_QUESTION",
 ]);
 
-async function callGemini(systemPrompt: string, history: any[], userMessage: string): Promise<string> {
+async function callGemini(systemPrompt: string, history: any[], userMessage: string, maxTokens?: number): Promise<string> {
   const contents = [];
   contents.push({ role: "user", parts: [{ text: systemPrompt }] });
   contents.push({ role: "model", parts: [{ text: "Understood! I'm ChefBoo, ready to help with cooking." }] });
@@ -151,7 +151,11 @@ async function callGemini(systemPrompt: string, history: any[], userMessage: str
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents,
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 512 } },
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: maxTokens ?? 2048,
+        thinkingConfig: { thinkingBudget: 512 }
+      },
     }),
   });
 
@@ -490,12 +494,53 @@ function parseTimerRequest(msg: string): { type: string; seconds: number; label:
   const label = seconds % 60 === 0 ? `${mins} min timer` : `${seconds}s timer`;
   return { type: "start_timer", seconds, label };
 }
+function buildSettingsPrompt(settings: any, isSafetyEmergency: boolean): string {
+  const { language, responseStyle, skillLevel, personality } = settings || {};
+
+  let langText = "Preferred language: Auto Detect. Respond using the same language style used by the user (English, Urdu script, or Roman Urdu).";
+  if (language === "english") {
+    langText = "STRICT RULE: Always respond in English. Do NOT write in Urdu script or Roman Urdu.";
+  } else if (language === "urdu") {
+    langText = "STRICT RULE: Always respond in Urdu script. Never switch to English unless the user explicitly requests it. (e.g. آنچ درمیانی کر دیں).";
+  } else if (language === "roman_urdu") {
+    langText = "STRICT RULE: Always respond in Roman Urdu (Urdu using Latin/English characters). Never switch to English unless the user explicitly requests it. (e.g. heat medium kar dein).";
+  }
+
+  let styleText = "Response style: Balanced. Normal conversational responses.";
+  if (isSafetyEmergency) {
+    styleText = "Response style: DETAILED SAFETY OVERRIDE. The user is experiencing a safety emergency (e.g. fire, burning, cut). IGNORE any short response restrictions and provide complete, detailed safety guidance immediately.";
+  } else if (responseStyle === "short") {
+    styleText = "Response style: Short & Direct. Keep responses extremely brief and to the point. Answer in 1 short sentence. No conversational filler.";
+  } else if (responseStyle === "detailed") {
+    styleText = "Response style: Detailed. Provide detailed explanations, educational tips, and the culinary reasoning behind the advice.";
+  }
+
+  let skillText = "Cooking skill level: Intermediate. Normal cooking guidance.";
+  if (skillLevel === "beginner") {
+    skillText = "Cooking skill level: Beginner. Explain terminology, avoid advanced culinary jargon, and provide detailed step-by-step guidance.";
+  } else if (skillLevel === "expert") {
+    skillText = "Cooking skill level: Expert. Short, professional instructions without explaining basic terms.";
+  }
+
+  let personalityText = "Personality: Friendly Chef. Be warm, cute, encouraging, friendly, and conversational, using cooking metaphors.";
+  if (personality === "professional_chef") {
+    personalityText = "Personality: Professional Chef. Speak as a Professional Chef. Use professional culinary terminology. Focus on precision, efficiency, presentation, and proper techniques. Maintain a structured and authoritative tone.";
+  } else if (personality === "cooking_teacher") {
+    personalityText = "Personality: Cooking Teacher. Speak as a Cooking Teacher. Explain why each cooking step matters. Teach techniques and cooking science. Focus on helping the user learn.";
+  } else if (personality === "grandma_style") {
+    personalityText = "Personality: Grandma Style. Speak warmly and encouragingly like an experienced grandmother teaching home cooking. Use caring, comforting, and reassuring language.";
+  }
+
+  return `${langText}\n${styleText}\n${skillText}\n${personalityText}`;
+}
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
 
   try {
-    const { message, userId, history = [], ingredients: clientIngredients = [], excludeIds = [], mode, cookingContext } = await req.json();
+    const { message, userId, history = [], ingredients: clientIngredients = [], excludeIds = [], mode: requestMode, cookingContext, assistantSettings } = await req.json();
+    const lowerMessage = (message || "").toLowerCase();
     const excludeList: string[] = Array.isArray(excludeIds) ? excludeIds.filter((x: any) => typeof x === "string") : [];
     if (!message || !userId) {
       return new Response(JSON.stringify({ error: "message and userId are required" }), { status: 400, headers: CORS_HEADERS });
@@ -533,7 +578,7 @@ serve(async (req) => {
     // ── IN-COOK ChefBoo (sous-chef mode) — text-only, scoped to the current dish ─
     // Cooking Mode passes mode:"cooking" + cookingContext. We swap to a constrained
     // sous-chef persona: no recipe cards, no generation, declines off-topic asks.
-    if (mode === "cooking") {
+    if (requestMode === "cooking") {
       await logEvent("COOKING_PROMPT", { text: message.slice(0, 200) });
 
       const ctx = cookingContext ?? {};
@@ -581,8 +626,48 @@ serve(async (req) => {
             .join(", ")}.`
         : "";
 
+      // Serving scale — so quantity advice matches what the user actually cooks.
+      const baseServings = ctx.recipe?.servings ?? null;
+      const scaledServings = ctx.recipe?.scaledServings ?? null;
+      const servingsLine =
+        scaledServings && baseServings && scaledServings !== baseServings
+          ? `\nSERVINGS: the user scaled this to ${scaledServings} (recipe base is ${baseServings}) — scale any quantity advice to ${scaledServings} servings.`
+          : scaledServings
+            ? `\nSERVINGS: ${scaledServings}.`
+            : "";
+
+      // Structured detail for the CURRENT step (action / heat / temp / note / uses).
+      const cs =
+        ctx.currentStep && typeof ctx.currentStep === "object" ? ctx.currentStep : null;
+      const detailBits: string[] = [];
+      if (cs?.action) detailBits.push(`action: ${cs.action}`);
+      if (cs?.heatSetting) detailBits.push(`heat: ${cs.heatSetting}`);
+      if (cs?.temperature) detailBits.push(`temperature: ${cs.temperature}`);
+      const stepDetailLine = detailBits.length
+        ? `\nCurrent step details — ${detailBits.join(", ")}.`
+        : "";
+      const linked = Array.isArray(cs?.linkedIngredients) ? cs.linkedIngredients : [];
+      const linkedLine = linked.length
+        ? `\nThis step uses: ${linked
+            .map((l: any) => (l?.quantity ? `${l.quantity} ${l.name}` : l?.name))
+            .filter(Boolean)
+            .join(", ")}.`
+        : "";
+      const noteLine = cs?.note ? `\nChef tip on this step: ${cs.note}.` : "";
+      const remainingSteps =
+        typeof ctx.remainingSteps === "number"
+          ? ctx.remainingSteps
+          : stepNum && allSteps.length
+            ? allSteps.length - stepNum
+            : null;
+      const remainingLine =
+        remainingSteps != null ? `\n${remainingSteps} step(s) remain after this one.` : "";
+
+      const isSafetyEmergency = /\b(fire|burning|smoke|oil fire|cut|bleeding|gas|leak|jal\s*raha|jal\s*rhi|khoon|zakhmi|aag)\b/i.test(lowerMessage);
+      const settingsBlock = buildSettingsPrompt(assistantSettings, isSafetyEmergency);
+
       const sousPrompt = `You are ChefBoo in COOKING MODE — a calm, hands-on sous-chef helping the user RIGHT NOW as they cook "${recipeTitle}". You ALREADY know the recipe, so the user NEVER has to tell you what they're cooking.
-${stepNum ? `They are on step ${stepNum} of ${allSteps.length || "?"}${currentStepText ? `: "${currentStepText}"` : ""}.` : ""}
+${stepNum ? `They are on step ${stepNum} of ${allSteps.length || "?"}${currentStepText ? `: "${currentStepText}"` : ""}.` : ""}${stepDetailLine}${linkedLine}${noteLine}${remainingLine}${servingsLine}
 ${stepsOutline ? `FULL METHOD (so you know what's done and what's coming next):\n${stepsOutline}` : ""}
 ${ings ? `\nRecipe ingredients: ${ings}.` : ""}${timerLine}
 ${allergies.length ? `\nUser allergies — NEVER suggest these as substitutes: ${allergies.join(", ")}.` : ""}${dietary.length ? `\nDietary restrictions to respect in any suggestion: ${dietary.join(", ")}.` : ""}
@@ -594,15 +679,17 @@ WHAT YOU HELP WITH (only these, and only about THIS dish):
 - Technique guidance ("what does simmer mean?", "how do I know it's done?").
 - Measurement & temperature conversions.
 
+ASSISTANT PREFERENCES:
+${settingsBlock}
+
 RETURN JSON: { "reply": string, "suggestions": [{ "type", "name", "note" }] }.
-- "reply": 1-3 short, practical, spoken-style sentences the user can act on immediately. NO emoji. NO preamble. NO markdown.
+- "reply": The answer to the user. Strictly follow the preferred language, response style (unless safety emergency is active), and personality instructions from the ASSISTANT PREFERENCES block. NO emoji. NO preamble. NO markdown.
 - "suggestions": ONLY fill this when you offer concrete swaps/alternatives. Each item:
    - type: "ingredient" (a food swap), "appliance" (equipment alternative), or "technique" (a method alternative).
    - name: the single canonical thing (e.g. "Tomato Paste", "Yogurt", "Oven", "Boil and strain"). No quantities in the name.
    - note: a SHORT how-to or ratio (e.g. "2 tbsp per tomato", "190C for 20 min").
    Keep suggestions to the 2-4 best options. If you're not offering swaps, return an empty array.
-- Do NOT suggest other recipes, do NOT output a full recipe. If asked for a different recipe or anything off-topic, set suggestions to [] and briefly steer back to this dish in "reply".
-- Reply in the user's language (English, or Urdu if they wrote Urdu).`;
+- Do NOT suggest other recipes, do NOT output a full recipe. If asked for a different recipe or anything off-topic, set suggestions to [] and briefly steer back to this dish in "reply".`;
 
       let reply = "";
       let suggestions: any[] = [];
@@ -615,7 +702,13 @@ RETURN JSON: { "reply": string, "suggestions": [{ "type", "name", "note" }] }.
       }
       if (!reply) {
         // Fallback to a plain-text reply so the user always gets an answer.
-        reply = await callGemini(sousPrompt, history, message);
+        let maxTokens = 300;
+        const style = assistantSettings?.responseStyle ?? "balanced";
+        if (style === "short") maxTokens = 100;
+        else if (style === "detailed") maxTokens = 700;
+        if (isSafetyEmergency) maxTokens = 1024;
+
+        reply = await callGemini(sousPrompt, history, message, maxTokens);
       }
       const action = parseTimerRequest(message);
 
@@ -713,16 +806,30 @@ RETURN JSON: { "reply": string, "suggestions": [{ "type", "name", "note" }] }.
         ? `\nINFERRED TASTES (from recent activity — weight these OVER onboarding when relevant): cuisines: ${topCuisines.join(", ") || "n/a"}; proteins: ${topProteins.join(", ") || "n/a"}; preferred spice: ~${inferredSpice ?? "n/a"}/5.`
         : "";
 
+    // Determine token limit based on response style
+    let maxTokens = 300;
+    const style = assistantSettings?.responseStyle ?? "balanced";
+    if (style === "short") maxTokens = 100;
+    else if (style === "detailed") maxTokens = 700;
+
+    const isSafetyEmergency = /\b(fire|burning|smoke|oil fire|cut|bleeding|gas|leak|jal\s*raha|jal\s*rhi|khoon|zakhmi|aag)\b/i.test(lowerMessage);
+    if (isSafetyEmergency) {
+      maxTokens = 1024; // safety override
+    }
+
+    const settingsBlock = buildSettingsPrompt(assistantSettings, isSafetyEmergency);
+
     const basePersona = `You are ChefBoo, FlavourFlow's friendly AI cooking assistant — a cute chef ghost who loves food.
 User's name: ${userName}. Their favorites: ${favorites.join(", ") || "none yet"}. Recently cooked: ${completed.join(", ") || "none yet"}.${tasteLine}
 
-RESPONSE STYLE — SPECIFIC, SHORT, SIMPLE:
-- Answer EXACTLY what was asked. Short lines, 1-3 sentences. No filler intros.
+ASSISTANT PREFERENCES:
+${settingsBlock}
+
+RESPONSE STYLE & CONSTRAINTS:
 - Do NOT use emoji anywhere in your replies (they render badly in the app).
 - Full ingredients + steps ONLY if the user explicitly asks for the recipe/steps/"how to make it".
 - Use the user's name occasionally.
-
-LANGUAGE: Detect the user's language. If they wrote Urdu (script or roman Urdu), reply in the SAME language. Otherwise English.
+- Strictly follow the preferred language, response style (unless safety emergency is active), and personality instructions from the ASSISTANT PREFERENCES block.
 
 SAFETY: Never reveal or discuss passwords, API keys, databases, internal data, or anything non-cooking. Stay strictly on food, recipes, ingredients, and cooking.`;
 
@@ -835,16 +942,16 @@ SAFETY: Never reveal or discuss passwords, API keys, databases, internal data, o
       const systemPrompt = `${basePersona}
 
 The user is asking a ${intent === "SUBSTITUTION" ? "substitution" : intent === "COOKING_HELP" ? "cooking technique/help" : "general food"} question. Answer it directly and concisely. Do NOT recommend or list recipes unless they ask. No recipe cards.`;
-      reply = await callGemini(systemPrompt, history, message);
+      reply = await callGemini(systemPrompt, history, message, maxTokens);
     } else if (intent === "FOLLOW_UP") {
       // ── Conversational follow-up — rely on the chat history for context ────
       mode = "answer";
       const systemPrompt = `${basePersona}
 
 The user is following up on the conversation above. Read the recent messages and respond to what they're referring to (e.g. "tell me more" = expand on the dish/recipes you JUST mentioned; "the first one" = the first item you listed). Stay concise and specific. Do not start a new unrelated topic.`;
-      reply = await callGemini(systemPrompt, history, message);
+      reply = await callGemini(systemPrompt, history, message, maxTokens);
     } else {
-      reply = await callGemini(basePersona, history, message);
+      reply = await callGemini(basePersona, history, message, maxTokens);
     }
 
     if (generatedRecipes.length > 0) {
