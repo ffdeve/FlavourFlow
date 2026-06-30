@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/services/supabase";
+import { notificationService } from "@/services/notification.service";
 import * as Crypto from "expo-crypto";
 import { File } from "expo-file-system";
 
@@ -770,9 +771,33 @@ export const recipeService = {
       await supabase
         .from("favorites")
         .insert([{ user_id: userId, recipe_id: recipeId }]);
-        
+
       // Log behavior signal
       await this.logInteraction(userId, recipeId, "FAVORITE");
+
+      // Fire-and-forget: notify the recipe owner that their recipe was liked.
+      (async () => {
+        const { data: r } = await supabase
+          .from("recipes")
+          .select("created_by, title")
+          .eq("id", recipeId)
+          .single();
+        if (r?.created_by && r.created_by !== userId) {
+          const { data: me } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", userId)
+            .single();
+          await notificationService.createLikeNotification(
+            r.created_by,
+            userId,
+            me?.full_name || "Someone",
+            recipeId,
+            r.title || "your recipe",
+          );
+        }
+      })().catch(() => {});
+
       return true;
     }
   },

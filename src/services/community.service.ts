@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase";
+import { notificationService } from "@/services/notification.service";
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { decode } from "base64-arraybuffer";
@@ -341,6 +342,26 @@ export class CommunityService {
       console.error("Error adding comment:", error);
       throw error;
     }
+
+    // Fire-and-forget: notify the post owner about the new comment.
+    (async () => {
+      const { data: post } = await supabase
+        .from("posts")
+        .select("user_id")
+        .eq("id", postId)
+        .single();
+      if (post?.user_id && post.user_id !== userId) {
+        const senderName =
+          (data as any)?.profile?.full_name || "Someone";
+        await notificationService.createCommentNotification(
+          post.user_id,
+          userId,
+          senderName,
+          postId,
+          content.slice(0, 80),
+        );
+      }
+    })().catch(() => {});
 
     return data as Comment;
   }

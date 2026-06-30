@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase";
+import { notificationService } from "@/services/notification.service";
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { decode } from "base64-arraybuffer";
@@ -217,27 +218,19 @@ export class ProfileService {
     });
     if (error && error.code !== "23505") throw error; // Ignore duplicate key if already following
 
-    // Fire-and-forget: insert follow notification directly via Supabase
-    supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", followerId)
-      .single()
-      .then(({ data: profile }) => {
-        if (profile) {
-          supabase.from("notifications").insert({
-            recipient_id: followingId,
-            sender_id: followerId,
-            type: "FOLLOW",
-            title: "New Follower",
-            message: `${profile.full_name || "Someone"} started following you`,
-            data: { profileId: followerId },
-          }).then(({ error: notifErr }) => {
-            if (notifErr) console.warn("Follow notification failed:", notifErr);
-          });
-        }
-      })
-      .catch(() => {}); // silently ignore
+    // Fire-and-forget: notify the followed user (never blocks the follow).
+    (async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", followerId)
+        .single();
+      await notificationService.createFollowNotification(
+        followingId,
+        followerId,
+        profile?.full_name || "Someone",
+      );
+    })().catch(() => {});
   }
 
   /** Unfollow a user */
