@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FlavourFlow — Documentation</title>
+<meta name="description" content="FlavourFlow app documentation: features, how it works, AI, privacy policy, terms of service, and data usage." />
+<style>
+  :root {
+    color-scheme: light;
+    --brand: #FBA82E;
+    --brand-dark: #E0883B;
+    --ink: #3B3328;
+    --muted: #8B7D6F;
+    --bg: #FFFDF5;
+    --panel: #FFFFFF;
+    --line: #F0E6D8;
+    --sidebar-w: 280px;
+    --topbar-h: 60px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--brand-dark); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---- Top bar ---- */
+  header.topbar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h);
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 20px; background: rgba(255,253,245,0.92);
+    backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--line); z-index: 50;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; }
+  .brand .dot { width: 26px; height: 26px; border-radius: 8px; background: var(--brand); display: grid; place-items: center; font-size: 15px; }
+  .brand small { color: var(--muted); font-weight: 500; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; }
+  .topbar .search {
+    margin-left: auto; display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 7px 12px; color: var(--muted); font-size: .85rem; min-width: 220px;
+  }
+  .topbar .search input { border: 0; outline: 0; background: transparent; color: var(--ink); width: 100%; font-size: .85rem; }
+  .menu-btn { display: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 1rem; cursor: pointer; }
+
+  /* ---- Layout ---- */
+  .layout { display: flex; padding-top: var(--topbar-h); }
+  nav.sidebar {
+    position: fixed; top: var(--topbar-h); bottom: 0; left: 0; width: var(--sidebar-w);
+    overflow-y: auto; padding: 24px 16px 60px; border-right: 1px solid var(--line);
+    background: var(--bg);
+  }
+  nav.sidebar .group { margin-bottom: 22px; }
+  nav.sidebar .group h4 {
+    font-size: .72rem; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 8px 10px; font-weight: 700;
+  }
+  nav.sidebar a {
+    display: block; padding: 6px 10px; margin: 1px 0; border-radius: 8px;
+    color: var(--ink); font-size: .9rem; border-left: 2px solid transparent;
+  }
+  nav.sidebar a:hover { background: #F7EFE1; text-decoration: none; }
+  nav.sidebar a.active { color: var(--brand-dark); background: #FCF3E2; border-left-color: var(--brand); font-weight: 600; }
+
+  main {
+    margin-left: var(--sidebar-w); flex: 1; min-width: 0;
+    padding: 40px 48px 120px; max-width: 900px;
+  }
+  section { scroll-margin-top: calc(var(--topbar-h) + 16px); padding-top: 8px; }
+  section + section { margin-top: 12px; }
+  h1 { font-size: 2.2rem; margin: 0 0 .4rem; letter-spacing: -.02em; }
+  h2 { font-size: 1.5rem; margin: 2.6rem 0 .8rem; padding-bottom: .35rem; border-bottom: 1px solid var(--line); letter-spacing: -.01em; }
+  h3 { font-size: 1.1rem; margin: 1.6rem 0 .5rem; }
+  p { margin: .6rem 0; }
+  .lead { font-size: 1.12rem; color: #5C544A; }
+  .updated { color: var(--muted); font-size: .88rem; }
+  ul, ol { padding-left: 1.3rem; }
+  li { margin: .3rem 0; }
+  code { background: #F5E3D8; padding: 1px 6px; border-radius: 5px; font-size: .88em; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin: 1rem 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .card h3 { margin: 0 0 .3rem; font-size: 1rem; }
+  .card p { margin: 0; color: #5C544A; font-size: .9rem; }
+  .card .ico { font-size: 1.4rem; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .92rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+
+  .callout { border: 1px solid var(--line); border-left: 3px solid var(--brand); background: #FFF8EC; border-radius: 12px; padding: 14px 18px; margin: 1.2rem 0; }
+  .callout.warn { border-left-color: #E0883B; background: #FFF3E4; }
+  .callout strong { display: block; margin-bottom: .2rem; }
+
+  pre { background: #2b2620; color: #f6efe4; padding: 16px 18px; border-radius: 12px; overflow-x: auto; font-size: .84rem; line-height: 1.55; }
+
+  footer.docfoot { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }
+
+  @media (max-width: 860px) {
+    .menu-btn { display: inline-block; }
+    .topbar .search { display: none; }
+    nav.sidebar { transform: translateX(-100%); transition: transform .2s ease; z-index: 40; box-shadow: 0 10px 40px rgba(0,0,0,.12); }
+    nav.sidebar.open { transform: translateX(0); }
+    main { margin-left: 0; padding: 28px 20px 100px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="menu-btn" aria-label="Toggle navigation" onclick="document.querySelector('nav.sidebar').classList.toggle('open')">☰</button>
+  <div class="brand">
+    <span class="dot">🍽️</span>
+    <span>FlavourFlow <small>Docs</small></span>
+  </div>
+  <div class="search">
+    <span>🔎</span>
+    <input id="filter" type="text" placeholder="Filter sections…" oninput="filterNav(this.value)" />
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="group">
+      <h4>Getting Started</h4>
+      <a href="#overview">Overview</a>
+      <a href="#quickstart">Using the App</a>
+      <a href="#requirements">Requirement Coverage</a>
+    </div>
+    <div class="group">
+      <h4>Features</h4>
+      <a href="#chefboo">ChefBoo AI Assistant</a>
+      <a href="#pantry">What's in Your Fridge</a>
+      <a href="#recommendations">Recommendations</a>
+      <a href="#cooking">Cooking Mode</a>
+      <a href="#recipes">Recipes &amp; Reviews</a>
+      <a href="#community">Community</a>
+      <a href="#notifications">Notifications</a>
+      <a href="#localization">Urdu &amp; Voice</a>
+    </div>
+    <div class="group">
+      <h4>Under the Hood</h4>
+      <a href="#architecture">Architecture</a>
+      <a href="#ai-logic">AI &amp; Algorithm</a>
+      <a href="#security">Security</a>
+    </div>
+    <div class="group">
+      <h4>Legal &amp; Policies</h4>
+      <a href="#privacy">Privacy Policy</a>
+      <a href="#terms">Terms of Service</a>
+      <a href="#data-usage">Data Usage &amp; Your Rights</a>
+      <a href="#data-deletion">Data Deletion</a>
+      <a href="#compliance">Regulations &amp; Compliance</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </nav>
+
+  <main>
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <h1>FlavourFlow Documentation</h1>
+      <p class="lead">FlavourFlow is an AI-powered cooking companion built for Pakistani households. It suggests recipes from the ingredients you already have, guides you hands-free through every cooking step, understands Urdu and voice, and connects home cooks in a social food community.</p>
+      <p class="updated">Version 1.0 · Last updated: 1 July 2026</p>
+      <div class="grid">
+        <div class="card"><div class="ico">🤖</div><h3>ChefBoo AI</h3><p>An AI sous-chef that answers questions, finds recipes, and generates new ones.</p></div>
+        <div class="card"><div class="ico">🧊</div><h3>What's in Your Fridge</h3><p>Get recipes from the ingredients you have on hand right now.</p></div>
+        <div class="card"><div class="ico">🔥</div><h3>Hands-Free Cooking</h3><p>Step-by-step guidance with smart timers, video, and voice control.</p></div>
+        <div class="card"><div class="ico">👥</div><h3>Community</h3><p>Share cooking photos, follow cooks, like, comment, and review.</p></div>
+      </div>
+    </section>
+
+    <!-- QUICKSTART -->
+    <section id="quickstart">
+      <h2>Using the App</h2>
+      <ol>
+        <li><strong>Create an account</strong> — sign up with email, or continue with Google, Facebook, or Apple. Verify your email with the 6-digit code.</li>
+        <li><strong>Set your preferences</strong> — choose your country, favourite cuisines, allergies, dislikes, and spice level. This powers personalized recommendations.</li>
+        <li><strong>Explore your home feed</strong> — personalized rows like <em>For You</em>, <em>Trending</em>, <em>Cook It Again</em>, and <em>Jump Back In</em>.</li>
+        <li><strong>Ask ChefBoo</strong> — tap the assistant, type or speak what you want to cook or the ingredients you have.</li>
+        <li><strong>Cook hands-free</strong> — open a recipe and tap <em>Start Cooking</em> for guided steps, timers, and voice control.</li>
+        <li><strong>Share &amp; review</strong> — post to the community, follow other cooks, and rate recipes after you've cooked them.</li>
+      </ol>
+    </section>
+
+    <!-- REQUIREMENTS -->
+    <section id="requirements">
+      <h2>Requirement Coverage</h2>
+      <p>FlavourFlow implements all 12 functional requirements defined in the project specification:</p>
+      <table>
+        <thead><tr><th>#</th><th>Requirement</th><th>Delivered by</th></tr></thead>
+        <tbody>
+          <tr><td>FR-01</td><td>Account Management</td><td>Auth, onboarding, profile editing</td></tr>
+          <tr><td>FR-02</td><td>User Preference Management</td><td>Preferences onboarding</td></tr>
+          <tr><td>FR-03</td><td>Meal Recommendation</td><td>Recommendation engine + home feed</td></tr>
+          <tr><td>FR-04</td><td>Recipe Interactions</td><td>Like / save / share / comment</td></tr>
+          <tr><td>FR-05</td><td>Recipe Search &amp; Discovery</td><td>Search, filters, fuzzy matching</td></tr>
+          <tr><td>FR-06</td><td>Community Dashboard</td><td>Feed, posts, comments</td></tr>
+          <tr><td>FR-07</td><td>Recipe Upload &amp; Management</td><td>Create-recipe wizard, edit/delete</td></tr>
+          <tr><td>FR-08</td><td>Rate &amp; Review</td><td>Reviews gated on having cooked the recipe</td></tr>
+          <tr><td>FR-09</td><td>Smart Pantry ("What's in Your Fridge?")</td><td>ChefBoo ingredient-based generation</td></tr>
+          <tr><td>FR-10</td><td>Cooking Assistance</td><td>Cooking mode: timers, voice, video</td></tr>
+          <tr><td>FR-11</td><td>Trending &amp; Popular</td><td>Trending section in recommendations</td></tr>
+          <tr><td>FR-12</td><td>Manage Application Settings</td><td>Settings, language, notifications</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- CHEFBOO -->
+    <section id="chefboo">
+      <h2>ChefBoo AI Assistant</h2>
+      <p>ChefBoo is an AI cooking companion powered by Google Gemini. It has two modes:</p>
+      <ul>
+        <li><strong>Chat mode</strong> — ask cooking questions, request recipes by name, cuisine, or ingredients. ChefBoo first searches the recipe database and only generates a brand-new recipe when nothing suitable exists.</li>
+        <li><strong>Cooking mode (sous-chef)</strong> — while you cook, ChefBoo is scoped to your current dish: it explains steps, suggests substitutions, converts measurements, and sets timers.</li>
+      </ul>
+      <p>ChefBoo adapts to your <strong>taste profile</strong> (learned from recipes you view, favourite, and cook), your dietary preferences, and the time of day. It responds in English, Urdu, or Roman Urdu based on your settings.</p>
+      <div class="callout warn">
+        <strong>Food-safety note</strong>
+        ChefBoo's suggestions are for guidance only. Always verify ingredients against your own allergies and follow safe food-handling practices — see the AI disclaimer in the <a href="#terms">Terms of Service</a>.
+      </div>
+    </section>
+
+    <!-- PANTRY -->
+    <section id="pantry">
+      <h2>What's in Your Fridge</h2>
+      <p>Tell ChefBoo the ingredients you have — by typing, speaking, or picking from a list — and it returns recipes you can make right now. You can indicate whether you also have basic staples (oil, salt, spices) so suggestions stay realistic. All results respect your allergies and dislikes.</p>
+    </section>
+
+    <!-- RECOMMENDATIONS -->
+    <section id="recommendations">
+      <h2>Recommendations</h2>
+      <p>Your home screen is a personalized, Netflix-style set of rows generated by a learning recommendation engine that runs continuously in the background:</p>
+      <ul>
+        <li><strong>Meals for You</strong> — top personalized picks.</li>
+        <li><strong>Trending</strong> — what's most cooked across the community right now.</li>
+        <li><strong>Cook It Again</strong> — recipes you've completed before.</li>
+        <li><strong>Jump Back In</strong> — dishes you started but didn't finish.</li>
+        <li><strong>More Like This</strong> — recipes similar to what you last cooked.</li>
+      </ul>
+      <p>New users get sensible cold-start suggestions (top-rated, preference-matched, and quick &amp; easy recipes) until the engine learns their taste.</p>
+    </section>
+
+    <!-- COOKING -->
+    <section id="cooking">
+      <h2>Cooking Mode</h2>
+      <p>Tap <em>Start Cooking</em> on any recipe for a full hands-free experience:</p>
+      <ul>
+        <li>Step-by-step instructions with heat, temperature, and linked-ingredient cues.</li>
+        <li>Smart timers that keep running in the background and alert you even when the screen is off.</li>
+        <li>Embedded instructional video where available.</li>
+        <li>Voice control and voice-to-voice Q&amp;A with ChefBoo, so you never touch the screen with messy hands.</li>
+        <li>Serving scaling — adjust servings and every quantity recalculates.</li>
+      </ul>
+    </section>
+
+    <!-- RECIPES -->
+    <section id="recipes">
+      <h2>Recipes &amp; Reviews</h2>
+      <p>Browse detailed recipes with ingredients, structured steps, nutrition, timing, and allergy warnings. You can create and publish your own recipes with a guided multi-step editor, and edit or delete them later.</p>
+      <p><strong>Reviews:</strong> after you've cooked a recipe, you can leave a 1–5 star rating and a written review. Ratings feed back into your recommendations and update the recipe's average shown on cards and detail pages.</p>
+    </section>
+
+    <!-- COMMUNITY -->
+    <section id="community">
+      <h2>Community</h2>
+      <p>A social feed for home cooks: post photos and text about what you're cooking, comment, like, follow other cooks, and share recipes. Every interaction can generate a notification for the people involved.</p>
+    </section>
+
+    <!-- NOTIFICATIONS -->
+    <section id="notifications">
+      <h2>Notifications</h2>
+      <p>FlavourFlow delivers real-time in-app and push notifications for follows, likes, comments, reviews, and cooking-timer alerts. The alerts screen groups them by time (Today, Yesterday, This Week), and an unread badge appears on the tab. You control which notifications you receive from Settings and your device.</p>
+    </section>
+
+    <!-- LOCALIZATION -->
+    <section id="localization">
+      <h2>Urdu &amp; Voice</h2>
+      <p>The interface supports English and Urdu, and recipes can be translated to Urdu or Roman Urdu on demand (measurements are preserved). Voice-to-text is available for search, pantry input, and talking to ChefBoo — making the app accessible to users who prefer speaking over typing.</p>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <p>FlavourFlow is a React Native (Expo) mobile app backed by Supabase and Google Gemini.</p>
+      <pre>Mobile App (Expo / React Native)
+        |
+        v
+Supabase  --  Auth · PostgreSQL (RLS) · Storage · Realtime · Edge Functions
+        |
+        |-- ai-chat                  -> ChefBoo (Gemini) + translation + rate limiting
+        |-- generate-recommendations -> personalization / ranking engine
+        |-- send-push                -> Expo push delivery on new notifications</pre>
+      <table>
+        <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+        <tbody>
+          <tr><td>Mobile app</td><td>React Native + Expo SDK 54 (Expo Router)</td></tr>
+          <tr><td>Styling</td><td>NativeWind (Tailwind for React Native)</td></tr>
+          <tr><td>State</td><td>Zustand</td></tr>
+          <tr><td>Backend</td><td>Supabase — PostgreSQL, Auth, Storage, Realtime, Edge Functions</td></tr>
+          <tr><td>AI</td><td>Google Gemini 2.5 Flash</td></tr>
+          <tr><td>Push</td><td>Expo Push Service</td></tr>
+          <tr><td>Build</td><td>EAS Build (Android APK / AAB)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- AI LOGIC -->
+    <section id="ai-logic">
+      <h2>AI &amp; Algorithm</h2>
+      <h3>ChefBoo request flow</h3>
+      <p>Each message is first classified by intent (greeting, recipe search, ingredient search, cooking help, substitution, recipe generation, and more). ChefBoo prefers real recipes from the database and only calls the AI to generate new ones when confidence is low. A safety filter blocks non-cooking or credential-seeking requests, and a per-user rate limit (30/hour, 100/day) prevents abuse.</p>
+      <h3>Recommendation scoring</h3>
+      <p>For each candidate recipe the engine combines several signals:</p>
+      <ul>
+        <li><strong>Behaviour score</strong> — weighted, time-decayed sum of your interactions (cooking a recipe counts far more than viewing it).</li>
+        <li><strong>Content match</strong> — closeness to your spice level and dietary preferences.</li>
+        <li><strong>Trending signal</strong> — community impressions, cook-starts, completion rate, and freshness.</li>
+        <li><strong>Context boost</strong> — time-of-day and weekend awareness (e.g. breakfast in the morning).</li>
+        <li><strong>Negative penalty</strong> — quick exits and abandoned cooks reduce a recipe's score.</li>
+      </ul>
+      <p>The engine learns continuously: every rating, save, and completed cook improves future suggestions.</p>
+    </section>
+
+    <!-- SECURITY -->
+    <section id="security">
+      <h2>Security</h2>
+      <ul>
+        <li>All network traffic runs over HTTPS/TLS.</li>
+        <li>PostgreSQL <strong>Row Level Security</strong> restricts each table so users can only read and write their own data.</li>
+        <li>Passwords are hashed and managed by Supabase Auth; the app only ever holds a public <em>publishable</em> key.</li>
+        <li>All secrets (AI keys, service-role keys) live in server-side environment variables and are never shipped in the app or committed to source control.</li>
+        <li>Push tokens are stored in an owner-private table, isolated from public profile data.</li>
+      </ul>
+    </section>
+
+    <!-- PRIVACY -->
+    <section id="privacy">
+      <h2>Privacy Policy</h2>
+      <p class="updated">Last updated: 1 July 2026</p>
+      <p>This Privacy Policy explains how FlavourFlow ("we", "us", "the app") collects, uses, and protects your information when you use the FlavourFlow mobile application. By using the app, you agree to the practices described here.</p>
+
+      <h3>1. Information We Collect</h3>
+      <ul>
+        <li><strong>Account information.</strong> When you sign up or sign in — including via Google, Facebook, or Apple — we receive your name, email address, and profile photo from the authentication provider.</li>
+        <li><strong>Profile &amp; preferences.</strong> Your display name, avatar, dietary preferences, allergies, disliked ingredients/cuisines, and similar settings you choose.</li>
+        <li><strong>Recipe activity.</strong> Recipes you create, save, like, rate, or cook, including ingredients, steps, and photos you add.</li>
+        <li><strong>Usage data.</strong> In-app interactions such as recipe views, searches, taps, impressions, and cooking-session progress, used to improve recommendations.</li>
+        <li><strong>Device data.</strong> Basic technical data (device type, app version) and, if you enable them, push-notification tokens for cooking-timer and activity alerts.</li>
+      </ul>
+
+      <h3>2. How We Use Your Information</h3>
+      <ul>
+        <li>To create and manage your account and authenticate sign-in.</li>
+        <li>To provide core features: saving recipes, scaling servings, cooking timers, and the ChefBoo cooking assistant.</li>
+        <li>To personalize recipe recommendations based on your preferences and activity.</li>
+        <li>To send notifications you have opted into (e.g. cooking-timer and community alerts).</li>
+        <li>To maintain security, prevent abuse, and improve the app.</li>
+      </ul>
+
+      <h3>3. How We Store and Protect Data</h3>
+      <p>Your data is stored using <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a>, which provides managed PostgreSQL and authentication infrastructure. Access is protected by row-level security and industry-standard encryption in transit (HTTPS/TLS). We retain your data only as long as your account is active or as needed to provide the service.</p>
+
+      <h3>4. Third-Party Services</h3>
+      <p>We rely on the following providers, each governed by its own privacy policy:</p>
+      <ul>
+        <li><strong>Supabase</strong> — database, authentication, and storage.</li>
+        <li><strong>Google, Facebook, and Apple</strong> — optional social sign-in.</li>
+        <li><strong>Google Gemini</strong> (via our secure backend) — powers the ChefBoo assistant; your cooking questions and relevant recipe context are processed to generate responses.</li>
+      </ul>
+      <p>We do <strong>not</strong> sell your personal information to third parties.</p>
+
+      <h3>5. Your Rights</h3>
+      <ul>
+        <li>Access, update, or correct your profile information at any time within the app.</li>
+        <li>Request deletion of your account and associated data (see <a href="#data-deletion">Data Deletion</a>).</li>
+        <li>Disable notifications from your device settings.</li>
+      </ul>
+
+      <h3>6. Children's Privacy</h3>
+      <p>FlavourFlow is not directed to children under 13, and we do not knowingly collect personal information from them. If you believe a child has provided us data, contact us and we will delete it.</p>
+
+      <h3>7. Changes to This Policy</h3>
+      <p>We may update this Privacy Policy from time to time. Material changes will be reflected by the "Last updated" date above.</p>
+
+      <h3>8. Contact</h3>
+      <p>For privacy questions or data-deletion requests, contact us at <a href="mailto:ffdevassets@gmail.com">ffdevassets@gmail.com</a>.</p>
+    </section>
+
+    <!-- TERMS -->
+    <section id="terms">
+      <h2>Terms of Service</h2>
+      <p class="updated">Last updated: 1 July 2026</p>
+      <p>These Terms of Service ("Terms") govern your use of the FlavourFlow mobile application. By creating an account or using the app, you agree to these Terms. If you do not agree, please do not use the app.</p>
+
+      <h3>1. Eligibility</h3>
+      <p>You must be at least 13 years old to use FlavourFlow. By using the app you confirm that you meet this requirement.</p>
+
+      <h3>2. Your Account</h3>
+      <p>You are responsible for maintaining the confidentiality of your login credentials and for all activity under your account. Notify us promptly of any unauthorized use. Provide accurate information, especially dietary and allergy details, which the app uses to tailor content.</p>
+
+      <h3>3. User Content</h3>
+      <p>You retain ownership of the recipes, photos, reviews, and posts you create ("User Content"). By posting, you grant FlavourFlow a non-exclusive, worldwide licence to store, display, and distribute that content within the app so the service can function. You are responsible for your User Content and confirm you have the rights to share it and that it does not infringe others' rights or violate any law.</p>
+
+      <h3>4. Acceptable Use</h3>
+      <ul>
+        <li>Do not post unlawful, harmful, hateful, harassing, or infringing content.</li>
+        <li>Do not attempt to access other users' data, reverse-engineer, scrape, or overload the service.</li>
+        <li>Do not misuse the ChefBoo AI assistant or attempt to bypass its safety filters or rate limits.</li>
+        <li>Do not impersonate others or misrepresent your affiliation.</li>
+      </ul>
+
+      <h3>5. AI Assistant Disclaimer</h3>
+      <div class="callout warn">
+        <strong>Important</strong>
+        ChefBoo and AI-generated recipes are provided for informational and convenience purposes only. They may contain inaccuracies and are not a substitute for professional nutritional, medical, or food-safety advice. Always verify ingredients against your own allergies and dietary needs, and follow safe food-handling and cooking practices. You use AI suggestions at your own risk.
+      </div>
+
+      <h3>6. Intellectual Property</h3>
+      <p>The FlavourFlow name, logo, design, and software are owned by the project team. Except for your own User Content, you may not copy, modify, or redistribute the app or its content without permission.</p>
+
+      <h3>7. Termination</h3>
+      <p>You may delete your account at any time (see <a href="#data-deletion">Data Deletion</a>). We may suspend or terminate accounts that violate these Terms or misuse the service.</p>
+
+      <h3>8. Disclaimers &amp; Limitation of Liability</h3>
+      <p>The app is provided "as is" without warranties of any kind. To the maximum extent permitted by law, FlavourFlow and its team are not liable for any indirect, incidental, or consequential damages arising from your use of the app, including reliance on recipes or AI suggestions.</p>
+
+      <h3>9. Changes to These Terms</h3>
+      <p>We may update these Terms from time to time. Continued use of the app after changes take effect constitutes acceptance of the updated Terms.</p>
+
+      <h3>10. Governing Law</h3>
+      <p>These Terms are governed by the laws of the Islamic Republic of Pakistan, without regard to conflict-of-law principles.</p>
+
+      <h3>11. Contact</h3>
+      <p>Questions about these Terms? Email <a href="mailto:ffdevassets@gmail.com">ffdevassets@gmail.com</a>.</p>
+    </section>
+
+    <!-- DATA USAGE -->
+    <section id="data-usage">
+      <h2>Data Usage &amp; Your Rights</h2>
+      <p>This section summarizes, in plain language, exactly what data FlavourFlow uses and why.</p>
+      <table>
+        <thead><tr><th>Data</th><th>Why we use it</th><th>Shared with</th></tr></thead>
+        <tbody>
+          <tr><td>Name, email, avatar</td><td>Account &amp; sign-in</td><td>Supabase; your chosen sign-in provider</td></tr>
+          <tr><td>Preferences, allergies, dislikes</td><td>Personalization &amp; allergy warnings</td><td>Supabase only</td></tr>
+          <tr><td>Recipes, likes, saves, reviews</td><td>Core features &amp; recommendations</td><td>Supabase; visible to community where you post</td></tr>
+          <tr><td>Usage &amp; cooking activity</td><td>Improving recommendations</td><td>Supabase only</td></tr>
+          <tr><td>ChefBoo messages</td><td>Generating AI responses</td><td>Google Gemini (via secure backend)</td></tr>
+          <tr><td>Push token (optional)</td><td>Timer &amp; activity notifications</td><td>Expo Push Service</td></tr>
+        </tbody>
+      </table>
+      <h3>Your rights</h3>
+      <ul>
+        <li><strong>Access &amp; correction</strong> — view and edit your profile and preferences in the app.</li>
+        <li><strong>Deletion</strong> — delete your account and data at any time (see below).</li>
+        <li><strong>Opt-out</strong> — turn off notifications from Settings or your device.</li>
+        <li><strong>Portability</strong> — request a copy of your data by emailing us.</li>
+      </ul>
+      <p>We do not sell your personal data, and we only share it with the service providers listed above as needed to run the app.</p>
+    </section>
+
+    <!-- DATA DELETION -->
+    <section id="data-deletion">
+      <h2>Data Deletion</h2>
+      <p class="updated">Last updated: 1 July 2026</p>
+      <p>You can delete your FlavourFlow data at any time using either option below.</p>
+      <h3>Option 1 — Delete from within the app</h3>
+      <ol>
+        <li>Open the FlavourFlow app and sign in.</li>
+        <li>Go to <strong>Profile → Settings → Account</strong>.</li>
+        <li>Tap <strong>Delete Account</strong> and confirm.</li>
+      </ol>
+      <p>This permanently deletes your profile, recipes, likes, preferences, and all other data associated with your account. The action cannot be undone.</p>
+      <h3>Option 2 — Email us</h3>
+      <p>Send a request to <a href="mailto:ffdevassets@gmail.com">ffdevassets@gmail.com</a> with the subject line <em>"Data Deletion Request"</em> and include the email address or social-login name linked to your account. We will delete your data within 30 days and confirm by reply.</p>
+      <h3>What gets deleted</h3>
+      <ul>
+        <li>Your account and profile (name, email, avatar, bio)</li>
+        <li>Food preferences, allergies, and dislikes</li>
+        <li>Recipes you created, liked, or saved</li>
+        <li>Cooking-session history and analytics</li>
+        <li>Any social-login authentication credentials we hold</li>
+      </ul>
+      <h3>What we cannot delete</h3>
+      <p>Aggregated, anonymised usage statistics that cannot be linked back to you are retained for service improvement and may not be removed.</p>
+    </section>
+
+    <!-- COMPLIANCE -->
+    <section id="compliance">
+      <h2>Regulations &amp; Compliance</h2>
+      <ul>
+        <li><strong>Data protection.</strong> We follow data-minimisation and purpose-limitation principles aligned with common data-protection standards (e.g. GDPR-style rights of access, correction, and deletion).</li>
+        <li><strong>Sensitive data.</strong> Health-related information you provide (allergies, dietary needs) is used solely to tailor recipes and warnings, and is protected by the same security controls as the rest of your data.</li>
+        <li><strong>Halal &amp; dietary integrity.</strong> Recipes are screened against your stated preferences, and the AI is instructed to respect dietary and cultural constraints.</li>
+        <li><strong>Platform policies.</strong> The app is distributed in compliance with Google Play policies, including a public privacy policy and a data-deletion pathway.</li>
+      </ul>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact">
+      <h2>Contact</h2>
+      <p>FlavourFlow is a Final Year Project by <strong>Muhammad Usman</strong>, <strong>Muhammad Haroon Hanif</strong>, and <strong>Abdul Mateen</strong>, supervised by Mishal Muneer &amp; M. Ali Ilyas, Department of Computer Science &amp; IT, The University of Lahore.</p>
+      <p>For any questions, privacy requests, or support: <a href="mailto:ffdevassets@gmail.com">ffdevassets@gmail.com</a></p>
+      <footer class="docfoot">© 2026 FlavourFlow. All rights reserved. · This documentation covers app version 1.0.</footer>
+    </section>
+  </main>
+</div>
+
+<script>
+  // Active-section highlighting in the sidebar
+  const links = Array.from(document.querySelectorAll('nav.sidebar a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); map[id] = a; });
+  const sections = links.map(a => document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const active = map[e.target.id];
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
+  sections.forEach(s => obs.observe(s));
+
+  // Close mobile sidebar on link tap
+  links.forEach(a => a.addEventListener('click', () => document.querySelector('nav.sidebar').classList.remove('open')));
+
+  // Sidebar filter
+  function filterNav(q) {
+    const term = q.trim().toLowerCase();
+    document.querySelectorAll('nav.sidebar .group').forEach(group => {
+      let anyVisible = false;
+      group.querySelectorAll('a').forEach(a => {
+        const match = a.textContent.toLowerCase().includes(term);
+        a.style.display = match ? '' : 'none';
+        if (match) anyVisible = true;
+      });
+      group.querySelector('h4').style.display = anyVisible ? '' : 'none';
+    });
+  }
+</script>
+</body>
+</html>

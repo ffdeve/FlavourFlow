@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FlavourFlow — Project Presentation</title>
+<style>
+  :root{
+    --brand:#FBA82E; --brand2:#E0883B; --ink:#3B3328; --muted:#8B7D6F;
+    --bg:#FFFDF5; --panel:#FFFFFF; --line:#EAD9C2; --accent:#2b2620;
+    --green:#3ECF8E; --blue:#4C9AFF; --red:#E05252;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#1c1913; color:var(--ink); overflow:hidden;
+  }
+  .deck{position:fixed;inset:0;}
+  .slide{
+    position:absolute;inset:0;display:none;flex-direction:column;
+    padding:64px 80px; background:var(--bg);
+    animation:fade .35s ease;
+  }
+  .slide.active{display:flex;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .kicker{color:var(--brand2);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:.85rem;margin-bottom:10px;}
+  h1{font-size:3.4rem;line-height:1.05;margin:0 0 14px;letter-spacing:-.02em;}
+  h2{font-size:2.2rem;margin:0 0 18px;letter-spacing:-.01em;}
+  h3{font-size:1.15rem;margin:0 0 6px;}
+  p{font-size:1.25rem;line-height:1.55;color:#4b4238;margin:.4rem 0;}
+  ul{font-size:1.2rem;line-height:1.7;padding-left:1.2rem;}
+  li{margin:.35rem 0;}
+  .big{font-size:1.5rem;}
+  .center{align-items:center;justify-content:center;text-align:center;}
+  .muted{color:var(--muted);}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:center;flex:1;min-height:0;}
+  .cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:12px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;box-shadow:0 2px 10px rgba(0,0,0,.03);}
+  .card .ico{font-size:2rem;}
+  .card h3{margin:8px 0 4px;font-size:1.15rem;}
+  .card p{font-size:1rem;margin:0;color:#5c544a;}
+  .pill{display:inline-block;background:#FCF3E2;border:1px solid var(--line);color:var(--brand2);
+    border-radius:999px;padding:6px 14px;font-weight:600;font-size:1rem;margin:4px 6px 4px 0;}
+  .tag{display:inline-block;background:var(--accent);color:#f6efe4;border-radius:8px;padding:3px 10px;font-size:.9rem;margin:3px;}
+  table{width:100%;border-collapse:collapse;font-size:1.05rem;}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);}
+  th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;}
+  .formula{background:var(--accent);color:#f6efe4;border-radius:14px;padding:22px 26px;font-size:1.25rem;line-height:1.7;}
+  .formula b{color:var(--brand);}
+  .diagram{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;}
+  svg{max-width:100%;max-height:100%;}
+  .tree{background:var(--accent);color:#e9e1d3;border-radius:14px;padding:22px 26px;font-size:1.02rem;line-height:1.55;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:auto;}
+  .tree .c{color:var(--brand);} .tree .g{color:var(--green);}
+
+  /* footer / controls */
+  .foot{position:fixed;bottom:0;left:0;right:0;height:46px;display:flex;align-items:center;
+    gap:14px;padding:0 22px;background:rgba(28,25,19,.9);color:#e9e1d3;font-size:.85rem;z-index:20;}
+  .foot .brand{display:flex;align-items:center;gap:8px;font-weight:700;color:#fff;}
+  .foot .brand .d{width:20px;height:20px;border-radius:6px;background:var(--brand);display:grid;place-items:center;font-size:12px;}
+  .foot .spacer{margin-left:auto;}
+  .foot button{background:#3a352c;color:#fff;border:1px solid #4b453a;border-radius:8px;padding:5px 11px;cursor:pointer;font-size:.9rem;}
+  .foot button:hover{background:#4b453a;}
+  .progress{position:fixed;top:0;left:0;height:4px;background:var(--brand);z-index:30;transition:width .3s;}
+  .hint{position:fixed;bottom:56px;right:20px;color:var(--muted);font-size:.8rem;z-index:20;background:var(--bg);padding:4px 10px;border-radius:8px;border:1px solid var(--line);}
+
+  /* svg helpers */
+  .node{fill:#fff;stroke:var(--brand);stroke-width:2;}
+  .node2{fill:#FCF3E2;stroke:var(--brand2);stroke-width:2;}
+  .node-db{fill:#EAF7F0;stroke:var(--green);stroke-width:2;}
+  .node-ai{fill:#EAF1FF;stroke:var(--blue);stroke-width:2;}
+  .lbl{font:600 15px -apple-system,sans-serif;fill:var(--ink);}
+  .lbl-s{font:500 12px -apple-system,sans-serif;fill:var(--muted);}
+  .edge{stroke:#b9a894;stroke-width:2;fill:none;marker-end:url(#arrow);}
+  @media print{
+    body{overflow:visible;}
+    .slide{display:flex!important;position:relative;page-break-after:always;height:100vh;}
+    .foot,.hint,.progress{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="deck" id="deck">
+
+  <!-- 1 TITLE -->
+  <section class="slide center">
+    <div style="font-size:5rem">🍽️</div>
+    <h1>FlavourFlow</h1>
+    <p class="big">An AI-Powered Cooking Companion for Pakistani Households</p>
+    <div style="margin-top:22px">
+      <span class="pill">React Native · Expo</span>
+      <span class="pill">Supabase</span>
+      <span class="pill">Google Gemini AI</span>
+    </div>
+    <p class="muted" style="margin-top:26px">Muhammad Usman · Muhammad Haroon Hanif · Abdul Mateen<br/>
+    Supervised by Mishal Muneer &amp; M. Ali Ilyas — The University of Lahore · BSCS Final Year Project</p>
+  </section>
+
+  <!-- 2 PROBLEM -->
+  <section class="slide">
+    <div class="kicker">The Problem</div>
+    <h2>"What's for dinner?" — every single day</h2>
+    <div class="cols">
+      <ul>
+        <li>Deciding what to cook daily is repetitive and stressful.</li>
+        <li>Existing apps (Tasty, Yummly, HelloFresh) are built for <b>Western</b> ingredients and kitchens.</li>
+        <li>No support for <b>local cuisine</b>, <b>halal</b> rules, or <b>Urdu</b>.</li>
+        <li>No way to cook <b>from what you already have</b> at home.</li>
+        <li>No real-time, hands-free cooking guidance.</li>
+      </ul>
+      <div class="card">
+        <div class="ico">🎯</div>
+        <h3>Our users</h3>
+        <p>Busy parents, students living away from home, novice cooks, and dietary planners — people who need quick, culturally-relevant, allergy-aware meal ideas.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 SOLUTION -->
+  <section class="slide">
+    <div class="kicker">The Solution</div>
+    <h2>A smart kitchen companion</h2>
+    <div class="cards">
+      <div class="card"><div class="ico">🤖</div><h3>ChefBoo AI</h3><p>Chat assistant that finds &amp; generates recipes for your taste.</p></div>
+      <div class="card"><div class="ico">🧊</div><h3>What's in Your Fridge</h3><p>Recipes from ingredients you already have.</p></div>
+      <div class="card"><div class="ico">📈</div><h3>Learning Recommendations</h3><p>Personalized feed that improves as you cook.</p></div>
+      <div class="card"><div class="ico">🔥</div><h3>Hands-Free Cooking</h3><p>Guided steps, timers, video, and voice control.</p></div>
+      <div class="card"><div class="ico">👥</div><h3>Community</h3><p>Share, follow, like, comment, and review.</p></div>
+      <div class="card"><div class="ico">🌐</div><h3>Urdu &amp; Voice</h3><p>Translation and voice input for accessibility.</p></div>
+    </div>
+  </section>
+
+  <!-- 4 TECH STACK -->
+  <section class="slide">
+    <div class="kicker">Technology</div>
+    <h2>Tech Stack</h2>
+    <div class="cols3" style="margin-top:10px">
+      <div class="card"><h3>📱 Frontend</h3>
+        <p><span class="tag">React Native</span><span class="tag">Expo SDK 54</span><span class="tag">Expo Router</span><span class="tag">NativeWind</span><span class="tag">Zustand</span><span class="tag">Reanimated</span></p></div>
+      <div class="card"><h3>🗄️ Backend</h3>
+        <p><span class="tag">Supabase</span><span class="tag">PostgreSQL</span><span class="tag">Auth</span><span class="tag">Storage</span><span class="tag">Realtime</span><span class="tag">Edge Functions (Deno)</span></p></div>
+      <div class="card"><h3>🧠 AI &amp; Delivery</h3>
+        <p><span class="tag">Google Gemini 2.5</span><span class="tag">Expo Push</span><span class="tag">EAS Build</span><span class="tag">TypeScript</span></p></div>
+    </div>
+    <p class="muted" style="margin-top:20px">Cross-platform (Android &amp; iOS) · Cloud-native · Serverless AI backend</p>
+  </section>
+
+  <!-- 5 ARCHITECTURE -->
+  <section class="slide">
+    <div class="kicker">Design</div>
+    <h2>System Architecture</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 980 460">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#b9a894"/>
+          </marker>
+        </defs>
+        <!-- client -->
+        <rect class="node" x="60" y="180" width="190" height="90" rx="14"/>
+        <text class="lbl" x="155" y="215" text-anchor="middle">📱 Mobile App</text>
+        <text class="lbl-s" x="155" y="238" text-anchor="middle">React Native · Expo</text>
+        <!-- supabase core -->
+        <rect class="node-db" x="400" y="70" width="230" height="320" rx="16"/>
+        <text class="lbl" x="515" y="100" text-anchor="middle">Supabase</text>
+        <rect class="node" x="425" y="120" width="180" height="40" rx="9"/><text class="lbl-s" x="515" y="145" text-anchor="middle">Auth (JWT)</text>
+        <rect class="node" x="425" y="170" width="180" height="40" rx="9"/><text class="lbl-s" x="515" y="195" text-anchor="middle">PostgreSQL + RLS</text>
+        <rect class="node" x="425" y="220" width="180" height="40" rx="9"/><text class="lbl-s" x="515" y="245" text-anchor="middle">Storage</text>
+        <rect class="node" x="425" y="270" width="180" height="40" rx="9"/><text class="lbl-s" x="515" y="295" text-anchor="middle">Realtime</text>
+        <rect class="node" x="425" y="320" width="180" height="40" rx="9"/><text class="lbl-s" x="515" y="345" text-anchor="middle">Edge Functions</text>
+        <!-- edge fns -->
+        <rect class="node-ai" x="730" y="80" width="200" height="56" rx="12"/>
+        <text class="lbl-s" x="830" y="103" text-anchor="middle">ai-chat →</text><text class="lbl-s" x="830" y="121" text-anchor="middle">ChefBoo (Gemini)</text>
+        <rect class="node-ai" x="730" y="200" width="200" height="56" rx="12"/>
+        <text class="lbl-s" x="830" y="223" text-anchor="middle">generate-</text><text class="lbl-s" x="830" y="241" text-anchor="middle">recommendations</text>
+        <rect class="node-ai" x="730" y="320" width="200" height="56" rx="12"/>
+        <text class="lbl-s" x="830" y="343" text-anchor="middle">send-push →</text><text class="lbl-s" x="830" y="361" text-anchor="middle">Expo Push</text>
+        <!-- edges -->
+        <path class="edge" d="M250,225 L400,225"/>
+        <path class="edge" d="M605,340 L730,108"/>
+        <path class="edge" d="M605,340 L730,228"/>
+        <path class="edge" d="M605,340 L730,348"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 6 ERD -->
+  <section class="slide">
+    <div class="kicker">Database</div>
+    <h2>Data Model (key tables)</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 980 430">
+        <defs><marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#b9a894"/></marker></defs>
+        <g font-family="-apple-system,sans-serif">
+          <!-- profiles -->
+          <rect class="node2" x="400" y="30" width="180" height="70" rx="12"/>
+          <text class="lbl" x="490" y="58" text-anchor="middle">profiles</text>
+          <text class="lbl-s" x="490" y="80" text-anchor="middle">user · name · avatar</text>
+          <!-- preferences -->
+          <rect class="node-db" x="120" y="30" width="180" height="70" rx="12"/>
+          <text class="lbl" x="210" y="58" text-anchor="middle">user_preferences</text>
+          <text class="lbl-s" x="210" y="80" text-anchor="middle">diet · allergies · spice</text>
+          <!-- recipes -->
+          <rect class="node" x="400" y="175" width="180" height="70" rx="12"/>
+          <text class="lbl" x="490" y="203" text-anchor="middle">recipes</text>
+          <text class="lbl-s" x="490" y="225" text-anchor="middle">ingredients · steps</text>
+          <!-- interactions -->
+          <rect class="node-db" x="120" y="175" width="180" height="70" rx="12"/>
+          <text class="lbl" x="210" y="200" text-anchor="middle">recipe_interactions</text>
+          <text class="lbl-s" x="210" y="222" text-anchor="middle">view/cook/save…</text>
+          <!-- reviews -->
+          <rect class="node" x="690" y="175" width="180" height="70" rx="12"/>
+          <text class="lbl" x="780" y="200" text-anchor="middle">reviews</text>
+          <text class="lbl-s" x="780" y="222" text-anchor="middle">rating · text</text>
+          <!-- recommendations -->
+          <rect class="node-ai" x="400" y="320" width="180" height="70" rx="12"/>
+          <text class="lbl" x="490" y="345" text-anchor="middle">recipe_recommendations</text>
+          <text class="lbl-s" x="490" y="367" text-anchor="middle">score · section</text>
+          <!-- community -->
+          <rect class="node2" x="690" y="320" width="180" height="70" rx="12"/>
+          <text class="lbl" x="780" y="348" text-anchor="middle">posts · comments</text>
+          <text class="lbl-s" x="780" y="370" text-anchor="middle">follows · likes</text>
+          <!-- ai recipes -->
+          <rect class="node-ai" x="120" y="320" width="180" height="70" rx="12"/>
+          <text class="lbl" x="210" y="345" text-anchor="middle">ai_generated_recipes</text>
+          <text class="lbl-s" x="210" y="367" text-anchor="middle">ChefBoo output</text>
+          <!-- edges -->
+          <g stroke="#b9a894" stroke-width="2" fill="none" marker-end="url(#arrow2)">
+            <path d="M400,65 L300,65"/>
+            <path d="M490,100 L490,175"/>
+            <path d="M400,210 L300,210"/>
+            <path d="M580,210 L690,210"/>
+            <path d="M490,245 L490,320"/>
+            <path d="M400,355 L300,355"/>
+            <path d="M580,355 L690,355"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <p class="muted">18 tables total · every table protected by Row Level Security</p>
+  </section>
+
+  <!-- 7 CHEFBOO FLOW -->
+  <section class="slide">
+    <div class="kicker">AI Logic</div>
+    <h2>How ChefBoo Answers You</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 980 380">
+        <defs><marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#b9a894"/></marker></defs>
+        <g>
+          <rect class="node" x="20" y="160" width="150" height="60" rx="12"/><text class="lbl-s" x="95" y="195" text-anchor="middle">User message</text>
+          <rect class="node2" x="200" y="160" width="150" height="60" rx="12"/><text class="lbl-s" x="275" y="187" text-anchor="middle">Rate limit +</text><text class="lbl-s" x="275" y="205" text-anchor="middle">safety filter</text>
+          <rect class="node2" x="380" y="160" width="150" height="60" rx="12"/><text class="lbl-s" x="455" y="187" text-anchor="middle">Classify intent</text><text class="lbl-s" x="455" y="205" text-anchor="middle">(greeting/search…)</text>
+          <rect class="node-db" x="560" y="70" width="170" height="60" rx="12"/><text class="lbl-s" x="645" y="97" text-anchor="middle">Search DB recipes</text><text class="lbl-s" x="645" y="115" text-anchor="middle">(confidence score)</text>
+          <rect class="node-ai" x="560" y="250" width="170" height="60" rx="12"/><text class="lbl-s" x="645" y="277" text-anchor="middle">Generate w/ Gemini</text><text class="lbl-s" x="645" y="295" text-anchor="middle">(when low confidence)</text>
+          <rect class="node" x="790" y="160" width="160" height="60" rx="12"/><text class="lbl-s" x="870" y="187" text-anchor="middle">Reply + recipes</text><text class="lbl-s" x="870" y="205" text-anchor="middle">(your language)</text>
+          <g stroke="#b9a894" stroke-width="2" fill="none" marker-end="url(#arrow3)">
+            <path d="M170,190 L200,190"/>
+            <path d="M350,190 L380,190"/>
+            <path d="M530,185 L560,110"/>
+            <path d="M530,195 L560,280"/>
+            <path d="M730,100 L830,100 L830,160" />
+            <path d="M730,280 L830,280 L830,220"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <p class="muted">Database-first: real recipes are preferred; the AI only invents a recipe when nothing suitable exists.</p>
+  </section>
+
+  <!-- 8 RECOMMENDATION -->
+  <section class="slide">
+    <div class="kicker">AI Logic</div>
+    <h2>Recommendation Algorithm</h2>
+    <div class="cols">
+      <div class="formula">
+        Final Score =<br/>
+        &nbsp;&nbsp;<b>Content</b> match (spice / diet)<br/>
+        + <b>Behaviour</b> (time-decayed actions)<br/>
+        + <b>Trend</b> (community activity)<br/>
+        + <b>Context</b> (time of day / weekend)<br/>
+        − <b>Penalty</b> (quick exits, abandons)
+      </div>
+      <div>
+        <ul>
+          <li><b>Cooking</b> a recipe counts far more than viewing it.</li>
+          <li>Older actions <b>decay</b> over time.</li>
+          <li>Recipes sort into rows: <span class="pill">For You</span><span class="pill">Trending</span><span class="pill">Cook It Again</span><span class="pill">Jump Back In</span></li>
+          <li>New users get smart <b>cold-start</b> picks.</li>
+          <li>Runs continuously as a background job → the app keeps learning.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 NOTIFICATIONS -->
+  <section class="slide">
+    <div class="kicker">Real-Time</div>
+    <h2>Notifications &amp; Live Updates</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 980 300">
+        <defs><marker id="arrow4" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#b9a894"/></marker></defs>
+        <rect class="node" x="20" y="120" width="160" height="60" rx="12"/><text class="lbl-s" x="100" y="147" text-anchor="middle">User A likes</text><text class="lbl-s" x="100" y="165" text-anchor="middle">User B's recipe</text>
+        <rect class="node-db" x="230" y="120" width="170" height="60" rx="12"/><text class="lbl-s" x="315" y="147" text-anchor="middle">Insert row in</text><text class="lbl-s" x="315" y="165" text-anchor="middle">notifications</text>
+        <rect class="node2" x="450" y="40" width="170" height="60" rx="12"/><text class="lbl-s" x="535" y="67" text-anchor="middle">Realtime channel</text><text class="lbl-s" x="535" y="85" text-anchor="middle">→ in-app badge</text>
+        <rect class="node-ai" x="450" y="200" width="170" height="60" rx="12"/><text class="lbl-s" x="535" y="227" text-anchor="middle">send-push webhook</text><text class="lbl-s" x="535" y="245" text-anchor="middle">→ Expo Push</text>
+        <rect class="node" x="680" y="120" width="180" height="60" rx="12"/><text class="lbl-s" x="770" y="147" text-anchor="middle">User B's device</text><text class="lbl-s" x="770" y="165" text-anchor="middle">gets notified</text>
+        <g stroke="#b9a894" stroke-width="2" fill="none" marker-end="url(#arrow4)">
+          <path d="M180,150 L230,150"/>
+          <path d="M400,140 L450,90"/>
+          <path d="M400,160 L450,220"/>
+          <path d="M620,70 L720,70 L720,120"/>
+          <path d="M620,230 L720,230 L720,180"/>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 10 SECURITY -->
+  <section class="slide">
+    <div class="kicker">Non-Functional</div>
+    <h2>Security &amp; Reliability</h2>
+    <div class="cards">
+      <div class="card"><div class="ico">🔒</div><h3>Row Level Security</h3><p>Every table locked so users touch only their own data.</p></div>
+      <div class="card"><div class="ico">🔑</div><h3>Secret isolation</h3><p>AI &amp; service keys live server-side only — never in the app.</p></div>
+      <div class="card"><div class="ico">🌐</div><h3>TLS everywhere</h3><p>All traffic encrypted in transit; passwords hashed by Auth.</p></div>
+      <div class="card"><div class="ico">🛡️</div><h3>Abuse guard</h3><p>Per-user AI rate limits + safety filter on ChefBoo.</p></div>
+      <div class="card"><div class="ico">📴</div><h3>Offline resilience</h3><p>Network detection, retry screens, graceful errors.</p></div>
+      <div class="card"><div class="ico">🔔</div><h3>Reliable timers</h3><p>Cooking alerts fire even when the screen is off.</p></div>
+    </div>
+  </section>
+
+  <!-- 11 CODEBASE -->
+  <section class="slide">
+    <div class="kicker">Codebase</div>
+    <h2>Project Structure</h2>
+    <div class="cols">
+      <div class="tree"><span class="c">src/</span>
+├─ <span class="c">app/</span>            screens (Expo Router)
+│  ├─ (auth)/       login · signup · onboarding
+│  ├─ (tabs)/       home · community · create
+│  │               · alerts · profile
+│  ├─ recipe-detail · cooking-mode
+│  ├─ ai-chat · ai-recipe-detail
+│  └─ create-recipe · search · settings
+├─ <span class="c">components/ui/</span>  reusable UI
+├─ <span class="c">services/</span>      API layer (Supabase)
+├─ <span class="c">store/</span>         Zustand state
+├─ <span class="c">hooks/</span> · <span class="c">utils/</span> · <span class="c">types/</span>
+<span class="g">supabase/</span>
+├─ functions/      ai-chat · recommendations
+│                 · send-push  (Deno)
+└─ migrations/     versioned SQL schema</div>
+      <div>
+        <h3 style="font-size:1.3rem">Clean separation of concerns</h3>
+        <ul>
+          <li><b>Screens</b> render UI &amp; call services.</li>
+          <li><b>Services</b> hold all database/API logic.</li>
+          <li><b>Store</b> keeps global session &amp; timers.</li>
+          <li><b>Edge functions</b> run trusted server-side logic (AI, ranking, push).</li>
+          <li><b>Migrations</b> version every schema change.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 FEATURES / FRs -->
+  <section class="slide">
+    <div class="kicker">Scope</div>
+    <h2>12 Functional Requirements — all delivered ✅</h2>
+    <table>
+      <tr><td>FR-01 Account Management</td><td>FR-02 User Preferences</td><td>FR-03 Meal Recommendation</td></tr>
+      <tr><td>FR-04 Recipe Interactions</td><td>FR-05 Search &amp; Discovery</td><td>FR-06 Community Dashboard</td></tr>
+      <tr><td>FR-07 Recipe Upload</td><td>FR-08 Rate &amp; Review</td><td>FR-09 Smart Pantry</td></tr>
+      <tr><td>FR-10 Cooking Assistance</td><td>FR-11 Trending &amp; Popular</td><td>FR-12 App Settings</td></tr>
+    </table>
+    <p class="muted" style="margin-top:16px">Plus non-functional goals: security (RLS), localization (Urdu), reliability (offline handling), and performance.</p>
+  </section>
+
+  <!-- 13 DEPLOYMENT -->
+  <section class="slide">
+    <div class="kicker">Deployment</div>
+    <h2>Build &amp; Release Pipeline</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 980 220">
+        <defs><marker id="arrow5" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#b9a894"/></marker></defs>
+        <rect class="node" x="30" y="80" width="160" height="60" rx="12"/><text class="lbl-s" x="110" y="115" text-anchor="middle">Source (GitHub)</text>
+        <rect class="node2" x="250" y="80" width="160" height="60" rx="12"/><text class="lbl-s" x="330" y="107" text-anchor="middle">EAS Build</text><text class="lbl-s" x="330" y="125" text-anchor="middle">(cloud)</text>
+        <rect class="node" x="470" y="30" width="160" height="60" rx="12"/><text class="lbl-s" x="550" y="57" text-anchor="middle">Preview APK</text><text class="lbl-s" x="550" y="75" text-anchor="middle">→ test on phone</text>
+        <rect class="node" x="470" y="130" width="160" height="60" rx="12"/><text class="lbl-s" x="550" y="157" text-anchor="middle">Production AAB</text><text class="lbl-s" x="550" y="175" text-anchor="middle">→ Play Store</text>
+        <rect class="node-db" x="700" y="80" width="180" height="60" rx="12"/><text class="lbl-s" x="790" y="107" text-anchor="middle">Google Play</text><text class="lbl-s" x="790" y="125" text-anchor="middle">Console</text>
+        <g stroke="#b9a894" stroke-width="2" fill="none" marker-end="url(#arrow5)">
+          <path d="M190,110 L250,110"/>
+          <path d="M410,100 L470,70"/>
+          <path d="M410,120 L470,160"/>
+          <path d="M630,160 L700,120"/>
+        </g>
+      </svg>
+    </div>
+    <p class="muted">Backend served over HTTPS by Supabase (SSL handled automatically) · Android release via EAS + Play Console.</p>
+  </section>
+
+  <!-- 14 CLOSING -->
+  <section class="slide center">
+    <div style="font-size:4rem">🍽️</div>
+    <h1 style="font-size:2.8rem">Thank You</h1>
+    <p class="big">FlavourFlow — making daily cooking easy, healthy, and fun.</p>
+    <div style="margin-top:18px">
+      <span class="pill">Live Demo</span><span class="pill">Q &amp; A</span>
+    </div>
+    <p class="muted" style="margin-top:26px">Muhammad Usman · Muhammad Haroon Hanif · Abdul Mateen · The University of Lahore</p>
+  </section>
+
+</div>
+
+<div class="hint">← → or Space to navigate · F fullscreen · P print</div>
+<div class="foot">
+  <span class="brand"><span class="d">🍽️</span> FlavourFlow</span>
+  <span>Project Presentation</span>
+  <span class="spacer"></span>
+  <button onclick="go(-1)">‹ Prev</button>
+  <span id="counter">1 / 14</span>
+  <button onclick="go(1)">Next ›</button>
+  <button onclick="toggleFS()">⛶ Full</button>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  let i = 0;
+  function show(n){
+    i = Math.max(0, Math.min(slides.length-1, n));
+    slides.forEach((s,x)=>s.classList.toggle('active', x===i));
+    document.getElementById('counter').textContent = (i+1)+' / '+slides.length;
+    document.getElementById('progress').style.width = ((i+1)/slides.length*100)+'%';
+  }
+  function go(d){ show(i+d); }
+  function toggleFS(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+  document.addEventListener('keydown', e=>{
+    if(['ArrowRight',' ','PageDown'].includes(e.key)){ e.preventDefault(); go(1); }
+    else if(['ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); go(-1); }
+    else if(e.key==='Home') show(0);
+    else if(e.key==='End') show(slides.length-1);
+    else if(e.key.toLowerCase()==='f') toggleFS();
+    else if(e.key.toLowerCase()==='p') window.print();
+  });
+  // swipe on touch
+  let sx=null;
+  document.addEventListener('touchstart',e=>sx=e.touches[0].clientX);
+  document.addEventListener('touchend',e=>{ if(sx===null)return; const dx=e.changedTouches[0].clientX-sx; if(Math.abs(dx)>50) go(dx<0?1:-1); sx=null; });
+  show(0);
+</script>
+</body>
+</html>
