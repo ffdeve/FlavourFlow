@@ -216,7 +216,7 @@ function UserRecipeCard({
   onDelete: () => void;
   onPress: () => void;
 }) {
-  const stepsCount = Array.isArray(recipe.steps) ? recipe.steps.length : 0;
+  const stepsCount = recipe.stepsCount || 0;
   const isEven = index % 2 === 0;
 
   const handleOptionsPress = () => {
@@ -250,7 +250,7 @@ function UserRecipeCard({
       {/* Image Container with steps overlay */}
       <View className="relative w-full aspect-[16/10] overflow-hidden bg-gray-50">
         <Image
-          source={{ uri: recipe.image_url || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600" }}
+          source={{ uri: recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600" }}
           className="w-full h-full"
           contentFit="cover"
           transition={300}
@@ -298,7 +298,7 @@ function UserRecipeCard({
           <View className="flex-row items-center bg-[#F0EDEB]/60 px-3 py-1.5 rounded-full">
             <Feather name="clock" size={12} color="#8B7D6F" />
             <Text className="text-[#8B7D6F] text-[11px] font-inter-medium ml-1.5">
-              {recipe.cook_time || 0} Mins
+              {recipe.cookTime || 0} Mins
             </Text>
           </View>
           

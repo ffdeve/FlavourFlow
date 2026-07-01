@@ -10,9 +10,10 @@ interface AvatarProps {
 
 export default function Avatar({ url, size = 40, className = "" }: AvatarProps) {
   if (url) {
+    const source = typeof url === 'string' && url.startsWith('http') ? { uri: url } : url;
     return (
       <ExpoImage
-        source={{ uri: url }}
+        source={source}
         style={{ width: size, height: size, borderRadius: size / 2 }}
         className={`bg-[#F5E3D8]/30 ${className}`}
         contentFit="cover"

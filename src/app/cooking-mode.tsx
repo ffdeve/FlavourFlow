@@ -25,6 +25,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
 import * as Haptics from "expo-haptics";
 import YoutubePlayer from "react-native-youtube-iframe";
+import Reanimated, {
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ExpoSpeechRecognitionModule,
@@ -176,6 +182,8 @@ export default function CookingModeScreen() {
 
   const playerRef = useRef<any>(null);
   const [playerState, setPlayerState] = useState<string>("unstarted");
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
 
   const getYoutubeId = (url: string) => {
     if (!url) return null;
@@ -196,7 +204,11 @@ export default function CookingModeScreen() {
       
       // Seek to step start time on mount / step change
       if (playerRef.current) {
-        playerRef.current.seekTo(start, true);
+        setIsPlaying(false);
+        setTimeout(() => {
+          setIsPlaying(true);
+          playerRef.current?.seekTo(start, true);
+        }, 50);
       }
 
       if (end > start) {
@@ -1034,7 +1046,10 @@ export default function CookingModeScreen() {
           userId: user?.id,
           history: assistantSettings.rememberCookingHistory ? history : [],
           mode: "cooking",
-          assistantSettings,
+          assistantSettings: {
+            ...assistantSettings,
+            language: voiceLang === "ur-PK" ? "urdu" : "english"
+          },
           cookingContext: {
             recipe: {
               title: recipe?.title,
@@ -1132,12 +1147,49 @@ export default function CookingModeScreen() {
     }
   };
 
-  const CHEF_SUGGESTIONS = [
-    "What does simmer mean?",
-    "I don't have coriander",
-    "How many tbsp in 1/4 cup?",
-    "Set a timer for 10 minutes",
-  ];
+  const getChefSuggestions = () => {
+    const isUrdu = voiceLang === "ur-PK";
+    const currentStepText = recipe?.steps?.[currentStep]?.instruction?.toLowerCase() || "";
+    
+    const suggestions: string[] = [];
+    
+    // Always good to have a timer suggestion if there's a time mentioned or just generally
+    if (currentStepText.match(/\b(min|minutes|hour|hours|sec|seconds)\b/)) {
+      suggestions.push(isUrdu ? "ایک ٹائمر لگا دیں" : "Set a timer for this step");
+    } else {
+      suggestions.push(isUrdu ? "کیا آپ اس کو آسان کر سکتے ہیں؟" : "Can you simplify this step?");
+    }
+
+    // Checking for verbs/actions
+    if (currentStepText.includes("boil") || currentStepText.includes("simmer")) {
+      suggestions.push(isUrdu ? "اُبالنے کا کیا مطلب ہے؟" : "What's the difference between boil and simmer?");
+    } else if (currentStepText.includes("bake") || currentStepText.includes("roast") || currentStepText.includes("oven")) {
+      suggestions.push(isUrdu ? "کیا میں اسے چولہے پر بنا سکتا ہوں؟" : "Can I make this on the stove instead?");
+    } else if (currentStepText.includes("fry")) {
+      suggestions.push(isUrdu ? "اسے فرائی کرنے میں کتنا تیل لگے گا؟" : "How much oil do I need for frying?");
+    } else if (currentStepText.includes("marinate")) {
+      suggestions.push(isUrdu ? "مجھے اسے کتنی دیر تک میرینیٹ کرنا چاہیے؟" : "How long should I marinate this?");
+    } else {
+      suggestions.push(isUrdu ? "کوئی خاص ٹپ؟" : "Any pro tips for this part?");
+    }
+
+    // Checking for ingredients/nouns
+    if (currentStepText.includes("chicken") || currentStepText.includes("meat") || currentStepText.includes("beef")) {
+      suggestions.push(isUrdu ? "اگر میرے پاس یہ گوشت نہ ہو تو؟" : "What's a good meat substitute?");
+    } else if (currentStepText.includes("milk") || currentStepText.includes("cream")) {
+      suggestions.push(isUrdu ? "میں ڈیری فری کیا استعمال کر سکتا ہوں؟" : "Can I use a dairy-free alternative?");
+    } else if (currentStepText.match(/\b(cup|tbsp|tsp|oz|grams)\b/)) {
+      suggestions.push(isUrdu ? "اسکی مقدار گرامز میں کتنی بنے گی؟" : "How to convert these measurements?");
+    } else {
+      suggestions.push(isUrdu ? "اگر مجھ سے غلطی ہو جائے تو؟" : "What if I mess this up?");
+    }
+
+    suggestions.push(isUrdu ? "اگلے سٹیپ میں کیا کرنا ہے؟" : "What's coming up next?");
+
+    return suggestions;
+  };
+
+  const CHEF_SUGGESTIONS = getChefSuggestions();
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1400,14 +1452,7 @@ export default function CookingModeScreen() {
 
           {/* Listening banner */}
           {isListening && (
-            <View className="flex-row items-center justify-center mb-2.5 bg-[#E05252]/10 border border-[#E05252]/30 rounded-full py-2 px-4">
-              <View className="w-2 h-2 rounded-full bg-[#E05252] mr-2" />
-              <Text className="text-[12.5px] font-inter-medium text-[#E05252]" numberOfLines={1}>
-                {handsFree
-                  ? "Listening… say “next”, “repeat”, or ask me anything"
-                  : "Listening… tap the mic to stop"}
-              </Text>
-            </View>
+            <ListeningBanner handsFree={handsFree} />
           )}
 
           {/* Hands-free voice-to-voice toggle */}
@@ -1977,7 +2022,8 @@ export default function CookingModeScreen() {
           <YoutubePlayer
             ref={playerRef}
             height={SCREEN_WIDTH * 9/16}
-            play={true}
+            play={isPlaying}
+            mute={isMuted}
             videoId={youtubeVideoId!}
             onChangeState={(state: string) => setPlayerState(state)}
             initialPlayerParams={{
@@ -1989,6 +2035,13 @@ export default function CookingModeScreen() {
             }}
           />
           {/* Overlays */}
+          {/* Mute Toggle */}
+          <TouchableOpacity 
+            onPress={() => setIsMuted(!isMuted)}
+            className="absolute bottom-3 right-3 bg-black/60 rounded-full p-2 z-10 flex-row items-center justify-center"
+          >
+            <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="white" />
+          </TouchableOpacity>
           <View className="absolute top-3 left-3 bg-[#FBA82E] border border-primary/20 px-3 py-1 rounded-full flex-row items-center gap-1 shadow z-10">
             <Ionicons name="checkmark-circle" size={12} color="white" />
             <Text className="font-jakarta-bold text-[10px] text-white uppercase">
@@ -2409,5 +2462,32 @@ export default function CookingModeScreen() {
 
       {renderCookingOverlays()}
     </SafeAreaView>
+  );
+}
+
+function ListeningBanner({ handsFree }: { handsFree: boolean }) {
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(0.4, { duration: 600 }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: pulse.value,
+    transform: [{ scale: 1 + (1 - pulse.value) * 0.2 }],
+  }));
+
+  return (
+    <View className="flex-row items-center justify-center mb-2.5 bg-[#E05252]/10 border border-[#E05252]/30 rounded-full py-2 px-4">
+      <Reanimated.View style={[animatedStyle, { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E05252', marginRight: 8 }]} />
+      <Text className="text-[12.5px] font-inter-medium text-[#E05252]" numberOfLines={1}>
+        {handsFree
+          ? "Listening… say “next”, “repeat”, or ask me anything"
+          : "Listening… tap the mic to stop"}
+      </Text>
+    </View>
   );
 }

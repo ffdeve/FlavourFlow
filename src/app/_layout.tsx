@@ -1,4 +1,4 @@
-import { OfflineBanner } from "@/components/ui/offline-banner";
+import { NetworkBoundary } from "@/components/ui/network-boundary";
 import { useAuthStore } from "@/store/auth.store";
 import {
   Inter_400Regular,
@@ -155,52 +155,53 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="recipe-detail"
-            options={{
-              animation: "slide_from_bottom",
-              gestureEnabled: true,
-              gestureDirection: "vertical",
-            }}
-          />
-          <Stack.Screen
-            name="cooking-mode"
-            options={{
-              presentation: "fullScreenModal",
-              animation: "slide_from_bottom",
-              gestureEnabled: false,
-            }}
-          />
-          <Stack.Screen
-            name="create-recipe"
-            options={{
-              presentation: "fullScreenModal",
-              animation: "slide_from_bottom",
-              gestureEnabled: true,
-              gestureDirection: "vertical",
-            }}
-          />
-          <Stack.Screen
-            name="user-profile"
-            options={{
-              animation: "slide_from_right",
-              gestureEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="search"
-            options={{
-              presentation: "fullScreenModal",
-              animation: "slide_from_bottom",
-              gestureEnabled: true,
-            }}
-          />
-        </Stack>
-        <OfflineBanner />
+        <NetworkBoundary>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="recipe-detail"
+              options={{
+                animation: "slide_from_bottom",
+                gestureEnabled: true,
+                gestureDirection: "vertical",
+              }}
+            />
+            <Stack.Screen
+              name="cooking-mode"
+              options={{
+                presentation: "fullScreenModal",
+                animation: "slide_from_bottom",
+                gestureEnabled: false,
+              }}
+            />
+            <Stack.Screen
+              name="create-recipe"
+              options={{
+                presentation: "fullScreenModal",
+                animation: "slide_from_bottom",
+                gestureEnabled: true,
+                gestureDirection: "vertical",
+              }}
+            />
+            <Stack.Screen
+              name="user-profile"
+              options={{
+                animation: "slide_from_right",
+                gestureEnabled: true,
+              }}
+            />
+            <Stack.Screen
+              name="search"
+              options={{
+                presentation: "fullScreenModal",
+                animation: "slide_from_bottom",
+                gestureEnabled: true,
+              }}
+            />
+          </Stack>
+        </NetworkBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

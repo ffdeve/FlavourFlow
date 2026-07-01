@@ -15,7 +15,7 @@ import {
 import { CookingLoader } from "@/components/ui/cooking-loader";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/hooks/use-auth";
 import { profileService } from "@/services/profile.service";
@@ -165,17 +165,26 @@ export default function UserProfileScreen() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const isOwnProfile = currentUser?.id === userId;
 
   // ── Load Data ──
   useEffect(() => {
-    if (!userId) return;
+    let targetUserId = userId;
+    if (!targetUserId || targetUserId === "null" || targetUserId === "undefined") {
+      targetUserId = "5bf898af-4881-4998-9a9c-d3addfb32665"; // Real Chef Boo DB UUID
+    }
+
     (async () => {
       try {
         const [profileStats, userRecipes] = await Promise.all([
-          profileService.getUserProfileWithStats(userId),
-          profileService.getUserRecipesPublic(userId),
+          profileService.getUserProfileWithStats(targetUserId),
+          profileService.getUserRecipesPublic(targetUserId, 1, 6),
         ]);
         setProfile(profileStats.profile);
         setStats({
@@ -185,6 +194,8 @@ export default function UserProfileScreen() {
           recipes: profileStats.recipes,
         });
         setRecipes(userRecipes);
+        setHasMore(userRecipes.length >= 6);
+        setPage(1);
 
         // Check follow state
         if (currentUser?.id && currentUser.id !== userId) {
@@ -201,6 +212,33 @@ export default function UserProfileScreen() {
       }
     })();
   }, [userId, currentUser?.id]);
+
+  const loadMoreRecipes = useCallback(async () => {
+    let targetUserId = userId;
+    if (!targetUserId || targetUserId === "null" || targetUserId === "undefined") {
+      targetUserId = "5bf898af-4881-4998-9a9c-d3addfb32665";
+    }
+    
+    if (loadingMore || !hasMore || loading) return;
+    
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const moreRecipes = await profileService.getUserRecipesPublic(targetUserId, nextPage, 6);
+      
+      if (moreRecipes.length > 0) {
+        setRecipes((prev) => [...prev, ...moreRecipes]);
+        setPage(nextPage);
+      }
+      if (moreRecipes.length < 6) {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Failed to load more recipes:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [userId, page, loadingMore, hasMore, loading]);
 
   const displayName = profile?.full_name || "User";
   const displayUsername =
@@ -377,12 +415,17 @@ export default function UserProfileScreen() {
         </View>
       </View>
 
-      {/* ── Name & Username ── */}
-      <View className="items-center mt-4 px-6">
-        <Text className="text-[22px] font-jakarta-bold text-[#3B3328]">
-          {displayName}
-        </Text>
-        <Text className="text-sm font-inter-medium text-[#8B7D6F] mt-1">
+              {/* Name & Username */}
+              <View className="items-center mt-3">
+                <View className="flex-row items-center">
+                  <Text className="font-poppins-bold text-xl text-text-darker">
+                    {displayName}
+                  </Text>
+                  {displayName === "Chef Boo" && (
+                    <MaterialIcons name="verified" size={16} color="#1DA1F2" style={{ marginLeft: 4 }} />
+                  )}
+                </View>
+                <Text className="font-inter-medium text-text-light text-sm mt-0.5">
           {displayUsername.startsWith("@")
             ? displayUsername
             : `@${displayUsername}`}
@@ -512,9 +555,15 @@ export default function UserProfileScreen() {
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
-        ListFooterComponent={<View className="h-20" />}
+        ListFooterComponent={
+          <View className="h-20 items-center justify-center">
+            {loadingMore && <ActivityIndicator size="small" color="#FBA82E" />}
+          </View>
+        }
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onEndReached={loadMoreRecipes}
+        onEndReachedThreshold={0.5}
       />
     </View>
   );

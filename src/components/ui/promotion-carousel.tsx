@@ -98,7 +98,7 @@ export function PromotionCarousel({
                 className="font-poppins-medium text-white/80 text-sm"
                 numberOfLines={1}
               >
-                By {recipe.authorName || "Chef Flavour"} • {recipe.time}
+                By {recipe.authorName || "Chef Boo"} • {recipe.time}
               </Text>
             </View>
 

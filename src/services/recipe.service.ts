@@ -22,8 +22,9 @@ export interface Recipe {
   rating: number;
   categoryTag: string;
   ingredientsCount: number;
-  authorAvatar: string;
+  authorAvatar: string | number | any;
   authorName: string;
+  isVerified?: boolean;
   difficulty: "Easy" | "Medium" | "Hard";
   nutrition?: {
     calories: number;
@@ -91,8 +92,9 @@ export function mapDbRecipeToUiRecipe(dbRecipe: any): Recipe {
     rating: dbRecipe.average_rating ? Number(dbRecipe.average_rating) : 0,
     categoryTag: dbRecipe.dish_category || "Dinner",
     ingredientsCount: (dbRecipe.ingredients || []).length,
-    authorAvatar: dbRecipe.profiles?.avatar_url || "https://i.pravatar.cc/150?img=9",
-    authorName: dbRecipe.profiles?.full_name || "Chef Flavour",
+    authorAvatar: dbRecipe.profiles?.avatar_url || require("@/assets/images/chef-boo-home.webp"),
+    authorName: dbRecipe.profiles?.full_name || "Chef Boo",
+    isVerified: !dbRecipe.profiles?.full_name || dbRecipe.profiles?.full_name === "Chef Boo",
     difficulty,
     nutrition: { calories: 350, carbs: 40, protein: 15, fat: 12 }, // default fallback nutrition
     servings: dbRecipe.servings || 2,
@@ -581,7 +583,10 @@ export const recipeService = {
         title,
         dish_category,
         image_url,
+        images,
         created_at,
+        steps,
+        cook_time,
         recipe_interactions (
           interaction_type
         )
@@ -600,8 +605,10 @@ export const recipeService = {
         id: recipe.id,
         title: recipe.title,
         category: recipe.dish_category || "Dinner",
-        image: recipe.image_url || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
+        image: recipe.image_url || (recipe.images && recipe.images[0]) || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
         createdAt: recipe.created_at,
+        stepsCount: Array.isArray(recipe.steps) ? recipe.steps.length : 0,
+        cookTime: recipe.cook_time || 0,
         views,
         cooks,
       };
@@ -616,7 +623,7 @@ export const recipeService = {
     // bytes and upload the Uint8Array — `fetch(uri).blob()` and FormData both
     // yield 0-byte uploads for file:// URIs in React Native, so images never
     // previewed. `File#bytes()` (expo-file-system v19) returns the real bytes.
-    const filename = `${userId}/${Date.now()}.webp`;
+    const filename = `${userId}/${Date.now()}.jpg`;
 
     const bytes = await new File(localUri).bytes();
     if (!bytes || bytes.length === 0) {
@@ -626,7 +633,7 @@ export const recipeService = {
     const { error } = await supabase.storage
       .from("recipe-images")
       .upload(filename, bytes, {
-        contentType: "image/webp",
+        contentType: "image/jpeg",
         upsert: true,
       });
 
@@ -813,6 +820,84 @@ export const recipeService = {
 
     if (error) throw error;
     return new Set((data || []).map((row: any) => row.recipe_id));
+  },
+
+  /**
+   * Fetch reviews for a specific recipe
+   */
+  async getRecipeReviews(recipeId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select(`
+        *,
+        profiles (
+          full_name,
+          avatar_url
+        )
+      `)
+      .eq("recipe_id", recipeId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Submit a review for a recipe and recalculate average rating
+   */
+  async submitRecipeReview(recipeId: string, userId: string, rating: number, reviewText: string): Promise<void> {
+    // 1. Insert or update the review
+    const { error: insertError } = await supabase
+      .from("reviews")
+      .upsert({
+        recipe_id: recipeId,
+        user_id: userId,
+        rating: rating,
+        review_text: reviewText
+      }, {
+        onConflict: 'recipe_id, user_id'
+      });
+
+    if (insertError) throw insertError;
+
+    // 2. Recalculate average rating
+    const { data: reviews, error: fetchError } = await supabase
+      .from("reviews")
+      .select("rating")
+      .eq("recipe_id", recipeId);
+
+    if (fetchError) throw fetchError;
+
+    if (reviews && reviews.length > 0) {
+      const avg = reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length;
+      
+      // Update the recipes table with the new average
+      const { error: updateError } = await supabase
+        .from("recipes")
+        .update({ 
+          average_rating: avg,
+          review_count: reviews.length
+        })
+        .eq("id", recipeId);
+
+      if (updateError) throw updateError;
+    }
+  },
+
+  /**
+   * Check if a user has cooked a specific recipe
+   */
+  async hasCookedRecipe(userId: string, recipeId: string): Promise<boolean> {
+    const { count, error } = await supabase
+      .from("recipe_interactions")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("recipe_id", recipeId)
+      .in("interaction_type", ["COOK_COMPLETE", "COOK_START"]);
+      
+    if (error) return false;
+    return (count || 0) > 0;
   }
 };
+
 

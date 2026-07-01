@@ -182,9 +182,6 @@ export default function NotificationsScreen() {
               </Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => router.push("/settings")} hitSlop={8}>
-            <Feather name="settings" size={20} color="#8B7D6F" />
-          </TouchableOpacity>
         </View>
       </View>
     </View>

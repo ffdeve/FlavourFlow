@@ -5,7 +5,7 @@ import {
   scaleQuantity,
 } from "@/utils/recipe-steps";
 import { useAuth } from "@/hooks/use-auth";
-import { Feather, FontAwesome, Ionicons } from "@expo/vector-icons";
+import { Feather, FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
@@ -21,6 +21,7 @@ import {
   Share,
   StatusBar,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -147,7 +148,7 @@ const MASTER_KITCHEN_ESSENTIALS = [
   },
 ];
 
-const TABS = ["Overview", "Ingredients", "Steps"] as const;
+const TABS = ["Overview", "Ingredients", "Steps", "Reviews"] as const;
 type TabType = (typeof TABS)[number];
 
 export default function RecipeDetailScreen() {
@@ -163,6 +164,14 @@ export default function RecipeDetailScreen() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [currentLang, setCurrentLang] = useState<'en' | 'ur' | 'roman_ur'>('en');
 
+  // Reviews state
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [isFetchingReviews, setIsFetchingReviews] = useState(false);
+  const [userRating, setUserRating] = useState(0);
+  const [userReviewText, setUserReviewText] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [hasCooked, setHasCooked] = useState(false);
+
   // Dynamic serving scaling — defaults to the recipe's base servings on load.
   const [scaledServings, setScaledServings] = useState<number | null>(null);
 
@@ -175,6 +184,11 @@ export default function RecipeDetailScreen() {
       setRecipe(data);
       setOriginalRecipe(data);
       setScaledServings(data?.servings || 2);
+      
+      if (user?.id) {
+        const cooked = await recipeService.hasCookedRecipe(user.id, id);
+        setHasCooked(cooked);
+      }
     } catch (err) {
       console.error("Error fetching recipe details:", err);
       setDbError(true);
@@ -258,6 +272,50 @@ export default function RecipeDetailScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("Overview");
   const [showAllIngredients, setShowAllIngredients] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  const fetchReviews = useCallback(async () => {
+    if (!id) return;
+    try {
+      setIsFetchingReviews(true);
+      const data = await recipeService.getRecipeReviews(id as string);
+      setReviews(data);
+      const myReview = data.find((r) => r.user_id === user?.id);
+      if (myReview) {
+        setUserRating(myReview.rating);
+        setUserReviewText(myReview.review_text || "");
+      }
+    } catch (err) {
+      console.error("Failed to fetch reviews:", err);
+    } finally {
+      setIsFetchingReviews(false);
+    }
+  }, [id, user?.id]);
+
+  useEffect(() => {
+    if (activeTab === "Reviews" && id && reviews.length === 0) {
+      fetchReviews();
+    }
+  }, [activeTab, id, reviews.length, fetchReviews]);
+
+  const submitReview = async () => {
+    if (!id || !user?.id) return;
+    if (userRating < 1 || userRating > 5) {
+      Alert.alert("Invalid Rating", "Please select a star rating between 1 and 5.");
+      return;
+    }
+    try {
+      setIsSubmittingReview(true);
+      await recipeService.submitRecipeReview(id as string, user.id, userRating, userReviewText.trim());
+      await fetchReviews();
+      await fetchRecipe(); // Update overall recipe average_rating
+      Alert.alert("Success", "Your review has been submitted!");
+    } catch (err) {
+      console.error("Failed to submit review:", err);
+      Alert.alert("Error", "Could not submit review. Please try again.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   const handleScroll = (event: any) => {
     const scrollOffset = event.nativeEvent.contentOffset.x;
@@ -861,23 +919,32 @@ export default function RecipeDetailScreen() {
           </View>
 
           {/* Author Row */}
-          <View className="flex-row items-center mb-4">
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            onPress={() => router.push(`/user-profile?userId=${recipe.created_by}`)}
+            className="flex-row items-center mb-4"
+          >
             <Image
-              source={{
-                uri: recipe.authorAvatar || "https://i.pravatar.cc/150?img=5",
-              }}
+              source={
+                typeof recipe.authorAvatar === 'string' 
+                  ? { uri: recipe.authorAvatar } 
+                  : (recipe.authorAvatar || { uri: "https://i.pravatar.cc/150?img=5" })
+              }
               className="w-8 h-8 rounded-full bg-gray-100 mr-2"
             />
             <Text className="font-inter-medium text-text-lighter text-sm">
               By {recipe.authorName || "You"}
             </Text>
+            {recipe.isVerified && (
+              <MaterialIcons name="verified" size={14} color="#1DA1F2" style={{ marginLeft: 4 }} />
+            )}
             <Feather
               name="chevron-right"
               size={14}
               color="#8B7D6F"
               style={{ marginLeft: 2 }}
             />
-          </View>
+          </TouchableOpacity>
 
           {/* Translation Button */}
           <View className="flex-row mb-6">
@@ -1282,6 +1349,124 @@ export default function RecipeDetailScreen() {
                   </View>
                 </View>
               ))}
+            </View>
+          )}
+
+          {activeTab === "Reviews" && (
+            <View>
+              {hasCooked && (
+                <>
+                  <Text className="font-inter-semibold text-primary-dark text-base mb-4">
+                    Leave a Review
+                  </Text>
+              
+              <View className="bg-white border border-[#F5E3D8]/60 rounded-2xl p-4 shadow-sm mb-8">
+                <Text className="font-jakarta-semibold text-sm text-[#3B3328] mb-3 text-center">
+                  How was the recipe?
+                </Text>
+                
+                {/* Star Selector */}
+                <View className="flex-row justify-center mb-4">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <TouchableOpacity
+                      key={star}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setUserRating(star);
+                        Haptics.selectionAsync();
+                      }}
+                      style={{ paddingHorizontal: 4 }}
+                    >
+                      <FontAwesome
+                        name={userRating >= star ? "star" : "star-o"}
+                        size={28}
+                        color={userRating >= star ? "#FBA82E" : "#D4CBC0"}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Text Input */}
+                <TextInput
+                  value={userReviewText}
+                  onChangeText={setUserReviewText}
+                  placeholder="Share your thoughts (optional)..."
+                  placeholderTextColor="#A09990"
+                  multiline
+                  className="bg-[#FAF5EF] rounded-xl px-4 py-3 min-h-[80px] text-[#3B3328] font-inter-regular text-sm border border-[#E8DCCB] mb-4 text-left"
+                  textAlignVertical="top"
+                />
+
+                {/* Submit Button */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={submitReview}
+                  disabled={isSubmittingReview}
+                  className={`py-3.5 rounded-full items-center justify-center ${isSubmittingReview ? "bg-[#FBA82E]/60" : "bg-primary"}`}
+                >
+                  {isSubmittingReview ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text className="font-jakarta-bold text-white text-sm">
+                      Submit Review
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              </>
+              )}
+
+              <Text className="font-inter-semibold text-primary-dark text-base mb-4">
+                Community Reviews ({reviews.length})
+              </Text>
+
+              {isFetchingReviews ? (
+                <View className="py-8 items-center justify-center">
+                  <ActivityIndicator size="small" color="#FBA82E" />
+                </View>
+              ) : reviews.length === 0 ? (
+                <View className="py-8 items-center justify-center">
+                  <Feather name="message-square" size={32} color="#D4CBC0" style={{ marginBottom: 12 }} />
+                  <Text className="font-inter-regular text-[#8B7D6F] text-sm">
+                    No reviews yet. Be the first!
+                  </Text>
+                </View>
+              ) : (
+                reviews.map((review, idx) => (
+                  <View key={review.id || idx} className="mb-5 pb-5 border-b border-[#F5E3D8]/50">
+                    <View className="flex-row items-center mb-2">
+                      <Image
+                        source={{ uri: review.profiles?.avatar_url || "https://i.pravatar.cc/150?img=5" }}
+                        className="w-10 h-10 rounded-full bg-gray-100 mr-3"
+                      />
+                      <View className="flex-1">
+                        <Text className="font-jakarta-semibold text-sm text-[#3B3328] mb-0.5">
+                          {review.profiles?.full_name || "Anonymous Chef"}
+                        </Text>
+                        <View className="flex-row items-center">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <FontAwesome
+                              key={star}
+                              name={review.rating >= star ? "star" : "star-o"}
+                              size={10}
+                              color={review.rating >= star ? "#FBA82E" : "#D4CBC0"}
+                              style={{ marginRight: 2 }}
+                            />
+                          ))}
+                          <Text className="font-inter-medium text-[9px] text-[#A09990] ml-2">
+                            {new Date(review.created_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    {review.review_text && String(review.review_text).trim() !== "" && (
+                      <Text className="font-inter-regular text-sm text-[#5C544A] leading-5 mt-2">
+                        {review.review_text}
+                      </Text>
+                    )}
+                  </View>
+                ))
+              )}
             </View>
           )}
         </View>

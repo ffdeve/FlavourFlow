@@ -35,6 +35,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Linking,
 } from "react-native";
 import { CookingLoader } from "@/components/ui/cooking-loader";
 import DraggableFlatList, {
@@ -806,7 +807,11 @@ export default function CreateRecipeWizardScreen() {
       if (!permissionResult.granted) {
         Alert.alert(
           "Permission Denied",
-          "We need access to your photos to upload images.",
+          "We need access to your photos to upload images. Please enable it in Settings.",
+          [
+            { text: "Not now", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ]
         );
         return;
       }
@@ -836,7 +841,7 @@ export default function CreateRecipeWizardScreen() {
             const manipResult = await ImageManipulator.manipulateAsync(
               pickedUri,
               [{ resize: { width: 1200 } }],
-              { compress: 0.75, format: ImageManipulator.SaveFormat.WEBP },
+              { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG },
             );
             setImageUris((prev) =>
               prev.map((uri) => (uri === pickedUri ? manipResult.uri : uri)),
@@ -1049,6 +1054,14 @@ export default function CreateRecipeWizardScreen() {
           (parseInt(String(s.timerHours || "0"), 10) || 0) * 60 +
           (parseInt(String(s.timerMinutes || "0"), 10) || 0);
         const hasDuration = s.hasTimer && durationMins > 0;
+
+        if (s.hasTimer && durationMins <= 0) {
+          Alert.alert(
+            "Timer missing duration",
+            `Step ${i + 1} has an active timer but no time is set. Please enter the hours or minutes.`,
+          );
+          return;
+        }
 
         if (TEMP_ACTIONS.includes(action) && !hasTemp) {
           Alert.alert(
