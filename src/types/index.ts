@@ -125,6 +125,7 @@ export interface Recipe {
   preview_video_end_time?: number | null;
   matchScore?: number;
   matchReason?: string;
+  cooked_count?: number;
 }
 
 export interface RecipeIngredient {

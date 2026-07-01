@@ -106,6 +106,7 @@ export function mapDbRecipeToUiRecipe(dbRecipe: any): Recipe {
     dish_category: dbRecipe.dish_category || "Dinner",
     created_by: dbRecipe.created_by || "",
     diet_tags: dbRecipe.diet_tags || [],
+    cooked_count: dbRecipe.cooked_count || 0,
   };
 }
 
@@ -402,6 +403,16 @@ export const recipeService = {
       .single();
 
     if (error) throw error;
+
+    // Fetch cooked count
+    const { count } = await supabase
+      .from("user_interactions")
+      .select("*", { count: 'exact', head: true })
+      .eq("recipe_id", recipeId)
+      .eq("interaction_type", "COOK_START");
+
+    data.cooked_count = count || 0;
+
     return mapDbRecipeToUiRecipe(data);
   },
 

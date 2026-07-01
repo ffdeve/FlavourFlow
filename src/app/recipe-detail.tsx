@@ -1058,8 +1058,13 @@ export default function RecipeDetailScreen() {
                 style={{ width: 48, height: 48 }}
                 contentFit="contain"
               />
-              <Text className="font-jakarta-medium text-text-DEFAULT text-xs text-center mt-2.5">
-                {(recipe as any).cooked_count ? ((recipe as any).cooked_count >= 1000 ? ((recipe as any).cooked_count/1000).toFixed(1) + 'k' : (recipe as any).cooked_count) : 750} Cooked
+              <Text className="font-jakarta-semibold text-[13px] text-text">
+                {recipe.cooked_count !== undefined
+                  ? recipe.cooked_count >= 1000
+                    ? (recipe.cooked_count / 1000).toFixed(1) + "k"
+                    : recipe.cooked_count
+                  : 0}{" "}
+                Cooked
               </Text>
             </View>
           </View>
