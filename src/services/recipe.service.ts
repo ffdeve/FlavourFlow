@@ -58,6 +58,7 @@ export interface Recipe {
   dish_category?: string;
   created_by?: string;
   diet_tags?: string[];
+  cooked_count?: number;
 }
 
 export function mapDbRecipeToUiRecipe(dbRecipe: any): Recipe {

@@ -477,11 +477,11 @@ export default function HomeScreen() {
   const handleRetry = React.useCallback(async () => {
     setRetrying(true);
     try {
-      await loadHomeData();
+      await onRefresh();
     } finally {
       setRetrying(false);
     }
-  }, [loadHomeData]);
+  }, [onRefresh]);
 
   // ─── Render ─────────────────────────────────────────────────────────────
   if (
