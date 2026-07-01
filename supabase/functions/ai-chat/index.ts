@@ -539,7 +539,43 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
 
   try {
-    const { message, userId, history = [], ingredients: clientIngredients = [], excludeIds = [], mode: requestMode, cookingContext, assistantSettings } = await req.json();
+    const reqBody = await req.json();
+
+    // ── TRANSLATE RECIPE (Short-circuit) ───────────────────────────────────
+    if (reqBody.action === "translate_recipe") {
+      const { targetLanguage, recipeData, systemPrompt } = reqBody;
+      const prompt = `${systemPrompt}\n\nTarget Language: ${targetLanguage}\n\nRecipe to translate:\n${JSON.stringify(recipeData, null, 2)}`;
+      const contents = [{ role: "user", parts: [{ text: prompt }] }];
+      
+      const response = await fetch(GEMINI_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+          },
+        }),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Gemini translation error ${response.status}: ${body}`);
+      }
+      const json = await response.json();
+      const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!raw) throw new Error("No translation returned");
+      
+      const cleanedRaw = raw.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
+      
+      return new Response(
+        JSON.stringify({ translated_data: JSON.parse(cleanedRaw) }),
+        { headers: CORS_HEADERS },
+      );
+    }
+
+    const { message, userId, history = [], ingredients: clientIngredients = [], excludeIds = [], mode: requestMode, cookingContext, assistantSettings } = reqBody;
     const lowerMessage = (message || "").toLowerCase();
     const excludeList: string[] = Array.isArray(excludeIds) ? excludeIds.filter((x: any) => typeof x === "string") : [];
     if (!message || !userId) {
@@ -559,6 +595,37 @@ serve(async (req) => {
         console.error("chefboo_events log failed:", e);
       }
     };
+
+    // ── RATE LIMIT (per-user AI abuse + Gemini cost guard) ─────────────────
+    // Atomic check-and-increment in Postgres so concurrent requests can't race
+    // past the limit. Fails OPEN — a limiter error must never block cooking.
+    const AI_HOUR_LIMIT = 30;
+    const AI_DAY_LIMIT = 100;
+    try {
+      const { data: rl, error: rlError } = await supabase.rpc("check_ai_rate_limit", {
+        p_user_id: userId,
+        p_hour_limit: AI_HOUR_LIMIT,
+        p_day_limit: AI_DAY_LIMIT,
+      });
+      if (!rlError && rl && rl.allowed === false) {
+        await logEvent("PROMPT", { intent: "RATE_LIMITED" });
+        const secs = Number(rl.retry_after_seconds) || 60;
+        const mins = Math.max(1, Math.ceil(secs / 60));
+        const wait = mins >= 60 ? `${Math.ceil(mins / 60)} hour${mins >= 120 ? "s" : ""}` : `${mins} minute${mins === 1 ? "" : "s"}`;
+        return new Response(
+          JSON.stringify({
+            reply: `Whew — we've been cooking up a storm together! 🍳 I need a short breather so I can keep helping everyone. Let's pick this back up in about ${wait}.`,
+            intent: "RATE_LIMITED",
+            mode: "rate_limited",
+            rateLimited: true,
+            retryAfterSeconds: secs,
+          }),
+          { status: 200, headers: CORS_HEADERS },
+        );
+      }
+    } catch (e) {
+      console.error("rate limit check failed (failing open):", e);
+    }
 
     // ── SAFETY PRE-FILTER (no Gemini, no DB) ───────────────────────────────
     if (SAFETY_PATTERN.test(message)) {

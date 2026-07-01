@@ -66,7 +66,7 @@ export const aiService = {
 
     // 3. Call AI Edge Function (Gemini)
     // Instructing Gemini NOT to translate units like 180°C, 500g, 1 tbsp, etc.
-    const { data: translationResult, error } = await supabase.functions.invoke('ai-assistant', {
+    const { data: translationResult, error } = await supabase.functions.invoke('ai-chat', {
       body: {
         action: 'translate_recipe',
         targetLanguage,
