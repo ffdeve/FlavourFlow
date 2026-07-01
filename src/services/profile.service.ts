@@ -295,13 +295,19 @@ export class ProfileService {
     return count || 0;
   }
 
-  /** Get user's recipes for display */
-  async getUserRecipesPublic(userId: string) {
-    const { data, error } = await supabase
+  /** Get user's recipes for display with pagination */
+  async getUserRecipesPublic(userId: string, page = 1, limit = 6) {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    let query = supabase
       .from("recipes")
-      .select("id, title, image_url, cook_time, difficulty, created_at")
+      .select("id, title, image_url, cook_time, difficulty, created_at, ingredients")
+      .order("created_at", { ascending: false })
       .eq("created_by", userId)
-      .order("created_at", { ascending: false });
+      .range(from, to);
+
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
   }
