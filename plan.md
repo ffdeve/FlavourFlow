@@ -498,7 +498,22 @@ This will help later for recommendation algorithms and user engagement analysis.
 
 This gives FlavourFlow a notification system similar to Instagram + Duolingo + a cooking assistant, rather than just a simple notifications page.
 
-o bridge the gap between "Vibe Coding" and "Production Reality," here is how we should map those requirements to our current work:Production LayerCurrent/Planned Implementation for FlavourFlowAuth & PermissionsSolidifying Supabase Auth to handle user profiles and secure data access.Security & RLSConfiguring Row Level Security (RLS) in Supabase to ensure users only access their own recipe data.CI/CD & Version ControlSetting up automated build pipelines for Expo/EAS to streamline deployment.Error Tracking & LogsIntegrating services like Sentry or similar to catch crashes in the AI interactions before users do.Caching & CDNUsing React Query or local caching for ingredient data to make the app feel "instant" and reduce API costs.Rate LimitingCrucial for the AI feature; we must limit how many requests a user can send to the Anthropic API to prevent abuse and manage costs.Availability & RecoveryEnsuring data is backed up and the database is configured for high uptime.Immediate Next StepsRefine RLS: Since we are using Supabase, the most critical step for security is finalizing your Row Level Security (RLS) policies. This ensures that even if someone manages to hit your backend directly, they cannot access other users' data.Infrastructure Scaling: As you enter your final sprint, we should prioritize setting up Environment Variables securely for your API keys and configuring Rate Limiting on your backend functions.Observability: Before we call the app "ready," we need to add a logging layer so you can see how ChefBoo is performing for actual users and identify where the AI interaction might be failing.
+| Phase | What | Status |
+| --- | --- | --- |
+| 0 | DB cleanup (drop cooking_sessions), secrets audit | Done — migration committed |
+| 1 | Offline/error resilience (NetInfo hook, ErrorState, OfflineBanner) | Done |
+| 2a | Notifications DB/service layer, alerts screen with realtime + badge | Done |
+| 2b | Push token registration, send-push edge function | Done — awaiting supabase db push + deploy |
+| 2c | RLS security fixes (favorites, recipe_interactions, push_tokens table) | Done — migration committed |
+| 3 | Reviews & ratings, creator-tap on recipe-detail, UI fixes | Done — verified + 3 bugs fixed (launch crash, wrong table, missing review_count col) |
+| 4a | ChefBoo rate limiting (30/hr, 100/day) — ai_rate_limits table + atomic RPC in ai-chat | Done — awaiting supabase db push + deploy ai-chat |
+| 4b | Permissions UX + input validation | Skipped (user decision) |
+| 4c | Sentry / observability | Skipped (plan says skip for university marks) |
+| 6 | EAS Build / Play Store deployment | Deferred |
+
+Dead tables dropped (unused, empty, zero code refs): `recipe_appliances`, `application_settings` — migration 20260701150000.
+
+Production LayerCurrent/Planned Implementation for FlavourFlowAuth & PermissionsSolidifying Supabase Auth to handle user profiles and secure data access.Security & RLSConfiguring Row Level Security (RLS) in Supabase to ensure users only access their own recipe data.CI/CD & Version ControlSetting up automated build pipelines for Expo/EAS to streamline deployment.Error Tracking & LogsIntegrating services like Sentry or similar to catch crashes in the AI interactions before users do.Caching & CDNUsing React Query or local caching for ingredient data to make the app feel "instant" and reduce API costs.Rate LimitingCrucial for the AI feature; we must limit how many requests a user can send to the Anthropic API to prevent abuse and manage costs.Availability & RecoveryEnsuring data is backed up and the database is configured for high uptime.Immediate Next StepsRefine RLS: Since we are using Supabase, the most critical step for security is finalizing your Row Level Security (RLS) policies. This ensures that even if someone manages to hit your backend directly, they cannot access other users' data.Infrastructure Scaling: As you enter your final sprint, we should prioritize setting up Environment Variables securely for your API keys and configuring Rate Limiting on your backend functions.Observability: Before we call the app "ready," we need to add a logging layer so you can see how ChefBoo is performing for actual users and identify where the AI interaction might be failing.
 
 My University Valuations:
 its base on the web more and less app, so this is a app tell all the steps and setting for the app.
