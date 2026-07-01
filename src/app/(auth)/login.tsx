@@ -161,15 +161,10 @@ export default function LogInHomeScreen() {
                       className="bg-white rounded-full items-center justify-center"
                       style={{ width: wp("10%"), height: wp("10%") }}
                     >
-                      <Image
-                        source={{
-                          uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png",
-                        }}
-                        style={{
-                          width: wp("5.5%"),
-                          height: wp("5.5%"),
-                          resizeMode: "contain",
-                        }}
+                      <FontAwesome6
+                        name="google"
+                        size={wp("5.5%")}
+                        color="#4285F4"
                       />
                     </View>
                   )}

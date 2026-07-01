@@ -154,7 +154,9 @@ export function FrostedImageCard({
           style={{ width: "100%", height: "100%" }}
           contentFit={contentFit}
           contentPosition="center"
-          transition={300}
+          transition={150}
+          cachePolicy="memory-disk"
+          recyclingKey={typeof uri === "string" ? uri : undefined}
           onError={() => {
             if (uri !== "fallback") setUri("fallback");
           }}

@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   ScrollView,
   StatusBar,
   Text,
@@ -124,8 +125,11 @@ function PopularSkeleton() {
   );
 }
 
-// ─── Animated ScrollView ────────────────────────────────────────────────────
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+// ─── Animated lists ─────────────────────────────────────────────────────────
+// The home body is a virtualized FlatList (the infinite "More to Explore" feed
+// is the data; the sections above are the ListHeaderComponent) so only on-screen
+// cards stay mounted — this is what keeps memory flat and scrolling smooth.
+const AnimatedFlatList: any = Animated.createAnimatedComponent(FlatList);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HOME SCREEN
@@ -623,7 +627,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-          <AnimatedScrollView
+          <AnimatedFlatList
             ref={scrollRef}
             onScroll={scrollHandler}
             scrollEventThrottle={16}
@@ -636,7 +640,41 @@ export default function HomeScreen() {
                 onRefresh();
               }
             }}
-          >
+            data={feedRecipes}
+            keyExtractor={(item: any) => String(item.id)}
+            onEndReached={() => loadMoreFeed()}
+            onEndReachedThreshold={0.6}
+            removeClippedSubviews
+            initialNumToRender={4}
+            maxToRenderPerBatch={5}
+            windowSize={7}
+            renderItem={({ item: recipe }: { item: any }) => (
+              <View className="px-6">
+                <FullWidthRecipeCard
+                  title={recipe.title}
+                  time={recipe.time}
+                  spiceLevel={recipe.spiceLevel}
+                  image={recipe.image}
+                  ingredientsCount={recipe.ingredientsCount}
+                  rating={recipe.rating}
+                  onPress={() => router.push(`/recipe-detail?id=${recipe.id}`)}
+                  isFavorite={likedIds.has(recipe.id)}
+                  onToggleFavorite={() => handleToggleFavorite(recipe.id)}
+                />
+              </View>
+            )}
+            ListFooterComponent={
+              <View>
+                {isFeedLoading && (
+                  <View className="py-6 items-center justify-center">
+                    <CookingLoader scale={0.8} />
+                  </View>
+                )}
+                <View className="pb-24" />
+              </View>
+            }
+            ListHeaderComponent={
+              <View>
 
           {/* Pull-to-refresh loader — sits ABOVE "Meals to Cook Today", inside the modal */}
           {refreshing && (
@@ -779,40 +817,15 @@ export default function HomeScreen() {
               ))
           )}
 
-          {/* ─── Infinite Feed ─── */}
+          {/* ─── "More to Explore" heading — the feed itself is the FlatList data ─── */}
           <View className="px-6 mt-6">
             <Text className="font-jakarta-bold text-[18px] text-[#3B3328] mb-4">
               More to Explore
             </Text>
-            {feedRecipes.map((recipe) => (
-              <FullWidthRecipeCard
-                key={recipe.id}
-                title={recipe.title}
-                time={recipe.time}
-                spiceLevel={recipe.spiceLevel}
-                image={recipe.image}
-                ingredientsCount={recipe.ingredientsCount}
-                rating={recipe.rating}
-                onPress={() => router.push(`/recipe-detail?id=${recipe.id}`)}
-                isFavorite={likedIds.has(recipe.id)}
-                onToggleFavorite={() => handleToggleFavorite(recipe.id)}
-              />
-            ))}
-
-            {isFeedLoading && (
-              <View className="py-6 items-center justify-center">
-                <CookingLoader scale={0.8} />
-              </View>
-            )}
           </View>
-
-          {/* Bottom padding when no additional sections beyond Core */}
-          {!sectionsLoading && recSections.filter(s => s.id !== "meals_to_cook_today").length === 0 && !hasMoreFeed && (
-            <View className="pb-32" />
-          )}
-          
-          <View className="pb-24" />
-          </AnimatedScrollView>
+              </View>
+            }
+          />
       </View>
     </Animated.View>
   );
