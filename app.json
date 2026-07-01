@@ -60,6 +60,13 @@
       ],
       "expo-localization",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow FlavourFlow to access your photos so you can add images to your recipes and profile.",
+          "cameraPermission": false
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./src/assets/icons/icon.png",
