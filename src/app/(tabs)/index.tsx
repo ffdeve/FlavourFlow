@@ -10,6 +10,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  RefreshControl,
 } from "react-native";
 import Animated, {
   Extrapolation,
@@ -377,28 +378,7 @@ export default function HomeScreen() {
   // doesn't move the sheet (content is clamped) — so the modal stays fixed and
   // we just trigger the refresh + frypan overlay. Mid-content drags scroll as
   // normal and never trigger (guarded on scrollY ≈ 0).
-  const pullGesture = React.useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetY(15)
-        .simultaneousWithExternalGesture(scrollRef)
-        .onStart(() => {
-          pullStartY.value = scrollY.value;
-        })
-        .onEnd((e) => {
-          // Only a pull that BOTH started and ended at the very top counts as a
-          // refresh (so scrolling up to the top from mid-content doesn't fire it).
-          if (
-            pullStartY.value <= 2 &&
-            scrollY.value <= 2 &&
-            e.translationY > 80 &&
-            e.velocityY > 0
-          ) {
-            runOnJS(onRefresh)();
-          }
-        }),
-    [onRefresh],
-  );
+  // (Gesture logic removed in favor of standard RefreshControl)
 
   // ─── Scroll Handler ─────────────────────────────────────────────────────
   const scrollHandler = useAnimatedScrollHandler({
@@ -631,19 +611,23 @@ export default function HomeScreen() {
             bounces={true}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 24 }}
-            onScrollEndDrag={(e: any) => {
-              if (e.nativeEvent.contentOffset.y < -60 && !isRefreshingRef.current) {
-                onRefresh();
-              }
-            }}
             data={feedRecipes}
             keyExtractor={(item: any) => String(item.id)}
             onEndReached={() => loadMoreFeed()}
             onEndReachedThreshold={0.6}
-            removeClippedSubviews={true}
-            initialNumToRender={3}
-            maxToRenderPerBatch={3}
-            windowSize={5}
+            removeClippedSubviews={false}
+            initialNumToRender={5}
+            maxToRenderPerBatch={5}
+            windowSize={11}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="transparent"
+                colors={["transparent"]}
+                progressBackgroundColor="transparent"
+              />
+            }
             renderItem={({ item: recipe }: { item: any }) => (
               <View className="px-6">
                 <FullWidthRecipeCard
@@ -676,9 +660,10 @@ export default function HomeScreen() {
           {refreshing && (
             <View
               style={{
-                height: 84,
+                height: 120,
                 alignItems: "center",
-                justifyContent: "flex-end",
+                justifyContent: "center",
+                paddingTop: 32,
                 overflow: "hidden",
                 paddingBottom: 4,
               }}

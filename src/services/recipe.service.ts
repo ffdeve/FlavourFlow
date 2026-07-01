@@ -256,11 +256,11 @@ export const recipeService = {
    * Fetch the master ingredient list (with icons) for the "What's in your fridge" selector
    */
   async getIngredients(): Promise<
-    { ingredient_id: number; name: string; name_urdu: string | null; category: string | null; icon_url: string | null }[]
+    { ingredient_id: number; name: string; category: string | null; icon_url: string | null }[]
   > {
     const { data, error } = await supabase
       .from("ingredients")
-      .select("ingredient_id, name, name_urdu, category, icon_url")
+      .select("ingredient_id, name, category, icon_url")
       .not("icon_url", "is", null)
       .order("name", { ascending: true });
     if (error) {

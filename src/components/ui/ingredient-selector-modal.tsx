@@ -46,7 +46,7 @@ export function IngredientSelectorModal({ visible, onClose, onConfirm }: Props) 
   }, [visible]);
 
   const fuse = useMemo(
-    () => new Fuse(all, { keys: ["name", "name_urdu"], threshold: 0.3 }),
+    () => new Fuse(all, { keys: ["name"], threshold: 0.3 }),
     [all],
   );
 
