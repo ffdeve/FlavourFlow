@@ -70,3 +70,7 @@ pdf_deps/
 recent_chat
 
 
+
+# EAS local signing credentials (secret)
+credentials.json
+credentials/
