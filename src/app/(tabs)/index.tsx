@@ -167,41 +167,57 @@ export default function HomeScreen() {
   const [isFeedLoading, setIsFeedLoading] = useState(false);
   const [hasMoreFeed, setHasMoreFeed] = useState(true);
 
-  // ─── Data Loading ───────────────────────────────────────────────────────
-  const loadHomeData = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      setLoadError(false);
-      const featured = await recipeService.getFeaturedRecipes(5);
-      setFeaturedRecipes(featured);
-    } catch (err) {
-      console.error("Failed to load homepage recipes from database:", err);
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // ─── Unified Data Initialization ──────────────────────────────────────────
   useEffect(() => {
-    loadHomeData();
-  }, [loadHomeData]);
-
-  // Load Netflix-style recommendation sections
-  useEffect(() => {
-    if (!user?.id) return;
     let active = true;
-    const loadSections = async () => {
+
+    const initializeHome = async () => {
       try {
+        setLoading(true);
         setSectionsLoading(true);
-        const sections = await recommendationService.getNetflixStyleRecommendations(user.id);
-        if (active) setRecSections(sections);
-      } catch (err) {
-        console.error("Failed to load recommendation sections:", err);
+        setRecLoading(true);
+        setLoadError(false);
+
+        // We launch all these independent requests in parallel:
+        const tasks: Promise<any>[] = [
+          recipeService.getFeaturedRecipes(5)
+            .then(data => { if (active) setFeaturedRecipes(data); })
+            .catch(err => { console.error("Featured error:", err); setLoadError(true); })
+        ];
+
+        if (user?.id) {
+          tasks.push(
+            recommendationService.getNetflixStyleRecommendations(user.id)
+              .then(data => { if (active) setRecSections(data); })
+              .catch(err => console.error("Sections error:", err))
+          );
+          tasks.push(
+            recipeService.getLikedRecipeIds(user.id)
+              .then(data => { if (active) setLikedIds(data); })
+              .catch(err => console.error("Liked IDs error:", err))
+          );
+        } else {
+          // Guest fallback for recommendations
+          tasks.push(
+            recipeService.getRecommendedRecipes("All", 10)
+              .then(data => { if (active) setRecommendedRecipes(data); })
+              .catch(err => console.error("Guest rec error:", err))
+          );
+        }
+
+        await Promise.all(tasks);
+
       } finally {
-        if (active) setSectionsLoading(false);
+        if (active) {
+          setLoading(false);
+          setSectionsLoading(false);
+          setRecLoading(false);
+        }
       }
     };
-    loadSections();
+
+    initializeHome();
+
     return () => { active = false; };
   }, [user?.id]);
 
@@ -215,35 +231,15 @@ export default function HomeScreen() {
             r.categoryTag?.toLowerCase().includes(selectedCategory.toLowerCase())
           );
       setRecommendedRecipes(filtered.length > 0 ? filtered : mainSection.recipes);
-      setRecLoading(false);
-    } else if (!sectionsLoading && user?.id) {
-      // Fallback: load from recipe service if no sections
+    } else if (user?.id && !sectionsLoading) {
+      // If we are logged in but have no sections yet, fallback to generic
       setRecLoading(true);
       recipeService.getRecommendedRecipes(selectedCategory, 10)
-        .then(setRecommendedRecipes)
-        .catch(err => console.error("Fallback recommendations failed:", err))
-        .finally(() => setRecLoading(false));
-    } else if (!user?.id) {
-      // Not logged in — use generic recommendations
-      setRecLoading(true);
-      recipeService.getRecommendedRecipes(selectedCategory, 10)
-        .then(setRecommendedRecipes)
-        .catch(err => console.error("Guest recommendations failed:", err))
+        .then(data => setRecommendedRecipes(data))
+        .catch(console.error)
         .finally(() => setRecLoading(false));
     }
   }, [selectedCategory, recSections, sectionsLoading, user?.id]);
-
-  // Load liked recipe IDs
-  useEffect(() => {
-    if (user?.id) {
-      recipeService
-        .getLikedRecipeIds(user.id)
-        .then(setLikedIds)
-        .catch((err) =>
-          console.error("Failed to load liked recipes on home screen:", err),
-        );
-    }
-  }, [user?.id]);
 
   // Handle toggling favorite on home screen (Optimistic Update)
   const handleToggleFavorite = async (recipeId: string) => {
@@ -644,10 +640,10 @@ export default function HomeScreen() {
             keyExtractor={(item: any) => String(item.id)}
             onEndReached={() => loadMoreFeed()}
             onEndReachedThreshold={0.6}
-            removeClippedSubviews
-            initialNumToRender={4}
-            maxToRenderPerBatch={5}
-            windowSize={7}
+            removeClippedSubviews={true}
+            initialNumToRender={3}
+            maxToRenderPerBatch={3}
+            windowSize={5}
             renderItem={({ item: recipe }: { item: any }) => (
               <View className="px-6">
                 <FullWidthRecipeCard
