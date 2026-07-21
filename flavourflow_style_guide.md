@@ -148,30 +148,31 @@ To ensure multi-step forms and wizards feel interactive, premium, and native:
   - **Unselected tag**: `bg-white border-[#F5E3D8]/50 text-[#3B3328]` with a secondary grey icon.
   - **Configuration**: Include tags like `"Vegetarian"`, `"Vegan"`, `"Gluten-Free"`, `"Dairy-Free"`, `"Keto"`, `"Non-Halal"` (instead of Halal), `"Low-Carb"`, and `"Nut-Free"`. Mark the section header clearly with an `(Optional)` label.
 
-AI And Hybrid Core Functionaly Map:
+---
 
-Phase 1:
-Recommendation Engine (core)
+## 7. 3D Icon & Illustration Style
 
-Phase 2:
-Netflix-style home feed
+All generated icons and illustrations use a **soft 3D / claymorphic** style so the app feels friendly and cohesive.
 
-Phase 3:
-Behavior tracking system
+**Prompt keywords:** 3d render, claymorphic, soft 3d, rounded shapes, organic forms, soft shadows, bright matte colors, pastel palette, simple shapes, adorable, kawaii, friendly, approachable.
 
-Phase 4:
-Hybrid AI model
+**Core visual characteristics:**
 
-Phase 5:
-Chat AI assistant (optional advanced feature)
+- **Matte, clay-like finish** — no harsh reflections, metallic glints, or gloss. Every surface reads like smooth matte plastic or modeling clay.
+- **Squircle geometry** — sharp corners are smoothed into squircles (a square/circle blend) and pill capsules for an approachable, organic feel.
+- **Soft, diffuse lighting** — broad, gentle highlights with soft ambient shadows (studio softbox look), so depth never feels aggressive.
+- **Chunky depth** — objects have exaggerated thickness (a sheet of paper reads as a deep block, not a thin plane), reinforcing the touchable, toy-like quality.
 
-Note: To use Ai icons or images make 3D Claymorphic (often referred to as Claymorphism or Soft 3D) design style. For this style use the following keywords: 3d render, claymorphic style,Rich, dimensional icons with realistic textures and depth. Modern 3D style with subtle shadows and highlights that give icons a premium, professional appearance, soft 3d, rounded shapes, organic forms, soft shadows, bright matte colors, pastel color palette, simple shapes, adorable, kawaii, friendly, approachable,
+---
 
-Core Visual Characteristics
-Matte Textures & Clay-Like Finish: There are zero harsh reflections, metallic glints, or glossy finishes. Every surface looks like it is sculpted out of smooth, high-quality matte plastic or clean modeling clay.
+## 8. Feature Delivery Phases
 
-The "Squircle" & Rounded Geometry: Almost every single sharp corner is completely smoothed out. The base shapes rely heavily on "squircles" (a mathematical blend of a square and a circle) and pill-shaped capsules, giving the assets a friendly, approachable, and organic feel.
+The app was built in phases, layering the personalization stack from a simple engine up to the full assistant:
 
-Soft, Diffuse Lighting: The lighting setup mimics a professional studio softbox. The highlights are incredibly broad and gentle, while the shadows are soft and ambient rather than crisp. This prevents the 3D depth from feeling too aggressive or overwhelming.
-
-Faux Depth (Chunky Dimensions): The objects have an exaggerated thickness. For instance, the sheet of paper and the checklist are deep, chunky blocks rather than paper-thin planes. This thickness emphasizes the "toy-like" and touchable nature of the design.
+| Phase | Focus |
+| ----- | -------------------------------------------- |
+| 1     | Recommendation engine (core scoring)         |
+| 2     | Home feed (pre-computed, instant-loading)     |
+| 3     | Behavior tracking (interaction-weighted taste) |
+| 4     | Hybrid recommendation model                   |
+| 5     | In-app cooking assistant (advanced feature)   |

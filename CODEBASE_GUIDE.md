@@ -13,7 +13,7 @@
 4. [Workspace Structure — Every File Explained](#4-workspace-structure--every-file-explained)
 5. [Database — Full Schema](#5-database--full-schema)
 6. [Authentication System](#6-authentication-system)
-7. [AI Features — ChefBoo](#7-ai-features--chefboo)
+7. [Cooking Assistant](#7-cooking-assistant)
 8. [Recommendation Algorithm](#8-recommendation-algorithm)
 9. [Notification System](#9-notification-system)
 10. [Edge Functions & Webhooks](#10-edge-functions--webhooks)
@@ -29,15 +29,15 @@ FlavourFlow is a mobile recipe app for South Asian cuisine (Pakistani, Mughlai, 
 
 **What users can do:**
 - Browse and search recipes
-- Follow other chefs/users
+- Follow other users
 - Create and share their own recipes
-- Post to a community feed (like Instagram for food)
-- Cook step-by-step with an AI sous-chef called ChefBoo
-- Get personalized recipe recommendations (like Netflix)
+- Post to a community feed
+- Cook step-by-step with a guided cooking mode and built-in assistant
+- Get personalized recipe recommendations
 - Receive notifications when people like, comment, or follow them
-- Translate recipes into Urdu
+- Translate recipes into Urdu and Roman Urdu
 - Set timers while cooking, with alerts
-- Chat with ChefBoo in English, Urdu, or Roman Urdu
+- Ask the in-app cooking assistant questions in English, Urdu, or Roman Urdu
 
 ---
 
@@ -52,8 +52,8 @@ FlavourFlow is a mobile recipe app for South Asian cuisine (Pakistani, Mughlai, 
 | State (timers) | Zustand | Stores active cooking timers |
 | Backend | Supabase | Database, Auth, File Storage, Realtime, Edge Functions |
 | Database | PostgreSQL (inside Supabase) | SQL database with tables and relationships |
-| AI Chatbot | Google Gemini 2.5 Flash | Powers ChefBoo conversations |
-| AI Runtime | Deno (Supabase Edge Functions) | Runs serverless code near the user |
+| Assistant model | Google Gemini 2.5 Flash | Powers the in-app cooking assistant and recipe generation |
+| Serverless runtime | Deno (Supabase Edge Functions) | Runs server-side logic near the user |
 | Push Notifs | Expo Push Service | Delivers background notifications to devices |
 | Fonts | Plus Jakarta Sans + Inter | All text in the app uses these two fonts |
 
@@ -97,8 +97,8 @@ FlavourFlow is a mobile recipe app for South Asian cuisine (Pakistani, Mughlai, 
 | `expo-image-manipulator` | Resize/compress photos before upload |
 | `expo-camera` | (Available but camera is accessed through image-picker) |
 | `expo-av` | Play audio/video |
-| `expo-speech` | Text-to-speech (ChefBoo reads step instructions aloud) |
-| `expo-speech-recognition` | Voice-to-text (speak your message to ChefBoo) |
+| `expo-speech` | Text-to-speech (assistant reads step instructions aloud) |
+| `expo-speech-recognition` | Voice-to-text (speak your message to the assistant) |
 | `expo-file-system` | Read/write files on device |
 
 ### Notifications & Device
@@ -186,8 +186,8 @@ These are the 5 screens at the bottom tab bar.
 | File | What It Does |
 |------|------|
 | `recipe-detail.tsx` | Full recipe page: image, ingredients, steps, author |
-| `cooking-mode.tsx` | Step-by-step cooking with ChefBoo, timers, voice |
-| `ai-chat.tsx` | Full ChefBoo chat screen with fridge ingredient picker |
+| `cooking-mode.tsx` | Step-by-step cooking with the assistant, timers, voice |
+| `ai-chat.tsx` | Full assistant chat screen with fridge ingredient picker |
 | `ai-recipe-detail.tsx` | Shows an AI-generated recipe as a full card |
 | `create-recipe.tsx` | 4-step form to publish a new recipe |
 | `search.tsx` | Search recipes by keyword |
@@ -199,9 +199,9 @@ These are the 5 screens at the bottom tab bar.
 | `community-search.tsx` | Search community posts |
 | `my-favorites.tsx` | Your saved/liked recipes |
 | `manage-profile.tsx` | Edit your name, bio, avatar, banner |
-| `settings.tsx` | App settings (notifications, language, ChefBoo preferences) |
+| `settings.tsx` | App settings (notifications, language, assistant preferences) |
 | `security.tsx` | Change password, manage account security |
-| `chefboo-preferences.tsx` | Customize ChefBoo personality, language, skill level |
+| `chefboo-preferences.tsx` | Customize assistant personality, language, skill level |
 
 ---
 
@@ -233,7 +233,7 @@ These are building blocks. Screens import and use them.
 | `swipeable-card-stack.tsx` | Stack of recipe cards you can swipe through |
 | `ai-recipe-carousel.tsx` | Horizontal scroll row of AI-generated recipe cards |
 | `brick-wall-carousel.tsx` | Masonry-style card layout |
-| `ingredient-selector-modal.tsx` | Modal with ingredient chips from the fridge (for ChefBoo) |
+| `ingredient-selector-modal.tsx` | Modal with ingredient chips from the fridge (for the assistant) |
 | `promotion-carousel.tsx` | Banner carousel at top of Home |
 | `user-list-item.tsx` | Row in a followers/following list |
 | `button.tsx` | Standard themed button component |
@@ -258,8 +258,8 @@ These files contain all the logic that talks to Supabase or external APIs. Scree
 | `recommendation.service.ts` | Reads precomputed `recipe_recommendations` table. Falls back to top-rated/new recipes when no data |
 | `notification.service.ts` | Insert notifications, read them, mark read/unread, delete, realtime subscription |
 | `notifications.ts` | Device-level: local cooking timer scheduling (scheduleAdaptiveTimer), push token registration |
-| `ai.service.ts` | Handles recipe translation (calls `ai-assistant` edge fn, caches result in `recipe_translations`) |
-| `chefboo-analytics.ts` | Logs ChefBoo events (what users ask, what recipes are shown) to `chefboo_events` table |
+| `ai.service.ts` | Handles recipe translation (calls the `ai-chat` edge fn with `action: "translate_recipe"`, caches result in `recipe_translations`) |
+| `chefboo-analytics.ts` | Logs assistant events (what users ask, what recipes are shown) to `chefboo_events` table |
 | `ingredient-engine.ts` | Local ingredient search — loads ingredient list, does fuzzy matching with fuse.js |
 | `geolocation.service.ts` | Detects user's country via device location (used for default cuisine preferences) |
 
@@ -291,7 +291,7 @@ These files contain all the logic that talks to Supabase or external APIs. Scree
 | `locales/en.json` | English strings for UI labels |
 | `locales/ur.json` | Urdu strings for UI labels |
 
-Note: ChefBoo's responses are translated by Gemini in real-time, not from these files.
+Note: the assistant's responses are translated by the model in real time, not from these files.
 
 ---
 
@@ -333,7 +333,7 @@ Stores public user info. One row per user.
 | `bio` | text | Short bio text |
 | `language` | text | `"en"` or `"ur"` |
 | `is_private` | boolean | Private account (hides from strangers) |
-| `assistant_settings` | jsonb | ChefBoo personalization: language, personality, skill level, voice, etc. |
+| `assistant_settings` | jsonb | Assistant personalization: language, personality, skill level, voice, etc. |
 | `last_username_change` | timestamptz | Prevents username spam — enforces 30-day cooldown |
 | `created_at` | timestamptz | When account was created |
 
@@ -458,7 +458,7 @@ Social graph — who follows whom.
 ---
 
 ### `posts`
-Community feed posts (like Instagram photos).
+Community feed posts (user-shared food photos).
 
 | Column | Type | What It Is |
 |--------|------|-----------|
@@ -564,7 +564,7 @@ When a user favorites or completes a recipe, a row is inserted here. The cron jo
 ---
 
 ### `ai_generated_recipes`
-Recipes that ChefBoo invented on the fly. Stored permanently so the user can cook them later.
+Recipes the assistant generated on the fly. Stored permanently so the user can cook them later.
 
 | Column | Type | What It Is |
 |--------|------|-----------|
@@ -599,7 +599,7 @@ Cache for Urdu translations. Gemini is only called once per recipe per language,
 ---
 
 ### `chefboo_events`
-Analytics: logs what users do in ChefBoo (for product improvement).
+Analytics: logs what users do with the assistant (for product improvement).
 
 | Column | Type | What It Is |
 |--------|------|-----------|
@@ -611,8 +611,10 @@ Analytics: logs what users do in ChefBoo (for product improvement).
 
 ---
 
-### `cuisine_catalog`
+### `cuisine_items`
 Master list of cuisines, allergens, and countries shown during onboarding.
+(Queried in code as `cuisine_items`. An older migration referenced a
+`cuisine_catalog` name; the live table is `cuisine_items`.)
 
 | Column | Type | What It Is |
 |--------|------|-----------|
@@ -659,38 +661,38 @@ The Supabase SDK auto-saves the session to AsyncStorage. On next app launch, `au
 
 ---
 
-## 7. AI Features — ChefBoo
+## 7. Cooking Assistant
 
-ChefBoo is the AI cooking assistant. It runs inside a Supabase Edge Function (`supabase/functions/ai-chat/index.ts`) powered by **Google Gemini 2.5 Flash**.
+The in-app cooking assistant runs inside a Supabase Edge Function (`supabase/functions/ai-chat/index.ts`) powered by **Google Gemini 2.5 Flash**. Most requests are handled by fast, free pattern matching first; the model is only called when needed.
 
 ### Two Modes
 
 **1. Chat Mode (normal)**
-Available from the AI Chat tab. User can ask anything food-related.
+Available from the assistant tab. The user can ask anything food-related.
 
-**2. Cooking Mode (sous-chef)**
-Available while step-cooking. ChefBoo knows what recipe is being cooked, what step the user is on, what ingredients they have, and what timers are running. It answers only about the current dish.
+**2. Cooking Mode (guided)**
+Available while step-cooking. The assistant knows which recipe is being cooked, the current step, the ingredients on hand, and any running timers. It answers only about the current dish.
 
 ---
 
-### Intent Classification (How ChefBoo Understands You)
+### Intent Classification
 
-Before calling Gemini (which costs money), the code tries to classify what the user wants using pattern matching. This is fast and free.
+Before calling the model (which costs money), the code classifies what the user wants using pattern matching. This is fast and free.
 
 | Intent | Example | What Happens |
 |--------|---------|------|
 | `GREETING` | "Hi!", "Hello", "Salam" | Returns a canned greeting. No Gemini called. |
-| `OFF_TOPIC` | "What's the weather?", "Show me a Python script" | Returns a canned redirect. No Gemini called. |
+| `OFF_TOPIC` | "What's the weather?", "Show me a Python script" | Returns a canned redirect. No model called. |
 | `VARIETY` | "More", "Different", "Something else" | Fetches different DB recommendations. No Gemini. |
 | `FOLLOW_UP` | "Tell me more", "The first one" | Calls Gemini with full chat history |
 | `INGREDIENT_SEARCH` | "I have chicken and rice" | DB search first, then Gemini if no match |
 | `RECIPE_SEARCH` | "Show me biryani" | DB search first, then Gemini if no match |
-| `AI_RECIPE_GENERATION` | "Create a recipe for me" | Calls Gemini JSON mode directly |
+| `AI_RECIPE_GENERATION` | "Create a recipe for me" | Calls the model in JSON mode directly |
 | `COOKING_HELP` | "Why is my curry too salty?" | Calls Gemini for a direct answer |
 | `SUBSTITUTION` | "Can I replace cream with yogurt?" | Calls Gemini for a direct answer |
 | `MEAL_PLANNING` | "Plan my week" | DB search first |
 
-**Safety Filter:** Before any processing, the message is checked against a pattern that blocks attempts to extract passwords, API keys, or database schemas. The system returns a polite redirect with no Gemini call.
+**Safety Filter:** Before any processing, the message is checked against a pattern that blocks attempts to extract passwords, API keys, or credentials. The system returns a polite redirect with no model call. (The pattern deliberately does *not* match the ordinary word "table" — that previously false-flagged normal cooking phrases like "dinner table.")
 
 ---
 
@@ -704,13 +706,13 @@ When a user searches for a recipe, the system first searches the app's own datab
 | 50–79 | Show DB recipes + offer to generate a custom one |
 | < 50 | Skip DB, generate with Gemini |
 
-This means Gemini is only called when the database doesn't have a good enough match — saving API costs.
+This means the model is only called when the database doesn't have a good enough match — saving API costs.
 
 ---
 
-### AI Recipe Generation (JSON Mode)
+### Recipe Generation (JSON Mode)
 
-When Gemini generates recipes, it is given a strict JSON schema to follow:
+When the model generates recipes, it is given a strict JSON schema to follow:
 
 ```
 {
@@ -731,15 +733,15 @@ When Gemini generates recipes, it is given a strict JSON schema to follow:
 }
 ```
 
-Gemini always returns 3 recipes. They are immediately saved to `ai_generated_recipes` in the database so the user can access them later.
+The model returns up to a few recipes. They are immediately saved to `ai_generated_recipes` so the user can access them later. That table has owner-only SELECT/UPDATE policies (added in migration `20260704120000`), since the app reads it and toggles `is_saved` with the user's own token while the edge function writes with the service role.
 
-**Thinking Budget:** For cooking-mode replies (short answers), `thinkingBudget: 512` tokens are allowed. For recipe generation JSON, thinking is disabled (`thinkingBudget: 0`) because thinking tokens were consuming the JSON output budget.
+**Thinking Budget:** For cooking-mode replies (short answers), a small thinking budget is allowed. For recipe-generation JSON, thinking is disabled (`thinkingBudget: 0`) because thinking tokens were consuming the JSON output budget.
 
 ---
 
 ### Behavior-Weighted Taste Profile
 
-ChefBoo doesn't just use what the user said during onboarding — it builds a live taste profile from behavior:
+The assistant doesn't just use what the user said during onboarding — it builds a live taste profile from behavior:
 
 ```
 Weights:
@@ -757,15 +759,15 @@ For each interaction:
 
 Result: inferred_cuisines, inferred_proteins, inferred_spice_level
 
-This is injected into ChefBoo's system prompt:
+This is injected into the assistant's system prompt:
 "Inferred tastes: cuisines: Pakistani, Mughlai; proteins: chicken; preferred spice: ~3/5"
 ```
 
 ---
 
-### ChefBoo Personality Settings
+### Assistant Personality Settings
 
-Users can customize ChefBoo in `chefboo-preferences.tsx`. Settings are saved to `profiles.assistant_settings` (jsonb column). The settings change the system prompt sent to Gemini:
+Users can customize the assistant in `chefboo-preferences.tsx`. Settings are saved to `profiles.assistant_settings` (jsonb column). The settings change the system prompt sent to the model:
 
 | Setting | Options |
 |---------|---------|
@@ -779,21 +781,23 @@ Users can customize ChefBoo in `chefboo-preferences.tsx`. Settings are saved to 
 
 ### Recipe Translation (ai.service.ts)
 
-When user switches to Urdu on recipe-detail:
+When the user switches to Urdu / Roman Urdu on recipe-detail:
 
-1. Check `recipe_translations` table for existing cache
-2. If found → return cached translation instantly
-3. If not → call `ai-assistant` edge function with the recipe data
-4. Gemini translates title, description, ingredients, steps
-5. Units like `"180°C"`, `"500g"` are NOT translated (Gemini is instructed to keep them)
-6. Save result to `recipe_translations` table
+1. Check the `recipe_translations` table for an existing cache entry
+2. If found → return the cached translation instantly
+3. If not → call the `ai-chat` edge function with `action: "translate_recipe"` and the recipe data
+4. The model translates title, description, ingredients, and steps
+5. Units like `"180°C"`, `"500g"` are NOT translated (the model is instructed to keep them)
+6. Save the result to `recipe_translations`
 7. Next request for the same recipe in the same language → instant from cache
+
+> The translation path uses the deployed `ai-chat` function. (An earlier version called a function named `ai-assistant`, which did not exist and returned 404 on every request.)
 
 ---
 
 ## 8. Recommendation Algorithm
 
-The recommendation system works like Netflix: a background job pre-computes scores so the app screen loads instantly without any heavy calculation.
+The recommendation system pre-computes scores in a background job so the app screen loads instantly without any heavy calculation on the device.
 
 ### How It Works (Step by Step)
 
@@ -952,7 +956,7 @@ Edge Functions are small serverless programs that run on Supabase's servers (usi
 ### `ai-chat` (Called from app)
 **Location:** `supabase/functions/ai-chat/index.ts`  
 **Called by:** `ai-chat.tsx` screen and `cooking-mode.tsx`  
-**What it does:** Full ChefBoo chatbot logic. Receives user message + history + context, classifies intent, searches DB or calls Gemini, returns response.  
+**What it does:** The full cooking-assistant logic. Receives the user message + history + context, classifies intent, searches the DB or calls the model, and returns the response. Also handles `action: "translate_recipe"` for on-demand recipe translation.  
 **Key env vars:** `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 
 ### `generate-recommendations` (Cron job)
@@ -991,6 +995,10 @@ Migrations are SQL files that changed the database over time. They run in order 
 | `20260630191500_create_recipe_translations.sql` | Created `recipe_translations` table for Gemini translation cache |
 | `20260630200000_phase0_drop_cooking_sessions.sql` | Dropped `cooking_sessions` table — its job was already done by AsyncStorage in the app |
 | `20260701123000_security_rls_and_push_tokens.sql` | **Security hardening:** Added RLS to `favorites` and `recipe_interactions` (were world-readable). Created `user_push_tokens` table with owner-only RLS. Removed `push_token` from profiles |
+| `20260701160000_cascade_user_deletion.sql` | Cascade user deletion through all foreign keys to `profiles` / `auth.users` so account removal cleans up related rows |
+| `20260704120000_fix_lookup_rls_and_ai_recipes.sql` | Guarantees a public SELECT policy on lookup tables (`ingredients`, `kitchen_essentials`, `cuisine_items`) so pickers never render empty; adds owner SELECT/UPDATE policies on `ai_generated_recipes` |
+
+> **Reproducibility note:** `20260621120126_remote_schema.sql` is currently empty in the repo. Re-dump the live schema (`supabase db dump --schema public -f supabase/migrations/20260621120126_remote_schema.sql`) so the database can be rebuilt from scratch — the ranked-search function and core tables live only on the remote otherwise.
 
 ---
 
@@ -1070,7 +1078,7 @@ User types email + password → taps Login
 → Inserts row into recommendation_events_queue
 ```
 
-### Scenario: User messages ChefBoo
+### Scenario: User messages the assistant
 
 ```
 User types "I have chicken and potatoes, what can I cook?"
@@ -1088,9 +1096,9 @@ User types "I have chicken and potatoes, what can I cook?"
 → App shows reply text + 4 recipe cards
 → User taps "create a recipe"
 → classifyIntent() → "AI_RECIPE_GENERATION"
-→ callGeminiRecipesJSON() → 3 fresh recipes in JSON
-→ Saved to ai_generated_recipes table
-→ App shows 3 tappable AI recipe cards
+→ generateAndStore() → fresh recipes in JSON
+→ Saved to ai_generated_recipes table (owner-only RLS)
+→ App shows the generated recipe cards
 ```
 
 ### Scenario: Push notification delivered
