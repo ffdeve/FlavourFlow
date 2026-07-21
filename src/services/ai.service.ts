@@ -13,26 +13,37 @@ interface AIRecommendationParams {
 
 export const aiService = {
   /**
-   * Initialize ChefBoo dialogue or recommendation engine
+   * Ask ChefBoo (ai-chat Edge Function) for recipe suggestions built from
+   * pantry items + preferences.
    */
-  async generateRecipeSuggestions(params: AIRecommendationParams) {
-    console.warn("AI Service provider not yet implemented.");
-    
-    // Mock response for now to prevent crashes
-    return [
-      {
-        title: "ChefBoo's Golden Chicken",
-        description: "A magical golden recipe dynamically generated.",
-      }
-    ];
+  async generateRecipeSuggestions(params: AIRecommendationParams, userId?: string) {
+    const parts: string[] = [];
+    if (params.pantryItems?.length) parts.push(`I have: ${params.pantryItems.join(", ")}.`);
+    if (params.cuisinePreferences?.length) parts.push(`I like ${params.cuisinePreferences.join(", ")} food.`);
+    if (params.dietaryRestrictions?.length) parts.push(`Dietary restrictions: ${params.dietaryRestrictions.join(", ")}.`);
+    parts.push("What can I cook?");
+
+    const { data, error } = await supabase.functions.invoke("ai-chat", {
+      body: {
+        message: parts.join(" "),
+        userId,
+        ingredients: params.pantryItems ?? [],
+        history: [],
+      },
+    });
+    if (error) throw error;
+    return [...(data?.recipes ?? []), ...(data?.generatedRecipes ?? [])];
   },
-  
+
   /**
-   * Free-form dialogue with ChefBoo
+   * Free-form dialogue with ChefBoo via the ai-chat Edge Function.
    */
-  async chatWithChefBoo(message: string, context?: any) {
-    console.warn("AI Chat not yet implemented.");
-    return "I am ChefBoo! However, my core brain is still booting up.";
+  async chatWithChefBoo(message: string, userId?: string, context?: any) {
+    const { data, error } = await supabase.functions.invoke("ai-chat", {
+      body: { message, userId, history: context?.history ?? [], ...context },
+    });
+    if (error) throw error;
+    return data?.reply ?? "Sorry, something went wrong. Please try again.";
   },
 
   /**
@@ -71,7 +82,6 @@ export const aiService = {
         action: 'translate_recipe',
         targetLanguage,
         recipeData: payloadToTranslate,
-        systemPrompt: "You are a professional chef translator. Translate the recipe to the target language. CRITICAL: Do NOT translate numerical units, measurements, or temperatures (e.g., keep '180°C', '500g', '1 tbsp', '30 min' exactly as they are). Only translate the descriptive text."
       }
     });
 

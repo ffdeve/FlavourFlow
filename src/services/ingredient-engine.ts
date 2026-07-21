@@ -33,11 +33,11 @@ async function ensureLoaded(): Promise<void> {
       exactByName = new Map();
       for (const ing of cache) {
         if (ing.name) exactByName.set(ing.name.toLowerCase(), ing);
-        if ((ing as any).name_urdu) exactByName.set(String((ing as any).name_urdu).toLowerCase(), ing);
+
       }
       fuse = new Fuse(cache, {
         // Tight threshold → only near-exact (~90%+) matches are even considered.
-        keys: ["name", "name_urdu"],
+        keys: ["name"],
         threshold: 0.2,
         includeScore: true,
         ignoreLocation: true,

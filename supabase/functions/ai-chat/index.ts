@@ -8,6 +8,7 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemi
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
 
@@ -70,8 +71,10 @@ function extractKeywords(text: string): string[] {
 
 // ─── Safety pre-filter ─────────────────────────────────────────────────────
 // Blocks attempts to extract credentials / internal data. No Gemini, no DB.
+// NOTE: deliberately NOT matching the bare word "table" — it false-positived on
+// everyday cooking phrases ("dinner table", "table for two") and blocked the chat.
 const SAFETY_PATTERN =
-  /\b(password|passwd|api[\s_-]?key|secret|token|credential|auth\s*token|database|schema|\bsql\b|\btable\b|admin|service[\s_-]?role|env\s*var|environment\s*variable|connection\s*string)\b/i;
+  /\b(password|passwd|api[\s_-]?key|secret|token|credential|auth\s*token|database|schema|\bsql\b|database\s*table|admin|service[\s_-]?role|env\s*var|environment\s*variable|connection\s*string)\b/i;
 
 // ─── Off-topic (clearly non-food domains) ──────────────────────────────────
 const OFFTOPIC_PATTERN =
@@ -540,6 +543,7 @@ serve(async (req) => {
 
   try {
     const reqBody = await req.json();
+    const { action, targetLanguage, recipeData } = reqBody;
 
     // ── TRANSLATE RECIPE (Short-circuit) ───────────────────────────────────
     if (reqBody.action === "translate_recipe") {

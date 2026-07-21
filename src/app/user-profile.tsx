@@ -355,7 +355,6 @@ export default function UserProfileScreen() {
           className="absolute left-5 w-10 h-10 bg-white/30 rounded-full items-center justify-center"
           style={{
             top: Math.max(insets.top + 10, 56), // Ensure it clears dynamic island
-            backdropFilter: "blur(10px)",
           }}
         >
           <Feather name="arrow-left" size={20} color="#FFFFFF" />

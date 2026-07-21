@@ -22,7 +22,6 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 // Components
 import { AnimatedSearchBar } from "@/components/ui/animated-search-bar";
@@ -141,6 +140,10 @@ export default function HomeScreen() {
   const scrollY = useSharedValue(0);
   const scrollRef = React.useRef<any>(null);
   const isRefreshingRef = React.useRef(false);
+  const userIdRef = React.useRef<string | undefined>(user?.id);
+  React.useEffect(() => {
+    userIdRef.current = user?.id;
+  }, [user?.id]);
   const pullStartY = useSharedValue(0);
 
   // Derived layout (depends on insets)
@@ -381,17 +384,20 @@ export default function HomeScreen() {
   // (Gesture logic removed in favor of standard RefreshControl)
 
   // ─── Scroll Handler ─────────────────────────────────────────────────────
+  const endReachedGate = useSharedValue(false);
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
 
-      // Trigger infinite scroll when within 400px of bottom
-      const isCloseToBottom =
+      const nearBottom =
         event.layoutMeasurement.height + event.contentOffset.y >=
         event.contentSize.height - 800;
 
-      if (isCloseToBottom) {
+      if (nearBottom && !endReachedGate.value) {
+        endReachedGate.value = true;
         runOnJS(loadMoreFeed)();
+      } else if (!nearBottom && endReachedGate.value) {
+        endReachedGate.value = false;
       }
     },
   }, []);
