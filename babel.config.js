@@ -4,8 +4,11 @@ module.exports = function (api) {
     presets: [
       ["babel-preset-expo", { jsxImportSource: "nativewind" }],
     ],
-    plugins: [
-      "react-native-reanimated/plugin",
-    ],
+    // NOTE: no manual worklets/reanimated plugin here — with Expo SDK 54 +
+    // Reanimated 4, babel-preset-expo injects "react-native-worklets/plugin"
+    // automatically. Listing "react-native-reanimated/plugin" as well caused a
+    // double worklet transform (fine in dev, broken gestures/animations in
+    // release builds).
+    plugins: [],
   };
 };

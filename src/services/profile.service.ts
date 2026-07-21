@@ -219,18 +219,22 @@ export class ProfileService {
     if (error && error.code !== "23505") throw error; // Ignore duplicate key if already following
 
     // Fire-and-forget: notify the followed user (never blocks the follow).
-    (async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", followerId)
-        .single();
-      await notificationService.createFollowNotification(
-        followingId,
-        followerId,
-        profile?.full_name || "Someone",
-      );
-    })().catch(() => {});
+    void (async () => {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", followerId)
+          .single();
+        await notificationService.createFollowNotification(
+          followingId,
+          followerId,
+          profile?.full_name || "Someone",
+        );
+      } catch (err) {
+        console.warn("Follow notification failed:", err);
+      }
+    })();
   }
 
   /** Unfollow a user */

@@ -1,8 +1,7 @@
 import { supabase } from "@/services/supabase";
 import { notificationService } from "@/services/notification.service";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
-import { decode } from "base64-arraybuffer";
 import type { Post, Comment } from "@/types";
 
 export class CommunityService {
@@ -149,16 +148,14 @@ export class CommunityService {
     const filename = `${userId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${filename}`;
 
-    const formData = new FormData();
-    formData.append("file", {
-      uri: manipResult.uri,
-      name: filename,
-      type: "image/webp",
-    } as any);
+    const bytes = await new File(manipResult.uri).bytes();
+    if (!bytes || bytes.length === 0) {
+      throw new Error("Post image is empty — failed to read local image bytes.");
+    }
 
     const { error: uploadError } = await supabase.storage
       .from("post-images")
-      .upload(filePath, formData);
+      .upload(filePath, bytes, { contentType: "image/webp" });
 
     if (uploadError) {
       console.error("Storage upload error:", uploadError);

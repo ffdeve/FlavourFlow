@@ -69,7 +69,7 @@ const linking = {
 };
 
 export default function RootLayout() {
-  verifyInstallation();
+  if (__DEV__) verifyInstallation();
   const initialize = useAuthStore((state) => state.initialize);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const refreshProfile = useAuthStore((state) => state.refreshProfile);

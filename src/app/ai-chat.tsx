@@ -502,7 +502,7 @@ export default function AiChatScreen() {
     return () => clearTimeout(handle);
   }, [inputText]);
 
-  // ── Voice-to-text dictation (ChatGPT/Claude style) ───────────────────────
+  // ── Voice-to-text dictation ──────────────────────────────────────────────
   useSpeechRecognitionEvent("start", () => setIsListening(true));
   useSpeechRecognitionEvent("end", () => setIsListening(false));
   useSpeechRecognitionEvent("result", (event) => {
@@ -571,6 +571,22 @@ export default function AiChatScreen() {
         text: trimmed,
         timestamp: new Date(),
       };
+
+      // Guard: edge function requires userId
+      if (!user?.id) {
+        setMessages((prev) => [
+          ...prev,
+          userMsg,
+          {
+            id: `a_auth_${Date.now()}`,
+            role: "assistant",
+            text: "I need you to be signed in before I can cook up answers. Please log in and try again!",
+            timestamp: new Date(),
+          },
+        ]);
+        setInputText("");
+        return;
+      }
 
       // Structured ingredients from chips (typed/voice/fridge) → sent alongside the prompt
       const ingredients = selectedIngredients.map((i) => i.name);
