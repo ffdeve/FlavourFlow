@@ -52,6 +52,51 @@ The app implements all 12 functional requirements from the project SRS:
 | Push | Expo Push Service |
 | Build & deploy | EAS Build (Android APK / AAB) |
 
+## Getting Started
+
+### Prerequisites
+
+- **Node.js 18+** and **npm**
+- The **Expo Go** app on a physical device, or an Android/iOS emulator
+- A **`.env`** file in the project root — copy `.env.example` and fill in the Supabase URL and publishable key
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+Run this first, and again any time `package.json` changes or after pulling new code.
+
+### 2. Run the app
+
+```bash
+npx expo start
+```
+
+Then scan the QR code with **Expo Go** (Android) or the **Camera** app (iOS), or press `a` / `i` to open an emulator.
+
+> **App not showing, blank screen, stale content, or a "unable to resolve module" error?**
+> Restart with a cleared Metro cache:
+>
+> ```bash
+> npx expo start --clear      # or the short form:  npx expo start -c
+> ```
+>
+> Clearing the cache resolves most blank-screen, stale-asset, and module-resolution issues — especially after switching branches, installing dependencies, or changing configuration.
+
+### Useful commands
+
+| Command | What it does |
+|---------|--------------|
+| `npx expo start` | Start the Metro dev server |
+| `npx expo start -c` | Start with a **cleared cache** (use if the app won't load) |
+| `npm run android` | Build & run a native Android dev build |
+| `npm run ios` | Build & run a native iOS dev build (macOS + Xcode) |
+| `npm run lint` | Run ESLint |
+
+> **Note:** Some native features — voice-to-text, push notifications, and background cooking timers — require a **native dev build** (`npm run android` / `npm run ios` or an EAS build) and do **not** work in Expo Go.
+
 ## Architecture at a Glance
 
 ```
